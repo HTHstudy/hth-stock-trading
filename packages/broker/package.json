@@ -7,6 +7,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./toss": {
+      "types": "./dist/toss/index.d.ts",
+      "import": "./dist/toss/index.js"
     }
   },
   "scripts": {
@@ -14,6 +18,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@hth/shared": "workspace:*"
+    "@hth/shared": "workspace:*",
+    "zod": "^4.6.7"
   }
 }

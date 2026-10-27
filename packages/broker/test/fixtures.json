@@ -1,0 +1,453 @@
+{
+  "accounts": {
+    "result": [
+      {
+        "accountNo": "12345678901",
+        "accountSeq": 1,
+        "accountType": "BROKERAGE"
+      }
+    ]
+  },
+  "holdings": {
+    "result": {
+      "totalPurchaseAmount": {
+        "krw": "6500000",
+        "usd": "1553"
+      },
+      "marketValue": {
+        "amount": {
+          "krw": "7200000",
+          "usd": "1785"
+        },
+        "amountAfterCost": {
+          "krw": "7050000",
+          "usd": "1771.43"
+        }
+      },
+      "profitLoss": {
+        "amount": {
+          "krw": "700000",
+          "usd": "232"
+        },
+        "amountAfterCost": {
+          "krw": "550000",
+          "usd": "218.43"
+        },
+        "rate": "0.1179",
+        "rateAfterCost": "0.0983"
+      },
+      "dailyProfitLoss": {
+        "amount": {
+          "krw": "100000",
+          "usd": "25"
+        },
+        "rate": "0.0141"
+      },
+      "items": [
+        {
+          "symbol": "005930",
+          "name": "삼성전자",
+          "marketCountry": "KR",
+          "currency": "KRW",
+          "quantity": "100",
+          "lastPrice": "72000",
+          "averagePurchasePrice": "65000",
+          "marketValue": {
+            "purchaseAmount": "6500000",
+            "amount": "7200000",
+            "amountAfterCost": "7050000"
+          },
+          "profitLoss": {
+            "amount": "700000",
+            "amountAfterCost": "550000",
+            "rate": "0.1077",
+            "rateAfterCost": "0.0846"
+          },
+          "dailyProfitLoss": {
+            "amount": "100000",
+            "rate": "0.0141"
+          },
+          "cost": {
+            "commission": "14400",
+            "tax": "135600"
+          }
+        },
+        {
+          "symbol": "AAPL",
+          "name": "Apple Inc.",
+          "marketCountry": "US",
+          "currency": "USD",
+          "quantity": "10",
+          "lastPrice": "178.5",
+          "averagePurchasePrice": "155.3",
+          "marketValue": {
+            "purchaseAmount": "1553",
+            "amount": "1785",
+            "amountAfterCost": "1771.43"
+          },
+          "profitLoss": {
+            "amount": "232",
+            "amountAfterCost": "218.43",
+            "rate": "0.1494",
+            "rateAfterCost": "0.1406"
+          },
+          "dailyProfitLoss": {
+            "amount": "25",
+            "rate": "0.0142"
+          },
+          "cost": {
+            "commission": "3.57",
+            "tax": "10"
+          }
+        }
+      ]
+    }
+  },
+  "stocks": {
+    "result": [
+      {
+        "symbol": "005930",
+        "name": "삼성전자",
+        "englishName": "SamsungElec",
+        "isinCode": "KR7005930003",
+        "market": "KOSPI",
+        "securityType": "STOCK",
+        "isCommonShare": true,
+        "status": "ACTIVE",
+        "currency": "KRW",
+        "listDate": "1975-06-11",
+        "delistDate": null,
+        "sharesOutstanding": "5919637922",
+        "leverageFactor": null,
+        "koreanMarketDetail": {
+          "liquidationTrading": false,
+          "nxtSupported": true,
+          "krxTradingSuspended": false,
+          "nxtTradingSuspended": false
+        }
+      },
+      {
+        "symbol": "AAPL",
+        "name": "애플",
+        "englishName": "APPLE INC",
+        "isinCode": "US0378331005",
+        "market": "NASDAQ",
+        "securityType": "STOCK",
+        "isCommonShare": true,
+        "status": "ACTIVE",
+        "currency": "USD",
+        "listDate": "1980-12-12",
+        "delistDate": null,
+        "sharesOutstanding": "14702703000",
+        "leverageFactor": null,
+        "koreanMarketDetail": null
+      }
+    ]
+  },
+  "quotes": {
+    "result": [
+      {
+        "symbol": "005930",
+        "timestamp": "2026-03-25T09:30:00.123+09:00",
+        "lastPrice": "72000",
+        "currency": "KRW"
+      },
+      {
+        "symbol": "AAPL",
+        "timestamp": "2026-03-25T22:30:00.456+09:00",
+        "lastPrice": "185.70",
+        "currency": "USD"
+      }
+    ]
+  },
+  "candles": {
+    "result": {
+      "candles": [
+        {
+          "timestamp": "2026-03-25T09:32:00+09:00",
+          "openPrice": "72000",
+          "highPrice": "72100",
+          "lowPrice": "71950",
+          "closePrice": "72050",
+          "volume": "15200",
+          "currency": "KRW"
+        },
+        {
+          "timestamp": "2026-03-25T09:31:00+09:00",
+          "openPrice": "71950",
+          "highPrice": "72050",
+          "lowPrice": "71900",
+          "closePrice": "72000",
+          "volume": "18400",
+          "currency": "KRW"
+        }
+      ],
+      "nextBefore": "2026-03-25T09:31:00+09:00"
+    }
+  },
+  "dailyCandles": {
+    "result": {
+      "candles": [
+        {
+          "timestamp": "2026-03-25T00:00:00+09:00",
+          "openPrice": "71600",
+          "highPrice": "72300",
+          "lowPrice": "71500",
+          "closePrice": "72000",
+          "volume": "3521000",
+          "currency": "KRW"
+        },
+        {
+          "timestamp": "2026-03-24T00:00:00+09:00",
+          "openPrice": "71200",
+          "highPrice": "71800",
+          "lowPrice": "71000",
+          "closePrice": "71600",
+          "volume": "2984000",
+          "currency": "KRW"
+        }
+      ],
+      "nextBefore": "2026-03-24T00:00:00+09:00"
+    }
+  },
+  "buyingPower": {
+    "result": {
+      "currency": "KRW",
+      "cashBuyingPower": "5000000"
+    }
+  },
+  "exchangeRate": {
+    "result": {
+      "baseCurrency": "USD",
+      "quoteCurrency": "KRW",
+      "rate": "1380.5",
+      "midRate": "1375",
+      "basisPoint": "40",
+      "rateChangeType": "UP",
+      "validFrom": "2026-03-25T09:30:00+09:00",
+      "validUntil": "2026-03-25T09:31:00+09:00"
+    }
+  },
+  "krCalendar": {
+    "result": {
+      "today": {
+        "date": "2026-03-25",
+        "integrated": {
+          "preMarket": {
+            "startTime": "2026-03-25T08:00:00+09:00",
+            "singlePriceAuctionStartTime": "2026-03-25T08:50:00+09:00",
+            "endTime": "2026-03-25T09:00:00+09:00"
+          },
+          "regularMarket": {
+            "startTime": "2026-03-25T09:00:00+09:00",
+            "singlePriceAuctionStartTime": "2026-03-25T15:20:00+09:00",
+            "endTime": "2026-03-25T15:30:00+09:00"
+          },
+          "afterMarket": {
+            "startTime": "2026-03-25T15:30:00+09:00",
+            "singlePriceAuctionEndTime": "2026-03-25T15:40:00+09:00",
+            "endTime": "2026-03-25T20:00:00+09:00"
+          }
+        }
+      },
+      "previousBusinessDay": {
+        "date": "2026-03-24",
+        "integrated": {
+          "preMarket": {
+            "startTime": "2026-03-24T08:00:00+09:00",
+            "singlePriceAuctionStartTime": "2026-03-24T08:50:00+09:00",
+            "endTime": "2026-03-24T09:00:00+09:00"
+          },
+          "regularMarket": {
+            "startTime": "2026-03-24T09:00:00+09:00",
+            "singlePriceAuctionStartTime": "2026-03-24T15:20:00+09:00",
+            "endTime": "2026-03-24T15:30:00+09:00"
+          },
+          "afterMarket": {
+            "startTime": "2026-03-24T15:30:00+09:00",
+            "singlePriceAuctionEndTime": "2026-03-24T15:40:00+09:00",
+            "endTime": "2026-03-24T20:00:00+09:00"
+          }
+        }
+      },
+      "nextBusinessDay": {
+        "date": "2026-03-26",
+        "integrated": {
+          "preMarket": {
+            "startTime": "2026-03-26T08:00:00+09:00",
+            "singlePriceAuctionStartTime": "2026-03-26T08:50:00+09:00",
+            "endTime": "2026-03-26T09:00:00+09:00"
+          },
+          "regularMarket": {
+            "startTime": "2026-03-26T09:00:00+09:00",
+            "singlePriceAuctionStartTime": "2026-03-26T15:20:00+09:00",
+            "endTime": "2026-03-26T15:30:00+09:00"
+          },
+          "afterMarket": {
+            "startTime": "2026-03-26T15:30:00+09:00",
+            "singlePriceAuctionEndTime": "2026-03-26T15:40:00+09:00",
+            "endTime": "2026-03-26T20:00:00+09:00"
+          }
+        }
+      }
+    }
+  },
+  "krHoliday": {
+    "result": {
+      "today": {
+        "date": "2026-05-05",
+        "integrated": null
+      },
+      "previousBusinessDay": {
+        "date": "2026-05-04",
+        "integrated": {
+          "preMarket": {
+            "startTime": "2026-05-04T08:00:00+09:00",
+            "singlePriceAuctionStartTime": "2026-05-04T08:50:00+09:00",
+            "endTime": "2026-05-04T09:00:00+09:00"
+          },
+          "regularMarket": {
+            "startTime": "2026-05-04T09:00:00+09:00",
+            "singlePriceAuctionStartTime": "2026-05-04T15:20:00+09:00",
+            "endTime": "2026-05-04T15:30:00+09:00"
+          },
+          "afterMarket": {
+            "startTime": "2026-05-04T15:30:00+09:00",
+            "singlePriceAuctionEndTime": "2026-05-04T15:40:00+09:00",
+            "endTime": "2026-05-04T20:00:00+09:00"
+          }
+        }
+      },
+      "nextBusinessDay": {
+        "date": "2026-05-06",
+        "integrated": {
+          "preMarket": {
+            "startTime": "2026-05-06T08:00:00+09:00",
+            "singlePriceAuctionStartTime": "2026-05-06T08:50:00+09:00",
+            "endTime": "2026-05-06T09:00:00+09:00"
+          },
+          "regularMarket": {
+            "startTime": "2026-05-06T09:00:00+09:00",
+            "singlePriceAuctionStartTime": "2026-05-06T15:20:00+09:00",
+            "endTime": "2026-05-06T15:30:00+09:00"
+          },
+          "afterMarket": {
+            "startTime": "2026-05-06T15:30:00+09:00",
+            "singlePriceAuctionEndTime": "2026-05-06T15:40:00+09:00",
+            "endTime": "2026-05-06T20:00:00+09:00"
+          }
+        }
+      }
+    }
+  },
+  "usCalendar": {
+    "result": {
+      "today": {
+        "date": "2026-03-25",
+        "dayMarket": {
+          "startTime": "2026-03-25T09:00:00+09:00",
+          "endTime": "2026-03-25T16:50:00+09:00"
+        },
+        "preMarket": {
+          "startTime": "2026-03-25T17:00:00+09:00",
+          "endTime": "2026-03-25T22:30:00+09:00"
+        },
+        "regularMarket": {
+          "startTime": "2026-03-25T22:30:00+09:00",
+          "endTime": "2026-03-26T05:00:00+09:00"
+        },
+        "afterMarket": {
+          "startTime": "2026-03-26T05:00:00+09:00",
+          "endTime": "2026-03-26T07:00:00+09:00"
+        }
+      },
+      "previousBusinessDay": {
+        "date": "2026-03-24",
+        "dayMarket": {
+          "startTime": "2026-03-24T09:00:00+09:00",
+          "endTime": "2026-03-24T16:50:00+09:00"
+        },
+        "preMarket": {
+          "startTime": "2026-03-24T17:00:00+09:00",
+          "endTime": "2026-03-24T22:30:00+09:00"
+        },
+        "regularMarket": {
+          "startTime": "2026-03-24T22:30:00+09:00",
+          "endTime": "2026-03-25T05:00:00+09:00"
+        },
+        "afterMarket": {
+          "startTime": "2026-03-25T05:00:00+09:00",
+          "endTime": "2026-03-25T07:00:00+09:00"
+        }
+      },
+      "nextBusinessDay": {
+        "date": "2026-03-26",
+        "dayMarket": {
+          "startTime": "2026-03-26T09:00:00+09:00",
+          "endTime": "2026-03-26T16:50:00+09:00"
+        },
+        "preMarket": {
+          "startTime": "2026-03-26T17:00:00+09:00",
+          "endTime": "2026-03-26T22:30:00+09:00"
+        },
+        "regularMarket": {
+          "startTime": "2026-03-26T22:30:00+09:00",
+          "endTime": "2026-03-27T05:00:00+09:00"
+        },
+        "afterMarket": {
+          "startTime": "2026-03-27T05:00:00+09:00",
+          "endTime": "2026-03-27T07:00:00+09:00"
+        }
+      }
+    }
+  },
+  "usHoliday": {
+    "result": {
+      "today": {
+        "date": "2026-07-03",
+        "dayMarket": null,
+        "preMarket": null,
+        "regularMarket": null,
+        "afterMarket": null
+      },
+      "previousBusinessDay": {
+        "date": "2026-07-02",
+        "dayMarket": {
+          "startTime": "2026-07-02T09:00:00+09:00",
+          "endTime": "2026-07-02T16:50:00+09:00"
+        },
+        "preMarket": {
+          "startTime": "2026-07-02T17:00:00+09:00",
+          "endTime": "2026-07-02T22:30:00+09:00"
+        },
+        "regularMarket": {
+          "startTime": "2026-07-02T22:30:00+09:00",
+          "endTime": "2026-07-03T05:00:00+09:00"
+        },
+        "afterMarket": {
+          "startTime": "2026-07-03T05:00:00+09:00",
+          "endTime": "2026-07-03T07:00:00+09:00"
+        }
+      },
+      "nextBusinessDay": {
+        "date": "2026-07-06",
+        "dayMarket": {
+          "startTime": "2026-07-06T09:00:00+09:00",
+          "endTime": "2026-07-06T16:50:00+09:00"
+        },
+        "preMarket": {
+          "startTime": "2026-07-06T17:00:00+09:00",
+          "endTime": "2026-07-06T22:30:00+09:00"
+        },
+        "regularMarket": {
+          "startTime": "2026-07-06T22:30:00+09:00",
+          "endTime": "2026-07-07T05:00:00+09:00"
+        },
+        "afterMarket": {
+          "startTime": "2026-07-07T05:00:00+09:00",
+          "endTime": "2026-07-07T07:00:00+09:00"
+        }
+      }
+    }
+  }
+}

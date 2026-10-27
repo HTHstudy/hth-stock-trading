@@ -5,11 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "broker:check": "tsx --env-file-if-exists=../../.env src/readonly.ts",
+    "broker:sync": "tsx --env-file-if-exists=../../.env src/readonly.ts --save",
     "build": "tsc -p tsconfig.json",
     "start": "node --env-file-if-exists=../../.env dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@hth/shared": "workspace:*"
+    "@hth/shared": "workspace:*",
+    "@hth/broker": "workspace:*",
+    "@hth/database": "workspace:*",
+    "zod": "^4.6.7"
   }
 }

@@ -60,7 +60,18 @@ export default tseslint.config(
         {
           patterns: [
             ...basePatterns,
-            { group: ['@hth/broker', '@hth/database', '@hth/trading', 'node:*'], message: '서버 전용 모듈입니다.' },
+            {
+              group: [
+                '@hth/broker',
+                '@hth/broker/*',
+                '@hth/database',
+                '@hth/database/*',
+                '@hth/trading',
+                '@hth/trading/*',
+                'node:*',
+              ],
+              message: '서버 전용 모듈입니다.',
+            },
           ],
         },
       ],
@@ -75,7 +86,15 @@ export default tseslint.config(
           patterns: [
             ...basePatterns,
             {
-              group: ['@hth/broker', '@hth/database', '@hth/trading', 'node:*'],
+              group: [
+                '@hth/broker',
+                '@hth/broker/*',
+                '@hth/database',
+                '@hth/database/*',
+                '@hth/trading',
+                '@hth/trading/*',
+                'node:*',
+              ],
               message: '서버 전용 모듈입니다.',
             },
             ...layers.slice(0, layer === 'shared' ? index : index + 1).map((blocked) => ({
@@ -95,7 +114,10 @@ export default tseslint.config(
         {
           patterns: [
             ...basePatterns,
-            { group: ['@hth/broker', '@hth/database'], message: '도메인은 I/O와 분리합니다.' },
+            {
+              group: ['@hth/broker', '@hth/broker/*', '@hth/database', '@hth/database/*'],
+              message: '도메인은 I/O와 분리합니다.',
+            },
           ],
         },
       ],

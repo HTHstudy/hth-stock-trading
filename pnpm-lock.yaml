@@ -93,18 +93,33 @@ importers:
 
   apps/worker:
     dependencies:
+      '@hth/broker':
+        specifier: workspace:*
+        version: link:../../packages/broker
+      '@hth/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@hth/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
 
   packages/broker:
     dependencies:
       '@hth/shared':
         specifier: workspace:*
         version: link:../shared
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
 
   packages/database:
     dependencies:
+      '@hth/shared':
+        specifier: workspace:*
+        version: link:../shared
       drizzle-orm:
         specifier: ^0.45.4
         version: 0.45.4(@types/pg@8.23.1)(pg@8.23.1)
