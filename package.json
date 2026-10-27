@@ -1,0 +1,42 @@
+{
+  "name": "hth-stock-trading",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "corepack pnpm build:packages && corepack pnpm --parallel --filter './apps/*' dev",
+    "dev:web": "corepack pnpm build:packages && corepack pnpm --filter @hth/web dev",
+    "dev:api": "corepack pnpm build:packages && corepack pnpm --filter @hth/api dev",
+    "dev:worker": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker dev",
+    "build:packages": "corepack pnpm -r --filter './packages/*' build",
+    "build": "corepack pnpm -r build",
+    "typecheck": "corepack pnpm build:packages && corepack pnpm -r typecheck && tsc -p tsconfig.tools.json",
+    "lint": "eslint .",
+    "test": "corepack pnpm build:packages && vitest run",
+    "test:watch": "corepack pnpm build:packages && vitest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:generate": "corepack pnpm --filter @hth/database db:generate",
+    "db:migrate": "corepack pnpm --filter @hth/database db:migrate",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d db",
+    "infra:down": "docker compose -f infra/docker-compose.yml down"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.0",
+    "eslint-import-resolver-typescript": "^4.4.0",
+    "eslint-plugin-check-file": "^3.3.0",
+    "eslint-plugin-import": "^2.32.0",
+    "globals": "^16.0.0",
+    "prettier": "^3.6.0",
+    "tsx": "^4.20.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.46.0",
+    "vitest": "^5.0.5"
+  }
+}
