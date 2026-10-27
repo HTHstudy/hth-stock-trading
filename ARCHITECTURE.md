@@ -12,7 +12,7 @@ flowchart LR
   Broker -->|고정 출구 IP / REST + WS| Toss[토스증권]
 ```
 
-이 그림은 목표 아키텍처다. 현재 API는 프로세스 health만 제공하며 worker는 거래하지 않고 대기한다. 현재 web은 broker/API와 연결되지 않은 기반 안내 화면이다.
+이 그림은 목표 아키텍처다. 현재 API는 프로세스 health만 제공하며 기본 worker는 거래하지 않고 대기한다. 별도 worker 명령 `broker:check`/`broker:sync`에서 읽기 전용 토스 조회와 캔들 저장을 실행할 수 있다. 현재 web은 broker/API와 연결되지 않은 기반 안내 화면이다.
 
 web은 상태 조회와 운영 명령의 UI다. API는 인증·입력 검증·DB 조회·명령 기록을 담당한다. worker는 시장 데이터, 전략 평가, 리스크 검증, 주문 실행, 체결 대사를 담당한다. API와 worker는 독립 실행 파일이지만 같은 저장소·DB를 사용하는 모듈형 애플리케이션이며 마이크로서비스로 분할하지 않는다.
 
@@ -24,12 +24,12 @@ Vercel에는 SPA만 배포한다. 상시 루프와 WebSocket은 Docker worker에
 apps/
   web/                    React + Vite, app/pages/shared
   api/                    Fastify, health와 서버 설정
-  worker/                 상시 프로세스 기반
+  worker/                 대기 프로세스, 읽기 전용 확인·수집 명령
 packages/
   shared/                 Zod 계약, 시장·통화 타입, 안전 설정
-  broker/                 공통 읽기 전용 port; 향후 toss/paper adapter
+  broker/                 공통 읽기 전용 port, toss adapter; Paper는 미구현
   trading/                전략 계약; 향후 아래 도메인 모듈
-  database/               Drizzle 연결·기본 시세 스키마
+  database/               Drizzle 시세 저장·advisory lock·기본 스키마
 docs/
   TOSS_API.md              공식 API 조사와 근거
 infra/
@@ -37,7 +37,7 @@ infra/
   Dockerfile              API/worker 공용 빌드
 ```
 
-처음 제안한 9개 도메인 패키지 대신 공통 4개 패키지로 시작한다. `packages/trading` 내부에 market-data, strategy, risk, execution, backtest 책임을 유지한다. 현재는 계약만 작성하며 실제 모듈은 해당 단계에 추가한다. `broker-toss`는 adapter를 구현할 때 `broker/src/toss`로 추가한다. 독립 배포·외부 재사용·의존성 격리가 실제로 필요해질 때 별도 패키지로 추출한다.
+처음 제안한 9개 도메인 패키지 대신 공통 4개 패키지로 시작한다. `packages/trading` 내부에 market-data, strategy, risk, execution, backtest 책임을 유지한다. 전략은 현재 계약만 제공한다. 토스 adapter는 `broker/src/toss`에 구현하고 `@hth/broker/toss`로 공개한다. 독립 배포·외부 재사용·의존성 격리가 실제로 필요해질 때 별도 패키지로 추출한다.
 
 ```text
 web → shared
@@ -70,7 +70,7 @@ TanStack Query v5, shadcn/ui, Lightweight Charts는 Phase 4의 실제 UI 도입 
 
 ## 4. worker와 인증 소유권
 
-MVP worker는 단일 active 인스턴스이며 PostgreSQL advisory lock을 전용 DB connection에서 유지한다. 연결 상실 시 신규 전송을 차단한다. 미래 확장 시 fencing token/lease와 주문 상태 compare-and-set을 추가한다. 단순 interval 중복 실행을 매매 스케줄러로 사용하지 않는다.
+읽기 전용 명령은 client ID hash로 PostgreSQL advisory lock을 전용 DB connection에서 유지한다. 다른 프로세스가 먼저 잠금을 얻으면 인증 전에 실패하고, 연결 상실은 transport 취소 신호로 전달한다. 같은 client ID의 모든 프로세스가 동일 DB를 사용해야 한다. 미래 주문 worker는 추가 fencing token/lease와 주문 상태 compare-and-set이 필요하다. 현재 잠금이 실거래의 exactly-once 보장이라고 주장하지 않는다. 단순 interval 중복 실행을 매매 스케줄러로 사용하지 않는다.
 
 토스 token manager는 worker 한 곳만 소유한다. `expires_in`으로 유효기간을 계산하고 만료 전 안전 여유를 두어 단일 갱신(single-flight)한다. 재발급 실패 시 신규 작업을 차단한다. API는 token을 저장하거나 갱신하지 않는다. 복수 worker로 확장할 때 발급 락과 안전한 공유 저장소를 설계한다.
 

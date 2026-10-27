@@ -13,6 +13,8 @@
 
 색인이 지정하는 canonical JSON과 FAQ를 직접 내려받아 확인했다. `/latest/`는 변경될 수 있으므로 adapter 구현 전에 재검증한다. 내려받은 원본의 SHA-256은 REST `7e753c21dc4b938d8f9610ce3efd6542783018977cb030e39db5a006f5b59d40`, WS `130251057fd9535a3e276099f9166b445f8c51f505f30540758e4b209231282e`다. 원본 전체를 저장소에 복제하거나 DTO를 임의로 생성하지 않았다.
 
+읽기 전용 adapter 구현 시 REST를 다시 내려받았다. version은 `1.2.24`, SHA-256은 `7ac6499fc43fda9e8aedb05900758e8251ce2038be763d24c7be6e9f5c3e5a6d`다. 동일 version의 `/latest/` 내용도 변경될 수 있다. `packages/broker/test/fixtures.json`에 이 원문의 계좌·보유분·종목·현재가·캔들·환율·KR/US 캘린더 예제를 테스트용으로 추출했다. 구현 DTO는 소비하는 필드의 projection이며, 최신 명세 전체를 자동 생성한 타입은 아니다. 실제 계좌나 토큰 발급으로 검증한 것은 아니다.
+
 ## 지원 범위
 
 | 기능             | 공식 명세에서 확인한 경로·정책                                                                  | 설계 영향                                                                     |
