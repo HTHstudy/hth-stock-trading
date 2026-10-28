@@ -14,3 +14,4 @@ export type { RiskDecision } from './risk/evaluate.js';
 export { initialPaperControl, stopPaperControl } from './risk/control.js';
 export { settlePaperFill } from './execution/paper-fill.js';
 export type { PaperCostBasis, PaperFillInput } from './execution/paper-fill.js';
+export { observePaperLedger } from './execution/paper-observation.js';

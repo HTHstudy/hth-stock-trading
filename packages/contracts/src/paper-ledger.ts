@@ -20,6 +20,13 @@ export const paperEvidenceSchema = paperRiskInputSchema
   .pick({ quote: true, marketData: true })
   .extend({ sourcesHealthy: z.boolean(), hasUnknownOrders: z.boolean() })
   .strict();
+export const paperObservationSchema = z
+  .object({
+    quotes: z.array(paperRiskInputSchema.shape.quote).max(10_000),
+    sourcesHealthy: z.literal(true),
+    hasUnknownOrders: z.literal(false),
+  })
+  .strict();
 export const paperRecordedOrderSchema = z
   .object({ candidate: paperOrderCandidateSchema, signal: paperSignalSchema })
   .strict();

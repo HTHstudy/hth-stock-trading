@@ -4,6 +4,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { z } from 'zod';
 import {
   paperEvidenceSchema,
+  paperObservationSchema,
   paperFillRequestSchema,
   paperLedgerStateSchema,
   paperOrderCandidateSchema,
@@ -12,7 +13,13 @@ import {
   paperRiskSnapshotSchema,
 } from '@hth/contracts';
 import type { PaperLedgerState, PaperRiskSnapshot } from '@hth/contracts';
-import { evaluatePaperRisk, isPaperRiskCurrent, prepareStrategyData, settlePaperFill } from '@hth/trading';
+import {
+  evaluatePaperRisk,
+  isPaperRiskCurrent,
+  prepareStrategyData,
+  settlePaperFill,
+  observePaperLedger,
+} from '@hth/trading';
 import type * as schema from './schema.js';
 import {
   paperAccounts,
@@ -196,6 +203,26 @@ export function createPaperLedger(db: Database) {
     await event(transaction, account.id, 'INTENT_ABORTED', { reason }, intent.intentId);
     return updated!;
   }
+  function owned(account: Account, token: string, epoch: number, now: Date) {
+    if (!leaseOwned(account, token, now)) throw new Error('PAPER_LEASE_NOT_OWNED');
+    if (account.epoch !== epoch) throw new Error('PAPER_CONTROL_CHANGED');
+  }
+  async function drain(transaction: Transaction, account: Account, reason: string) {
+    const intents = await transaction
+      .select()
+      .from(paperIntents)
+      .where(and(eq(paperIntents.accountId, account.id), inArray(paperIntents.state, [...openStates])));
+    if (!intents.length) return;
+    await transaction
+      .update(paperReservations)
+      .set({ active: false })
+      .where(and(eq(paperReservations.accountId, account.id), eq(paperReservations.active, true)));
+    await transaction
+      .update(paperIntents)
+      .set({ state: 'ABORTED', version: sql`${paperIntents.version} + 1`, codes: [reason] })
+      .where(and(eq(paperIntents.accountId, account.id), inArray(paperIntents.state, [...openStates])));
+    for (const intent of intents) await event(transaction, account.id, 'INTENT_ABORTED', { reason }, intent.intentId);
+  }
   return {
     async createAccount(id: string, value: unknown) {
       parse(accountIdSchema, id);
@@ -227,11 +254,79 @@ export function createPaperLedger(db: Database) {
     },
     async readAccount(id: string) {
       return locked(id, async (transaction, account) => ({
+        asOf: (await clock(transaction)).toISOString(),
         control: { mode: 'paper' as const, stopped: account.stopped, epoch: account.epoch, reason: account.reason },
         limits: account.limits,
         snapshot: await snapshot(transaction, account),
         leaseUntil: account.leaseUntil,
       }));
+    },
+    async readStrategies(id: string) {
+      return locked(id, (transaction) =>
+        transaction
+          .select({
+            id: paperStrategies.strategyId,
+            version: paperStrategies.version,
+            enabled: paperStrategies.enabled,
+          })
+          .from(paperStrategies)
+          .where(eq(paperStrategies.accountId, id)),
+      );
+    },
+    async recoverLease(id: string, token: string, epoch: number) {
+      parse(z.uuid(), token);
+      parse(versionSchema, epoch);
+      return locked(id, async (transaction, account) => {
+        owned(account, token, epoch, await clock(transaction));
+        if (!account.stopped) throw new Error('PAPER_RECOVERY_REQUIRES_STOP');
+        await drain(transaction, account, 'WORKER_RECOVERY');
+        await advance(transaction, account);
+        await event(transaction, id, 'WORKER_RECOVERED');
+        owned(account, token, epoch, await clock(transaction));
+      });
+    },
+    async observe(id: string, token: string, epoch: number, value: unknown) {
+      const observation = parse(paperObservationSchema, value);
+      parse(z.uuid(), token);
+      parse(versionSchema, epoch);
+      return locked(id, async (transaction, account) => {
+        const now = await clock(transaction);
+        owned(account, token, epoch, now);
+        const ledger = observePaperLedger(account.ledger, observation, now.toISOString());
+        const updated = await advance(transaction, account, { ledger });
+        await event(transaction, id, 'ACCOUNT_OBSERVED');
+        const finalNow = await clock(transaction);
+        owned(account, token, epoch, finalNow);
+        if (finalNow.getTime() - now.getTime() >= 5000) throw new Error('PAPER_OBSERVATION_STALE');
+        return updated.version;
+      });
+    },
+    async abortOwned(id: string, intentId: string, token: string, epoch: number, reason: string) {
+      const checked = parse(reasonSchema, reason);
+      parse(z.uuid(), token);
+      parse(versionSchema, epoch);
+      return locked(id, async (transaction, account) => {
+        owned(account, token, epoch, await clock(transaction));
+        const intent = await abortLocked(transaction, account, await findIntent(transaction, id, intentId), checked);
+        owned(account, token, epoch, await clock(transaction));
+        return intent;
+      });
+    },
+    async releaseLease(id: string, token: string, reason: string) {
+      const checked = parse(reasonSchema, reason);
+      parse(z.uuid(), token);
+      return locked(id, async (transaction, account) => {
+        if (account.leaseToken !== token) throw new Error('PAPER_LEASE_NOT_OWNED');
+        await drain(transaction, account, checked);
+        await advance(transaction, account, {
+          stopped: true,
+          epoch: account.epoch + 1,
+          reason: account.stopped ? account.reason : checked,
+          leaseToken: null,
+          leaseUntil: null,
+        });
+        await event(transaction, id, 'LEASE_RELEASED', { reason: checked });
+      });
     },
     async configureLimits(id: string, version: number, value: unknown) {
       const limits = checkLimits(value);
@@ -285,7 +380,7 @@ export function createPaperLedger(db: Database) {
           leaseUntil: new Date(now.getTime() + ttlMs).toISOString(),
         });
         await event(transaction, id, 'LEASE_ACQUIRED', { epoch: updated.epoch });
-        return { token, validUntil: updated.leaseUntil!, version: updated.version };
+        return { token, validUntil: updated.leaseUntil!, version: updated.version, epoch: updated.epoch };
       });
     },
     async renewLease(id: string, token: string, ttlMs = 30_000) {
