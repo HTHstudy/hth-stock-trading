@@ -44,7 +44,7 @@ Strategy는 버전·설정과 닫힌 캔들·해당 전략 소유 수량을 입�
 
 ## 4. 주문 의도·상태·대사
 
-현재 Paper 전용으로 INTENT_RECORDED·READY·PARTIALLY_FILLED·FILLED·RISK_REJECTED·ABORTED와 영구 dedupe, 계좌 행 잠금 안의 리스크 재평가·예약/해제·정지·worker lease·복구 확인을 구현했다. 내부 합성 체결은 현금·전략 소유권·원가·누적 비용과 잔량을 함께 반영한다. [체결 정책](docs/PAPER_FILLS.md)을 따른다. [Paper 원장](docs/PAPER_LEDGER.md)을 따른다. 아래 SUBMITTING 이후 전송·체결·대사는 아직 구현하지 않았다.
+현재 Paper 전용으로 INTENT_RECORDED·READY·PARTIALLY_FILLED·FILLED·RISK_REJECTED·ABORTED와 영구 dedupe, 계좌 행 잠금 안의 리스크 재평가·예약/해제·정지·worker lease·복구 확인을 구현했다. 내부 합성 체결은 현금·전략 소유권·원가·누적 비용과 잔량을 함께 반영한다. [Paper 실행기](docs/PAPER_WORKER.md)가 단일 lease·heartbeat·원장 복구·관측 손익·순차 tick을 합성 데이터로 검증한다. [체결 정책](docs/PAPER_FILLS.md)을 따른다. [Paper 원장](docs/PAPER_LEDGER.md)을 따른다. 아래 SUBMITTING 이후 전송·체결·대사는 아직 구현하지 않았다.
 
 ```mermaid
 stateDiagram-v2

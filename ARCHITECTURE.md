@@ -24,7 +24,7 @@ Vercel에는 SPA만 배포한다. 상시 루프와 WebSocket은 Docker worker에
 apps/
   web/                    React + Vite, app/pages/shared
   api/                    Fastify, health와 서버 설정
-  worker/                 대기 프로세스, 읽기 전용 확인·수집 명령
+  worker/                 기본 대기, 읽기 전용 명령, 별도 합성 Paper 실행기
 packages/
   contracts/              Zod 계약, 시장·통화 타입, 안전 설정
   broker/                 공통 읽기 전용 port, toss adapter
@@ -37,7 +37,7 @@ infra/
   Dockerfile              API/worker 공용 빌드
 ```
 
-처음 제안한 9개 도메인 패키지 대신 공통 4개 패키지로 시작한다. `packages/trading` 내부에 market-data, strategy, risk, execution, backtest 책임을 유지한다. 현재 순수 데이터 검증·이동평균 교차·백테스트·Paper 리스크를 제공하고 database가 Paper 원자적 예약을 구현한다. 순수 모의 체결 계산과 DB의 체결·소유권·원가 반영도 제공한다. 상시 실행은 후속이다. worker는 동결 입력과 리포트 파일 I/O를 조립한다. 토스 adapter는 `broker/src/toss`에 구현하고 `@hth/broker/toss`로 공개한다. 독립 배포·외부 재사용·의존성 격리가 실제로 필요해질 때 별도 패키지로 추출한다.
+처음 제안한 9개 도메인 패키지 대신 공통 4개 패키지로 시작한다. `packages/trading` 내부에 market-data, strategy, risk, execution, backtest 책임을 유지한다. 현재 순수 데이터 검증·이동평균 교차·백테스트·Paper 리스크를 제공하고 database가 Paper 원자적 예약을 구현한다. 순수 모의 체결 계산과 DB의 체결·소유권·원가 반영도 제공한다. 별도 Paper 실행기가 원장과 주입한 source를 조립해 단일 lease·heartbeat·복구·순차 tick을 수행한다. 실행 CLI는 합성 테스트 DB 전용이며 실제 시세 상시 운용은 후속이다. worker는 동결 입력과 리포트 파일 I/O를 조립한다. 토스 adapter는 `broker/src/toss`에 구현하고 `@hth/broker/toss`로 공개한다. 독립 배포·외부 재사용·의존성 격리가 실제로 필요해질 때 별도 패키지로 추출한다.
 
 ```text
 web → contracts
@@ -49,7 +49,7 @@ database → contracts, trading (트랜잭션 안의 순수 리스크 재평가)
 contracts → zod
 ```
 
-현재 앱은 실제 사용하는 의존성만 선언한다. 위 그림은 허용되는 방향이며 모든 연결이 구현되었다는 의미가 아니다. 전략은 broker·database를 import할 수 없다. Paper repository는 계좌 행 잠금과 자원 저장 사이에 순수 리스크 함수를 호출하며 트랜잭션 안에서 외부 API를 호출하지 않는다. 내부 Paper 체결은 같은 트랜잭션에서 순수 정산 함수를 호출한다. broker 주문과 상시 실행 루프는 후속이다.
+현재 앱은 실제 사용하는 의존성만 선언한다. 위 그림은 허용되는 방향이며 모든 연결이 구현되었다는 의미가 아니다. 전략은 broker·database를 import할 수 없다. Paper repository는 계좌 행 잠금과 자원 저장 사이에 순수 리스크 함수를 호출하며 트랜잭션 안에서 외부 API를 호출하지 않는다. 내부 Paper 체결은 같은 트랜잭션에서 순수 정산 함수를 호출한다. Paper 실행 루프는 `apps/worker`의 별도 entrypoint로 연결했으며 broker 주문과 실제 시세 source는 후속이다.
 
 ## 3. 주요 기술 선택
 

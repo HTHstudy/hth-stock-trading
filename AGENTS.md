@@ -12,7 +12,7 @@
 
 - `apps/web`: React + Vite SPA, Vercel 배포. 증권사 키 및 DB에 접근하지 않는다.
 - `apps/api`: Fastify HTTP 서버. 외부 입력과 환경변수는 Zod로 검증한다.
-- `apps/worker`: 읽기 전용 확인·캔들 수집과 대시보드 IPC 실행 entrypoint. 토큰은 worker만 발급한다.
+- `apps/worker`: 읽기 전용 확인·캔들 수집·대시보드 IPC와 별도 Paper 실행기. 기본 main은 대기하며 토큰은 읽기 전용 worker만 발급한다.
 - `packages/contracts`: JSON 계약, 통화·시장·시간 타입, 안전 설정 검증. Node 전용 코드를 넣지 않는다.
 - `packages/broker`: 증권사 포트와 읽기 전용 Toss adapter. 외부 DTO는 adapter 안에서만 사용한다.
 - `packages/trading`: market-data, strategy, risk, execution, backtest 도메인. 전략은 broker와 DB를 import하지 않는다.
@@ -42,6 +42,7 @@
 - 리포트 조회는 localhost에서 고정 디렉터리의 schema·hash 검증본만 제공한다. 브라우저 입력으로 파일 경로를 받지 않으며 조회를 전략 재실행이나 주문 권한으로 확장하지 않는다.
 - Paper 리스크는 `docs/PAPER_RISK.md`를 따른다. canReserve와 데모 결과는 실행 권한이 아니다. DB 예약은 최신 snapshot/version·정지 epoch·영구 중복 키와 같은 트랜잭션에서 검증해야 한다. 수동/타 전략 소유분과 이미 예약한 현금·수량을 사용하지 않는다.
 - Paper 원장은 `docs/PAPER_LEDGER.md`를 따른다. 의도 기록을 먼저 커밋하고, 모든 자원/제어 변경은 계좌 행 잠금을 공유한다. 신호 키와 원본 요청을 재사용·수정하지 않는다. READY는 예약 기록이며 전송/체결 권한이 아니다. 내부 합성 체결은 `docs/PAPER_FILLS.md`의 새 quote·lease/epoch·잔량·누적 비용 검사를 거쳐 같은 트랜잭션에서 현금·소유권·원가·체결을 반영한다. 초기 보유분은 수동 소유이고 새 worker는 정지·복구 상태로 시작한다.
+- Paper 실행기는 `docs/PAPER_WORKER.md`를 따른다. 기본 resume=false, 계좌별 단일 lease/heartbeat, 겹치지 않는 tick, 새 소유자의 복구·관측을 요구한다. 종료 시 진행 중 작업을 기다린 뒤 같은 token의 잔량만 정리한다. 일일 손실을 재시작으로 초기화하지 않는다. 합성 CLI는 별도 테스트 DB만 사용하며 실제 시세·주문에 자동 연결하지 않는다.
 - 주문 의도는 전송 전 DB에 기록한다. 불확실한 응답에 주문을 무조건 재전송하지 않는다.
 - 중복 방지, 부분 체결, 기존 보유분 보호, 재시작 복구는 `DESIGN.md`의 불변조건을 따른다.
 - 새 의존성을 추가하면 목적과 대안을 문서에 기록한다.

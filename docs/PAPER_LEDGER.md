@@ -2,7 +2,7 @@
 
 ## 현재 범위
 
-`createDatabase(url).paper`는 Paper 전용 계좌·전략·주문 의도·예약·감사 이력을 제공한다. 실제 증권사 계좌를 가져오거나 주문 API를 호출하지 않는다. 현재 범위는 **의도 선기록·원자적 예약·내부 모의 체결·부분 체결·중단**이다. 상시 worker·HTTP 운영 화면은 후속이다. 체결 조건·비용·소유권·원가 계산은 [Paper 체결 모델](PAPER_FILLS.md)을 따른다. 반환값의 `executionEnabled`는 항상 false다.
+`createDatabase(url).paper`는 Paper 전용 계좌·전략·주문 의도·예약·감사 이력을 제공한다. 실제 증권사 계좌를 가져오거나 주문 API를 호출하지 않는다. 현재 범위는 **의도 선기록·원자적 예약·내부 모의 체결·부분 체결·중단**이다. [별도 Paper worker](PAPER_WORKER.md)는 합성 데이터로 연결했으며 실제 시세·HTTP 운영 화면은 후속이다. 체결 조건·비용·소유권·원가 계산은 [Paper 체결 모델](PAPER_FILLS.md)을 따른다. 반환값의 `executionEnabled`는 항상 false다.
 
 마이그레이션 `0002_wandering_nehzno.sql`과 `0003_silent_harpoon.sql`을 생성했으며 전용 임시 DB에만 적용해 검증했다. 사용자 DB나 운영 환경에는 자동 적용하지 않았다. 기존 읽기 전용 대시보드와 조회 명령은 새 Paper 테이블을 사용하지 않는다.
 
@@ -30,9 +30,9 @@ DB repository가 트랜잭션 안에서 `@hth/trading`의 순수 리스크 검�
 
 `acquireLease`는 DB 시각으로 만료 여부를 판단하고 임의 token을 발급한다. 새 소유권을 얻으면 정지·새 epoch·복구 필요 상태로 전환한다. `renewLease`는 현재 token과 만료를 검사한다. 호출자가 `workerOwned=true`를 전달해 우회할 수 없다. token은 내부 worker용이며 로그나 공개 응답에 출력하면 안 된다.
 
-복구 순서는 `readOpenIntents`로 현재 미완료 의도를 확인 → 현재 단계의 미전송 의도를 `abort` → `reconcile` → 명시적 `resume`이다. reconcile은 동일 lease·expected version·신선한 관측과 `PAPER_RECONCILED` 확인을 요구한다. 미완료 의도가 남으면 거부한다. mark와 일일 손익만 갱신하며 현금·수량·소유권은 바꾸지 않는다. resume도 복구·한도·lease·미완료 의도를 다시 확인한다. 정상 초기화/복구를 수행하는 상시 작업은 아직 연결하지 않았다.
+복구 순서는 `readOpenIntents`로 현재 미완료 의도를 확인 → 현재 단계의 미전송 의도를 `abort` → `reconcile` → 명시적 `resume`이다. reconcile은 동일 lease·expected version·신선한 관측과 `PAPER_RECONCILED` 확인을 요구한다. 미완료 의도가 남으면 거부한다. mark와 일일 손익만 갱신하며 현금·수량·소유권은 바꾸지 않는다. resume도 복구·한도·lease·미완료 의도를 다시 확인한다. 상시 실행기는 acquireLease → recoverLease → observe → 명시적 resume 순서로 복구한다. recoverLease는 현재 token/epoch와 정지 상태를 요구하고 열린 의도 잔량을 원자적으로 중단한다.
 
-현재 reconcile은 복구용이며 활성 의도를 유지한 채 주기적으로 평가 정보를 갱신하는 메서드는 아니다. 체결은 잔고·비용·소유권을 원자적으로 반영하지만, 모든 보유분의 평가·일일 기준 자산을 지속 갱신하는 경로는 상시 실행 전에 추가해야 한다. 새 worker가 소유권을 인수해도 이전 예약은 자동 해제하지 않는다.
+현재 reconcile은 복구용이며 활성 의도를 유지한 채 주기적으로 평가 정보를 갱신하는 메서드는 아니다. 체결은 잔고·비용·소유권을 원자적으로 반영한다. 새 observe는 활성 예약을 유지하며 모든 보유분의 평가/일일 손익을 갱신한다. lease 인수 자체는 예약을 해제하지 않으며, 같은 token/epoch의 recoverLease 또는 releaseLease만 잔량을 정리한다. 이전 worker는 새 소유자의 예약을 정리하지 못한다.
 
 ## 기록과 영구 중복 방지
 
@@ -78,4 +78,4 @@ localhost의 `hth_test` / `hth_readonly_test` 전용 DB만 통합 테스트에 �
 
 독립 DB pool 두 개로 현금/수량 동시 예약, 재요청·내용 충돌, 과거 Paper 소유분/수동 보유 보호, 정지 경합과 새 worker 복구 차단을 검증했다. 테스트 전용 실패 trigger로 예약 트랜잭션 rollback과 원래 의도 보존을, 대기 trigger로 예약 중 lease 만료와 자원 해제를 확인했다. 원본/상태/감사 이력 변경 차단과 신호/데이터 검증도 포함한다.
 
-내부 Paper 체결·부분 체결·체결 멱등키와 비용/잔고/소유권/원가 반영도 구현했다. 다음은 상시 worker의 복구·관측 갱신·실행 루프와 운영 UI 연결이다. 사용자 DB 마이그레이션 적용·계좌 초기 자금·실사용 한도는 별도 검토가 필요하며, 합성 테스트 설정을 실제 운용 설정으로 자동 채택하지 않는다.
+내부 Paper 체결·부분 체결·체결 멱등키와 비용/잔고/소유권/원가 반영도 구현했다. 상시 worker의 복구·관측 갱신·실행 루프도 합성 데이터로 추가했다. 다음은 실제 시세 source와 Paper 조회/운영 UI 연결이다. 사용자 DB 마이그레이션 적용·계좌 초기 자금·실사용 한도는 별도 검토가 필요하며, 합성 테스트 설정을 실제 운용 설정으로 자동 채택하지 않는다.
