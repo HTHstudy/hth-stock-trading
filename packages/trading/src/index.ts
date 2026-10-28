@@ -7,3 +7,5 @@ export type { CandleAssessment, DataBlocker } from './market-data/policy.js';
 
 export type { Strategy, StrategyContext, StrategySignal } from './strategy/types.js';
 export { movingAverageCross } from './strategy/moving-average.js';
+export { runBacktest } from './backtest/engine.js';
+export type { BacktestReport, BacktestSignal, BacktestFill, EquityPoint, ClosedTrade } from './backtest/engine.js';
