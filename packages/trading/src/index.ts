@@ -1,4 +1,4 @@
-import type { Candle, DecimalString, InstrumentId } from '@hth/shared';
+import type { Candle, DecimalString, InstrumentId } from '@hth/contracts';
 
 export interface StrategyContext {
   readonly instrument: InstrumentId;

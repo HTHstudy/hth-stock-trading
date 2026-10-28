@@ -1,5 +1,5 @@
-import { currencySchema, instantSchema, marketSchema } from '@hth/shared';
-import type { Candle, Currency, InstrumentId, Market } from '@hth/shared';
+import { currencySchema, instantSchema, marketSchema } from '@hth/contracts';
+import type { Candle, Currency, InstrumentId, Market } from '@hth/contracts';
 import { z } from 'zod';
 import type { CandleQuery, MarketDay, MarketSession, ReadonlyBroker } from '../index.js';
 import { BrokerError } from '../errors.js';

@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { expect, it } from 'vitest';
-import type { Candle } from '@hth/shared';
+import type { Candle } from '@hth/contracts';
 import { createDatabase } from './index.js';
 import { candles, instruments } from './schema.js';
 

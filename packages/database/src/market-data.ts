@@ -1,4 +1,4 @@
-import type { Candle } from '@hth/shared';
+import type { Candle } from '@hth/contracts';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type * as schema from './schema.js';
 import { candles, instruments } from './schema.js';

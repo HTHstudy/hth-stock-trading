@@ -1,4 +1,4 @@
-import { paperModeSchema } from '@hth/shared';
+import { paperModeSchema } from '@hth/contracts';
 
 try {
   const mode = paperModeSchema.parse(process.env.TRADING_MODE);

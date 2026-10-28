@@ -1,4 +1,4 @@
-import { decimalSchema, instantSchema } from '@hth/shared';
+import { decimalSchema, instantSchema } from '@hth/contracts';
 import { z } from 'zod';
 
 const decimal = decimalSchema.max(30);

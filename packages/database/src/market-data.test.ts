@@ -1,4 +1,4 @@
-import type { Candle } from '@hth/shared';
+import type { Candle } from '@hth/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import { validateMarketData } from './market-data.js';
 import { withBrokerLease } from './lease.js';

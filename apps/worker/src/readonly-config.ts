@@ -1,4 +1,4 @@
-import { paperModeSchema } from '@hth/shared';
+import { paperModeSchema } from '@hth/contracts';
 import { z } from 'zod';
 
 const symbols = z

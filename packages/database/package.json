@@ -16,7 +16,7 @@
     "db:migrate": "node --env-file-if-exists=../../.env ./node_modules/drizzle-kit/bin.cjs migrate"
   },
   "dependencies": {
-    "@hth/shared": "workspace:*",
+    "@hth/contracts": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "pg": "^8.16.0"
   },

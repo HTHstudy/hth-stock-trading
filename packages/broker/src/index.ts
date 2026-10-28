@@ -1,4 +1,4 @@
-import type { Candle, Currency, DecimalString, InstrumentId, Market, Money } from '@hth/shared';
+import type { Candle, Currency, DecimalString, InstrumentId, Market, Money } from '@hth/contracts';
 
 export interface BrokerAccount {
   readonly reference: string;

@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+export {
+  dashboardSnapshotSchema,
+  dashboardStateSchema,
+  dashboardErrorSchema,
+  dashboardWorkerMessageSchema,
+} from './dashboard.js';
+export type { DashboardSnapshot, DashboardState, DashboardErrorCode } from './dashboard.js';
+
 export const marketSchema = z.enum(['KR', 'US']);
 export const currencySchema = z.enum(['KRW', 'USD']);
 export const decimalSchema = z.string().regex(/^-?\d+(\.\d+)?$/);

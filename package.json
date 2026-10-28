@@ -7,9 +7,9 @@
     "node": ">=24 <25"
   },
   "scripts": {
-    "dev": "corepack pnpm build:packages && corepack pnpm --parallel --filter './apps/*' dev",
+    "dev": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker build && corepack pnpm --parallel --filter @hth/web --filter @hth/api dev",
     "dev:web": "corepack pnpm build:packages && corepack pnpm --filter @hth/web dev",
-    "dev:api": "corepack pnpm build:packages && corepack pnpm --filter @hth/api dev",
+    "dev:api": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker build && corepack pnpm --filter @hth/api dev",
     "dev:worker": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker dev",
     "broker:check": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker broker:check",
     "broker:sync": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker broker:sync",

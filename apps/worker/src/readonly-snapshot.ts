@@ -1,5 +1,5 @@
-import type { Candle, InstrumentId } from '@hth/shared';
-import type { BrokerInstrument, CandleQuery, ReadonlyBroker } from '@hth/broker';
+import type { Candle, InstrumentId, Money } from '@hth/contracts';
+import type { BrokerInstrument, CandleQuery, Holding, ReadonlyBroker } from '@hth/broker';
 
 export async function collectReadonlySnapshot(
   broker: ReadonlyBroker,
@@ -43,13 +43,22 @@ export async function collectReadonlySnapshot(
   }
   const accounts = await broker.listAccounts();
   let holdingCount = 0;
+  const holdings: Holding[] = [];
+  const buyingPower: Money[] = [];
   for (const account of accounts.filter((item) => item.type === 'BROKERAGE')) {
-    holdingCount += (await broker.getHoldings(account)).length;
-    await broker.getBuyingPower(account, 'KRW');
-    await broker.getBuyingPower(account, 'USD');
+    const positions = await broker.getHoldings(account);
+    holdingCount += positions.length;
+    holdings.push(...positions);
+    buyingPower.push(await broker.getBuyingPower(account, 'KRW'));
+    buyingPower.push(await broker.getBuyingPower(account, 'USD'));
   }
   return {
     batches,
+    holdings,
+    buyingPower,
+    quotes,
+    calendars,
+    exchangeRate,
     summary: {
       mode: 'paper',
       executionEnabled: false,

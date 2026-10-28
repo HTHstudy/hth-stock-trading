@@ -1,4 +1,4 @@
-import { processHealthSchema } from '@hth/shared';
+import { processHealthSchema } from '@hth/contracts';
 import { describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
 import { parseApiConfig } from './config.js';
