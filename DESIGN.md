@@ -1,6 +1,6 @@
 # 상세 설계
 
-이 문서는 도메인의 계약과 불변조건을 정의한다. 현재 제공하는 코드는 공통 타입·읽기 전용 Toss adapter·전략 타입·시세 저장·단발성 수집 및 실행 scaffold다. 아래 주문 상태 머신과 위험 검증은 아직 실행 코드가 아니다.
+이 문서는 도메인의 계약과 불변조건을 정의한다. 현재 공통 계약·읽기 전용 Toss adapter·시세 수집과 동결 저장·이동평균 교차 백테스트·로컬 대시보드와 리포트 비교를 제공한다. 아래 주문 상태 머신과 위험 검증은 아직 실행 코드가 아니다.
 
 ## 1. 데이터·시간·통화
 
@@ -97,6 +97,8 @@ stateDiagram-v2
 Paper와 Live 원장은 모든 unique key에서 mode로 분리한다. API 토큰·client secret은 이 업무 스키마에 저장하지 않는다. 추후 토큰을 영속화할 경우 암호화·접근 제한·발급 소유권을 별도로 설계한다. 마이그레이션은 검토 후 배포 작업으로 수행하며 서버 시작 시 자동 적용하지 않는다.
 
 ## 6. API·인증·장애 정책
+
+백테스트 리포트는 `GET /v1/backtests`, `GET /v1/backtests/:hash`로 조회한다. API가 고정 `.local-data` 디렉터리의 지원 schema·SHA-256 검증본만 제공하며 파일 경로를 입력받지 않는다. localhost 개발 서버에서만 저장소를 구성하고 production·public bind는 비활성화한다. 목록은 5초 색인, 상세는 매번 재검증하며 파일·누적 읽기 상한을 둔다. 웹의 비교는 같은 데이터셋·통화·초기 자산일 때만 곡선을 겹친다. [리포트 조회의 범위와 한계](docs/BACKTESTING.md)를 따른다. 실행·주문 endpoint는 추가하지 않았다.
 
 현재 endpoint는 `GET /health/live`, `GET /v1/dashboard`, `POST /v1/dashboard/refresh`다. health는 프로세스 생존만 의미한다. dashboard는 localhost 개발 전용으로 키·계좌 식별자를 제외한 snapshot을 제공하고 no-store를 설정한다. 새로고침은 worker를 fork하여 실제 데이터를 한 번 조회하며 DB 저장이나 거래를 수행하지 않는다. 토스 호출은 최소 30초 간격, API 메모리 조회는 브라우저에서 3초 polling한다. 실패 시 과거 데이터와 오류를 함께 유지한다. mode=paper, executionEnabled=false를 명시한다. 개발용 loopback·Host·Origin 차단은 구현했지만 인터넷 소유자 인증은 아직 없다.
 

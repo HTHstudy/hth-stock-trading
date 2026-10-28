@@ -23,6 +23,8 @@ corepack pnpm dev
 
 web: http://localhost:5173, API 생존 확인: http://localhost:4000/health/live. 앱은 현재 PostgreSQL 없이 실행됩니다. API의 health는 거래 준비 상태나 DB 연결을 보장하지 않습니다.
 
+백테스트는 http://localhost:5173/#backtests 에서 `.local-data`에 저장한 리포트의 지표·곡선·거래 내역과 두 실험 조건을 비교합니다. 키·DB 없이 합성 데모를 만드는 방법은 [백테스트 문서](docs/BACKTESTING.md)에 있습니다.
+
 개별 실행은 `corepack pnpm dev:web`, `dev:api`, `dev:worker`입니다. dev는 web/API를 실행하며 API 실행 전에 공통 패키지와 worker를 빌드합니다. 기본 worker 상시 프로세스는 아직 대기용이므로 별도 실행하지 않아도 됩니다. 패키지나 worker 소스를 변경하면 다시 빌드하고 API를 재시작하세요. 서버 설정은 루트 `.env`, 공개 웹 설정은 `apps/web/.env.local`에 둡니다. `VITE_API_URL`은 `/api`로 설정하며 Vite가 localhost API에 프록시합니다.
 
 ## 실제 데이터 대시보드
@@ -109,6 +111,6 @@ API와 대기 worker를 컨테이너로 확인하는 개발용 구성입니다. 
 
 1. 외부 배포용 소유자 인증·세션·TLS 및 프록시 경계를 구현합니다. 로컬 읽기 전용 대시보드는 구현했습니다.
 2. 날짜별 캘린더·백필·revision·동결 데이터셋을 구현했습니다. 생성한 마이그레이션을 검토한 뒤 사용자 DB 적용과 데이터셋 저장을 진행합니다.
-3. 정밀 계산·이동평균 교차·봉 가용 시각 이후 시가 체결·비용·성과 지표와 CLI를 구현했습니다. [백테스트 실행과 모델 가정](docs/BACKTESTING.md)을 확인하고 여러 동결 입력을 비교하거나 리포트 조회 화면을 추가합니다.
+3. 백테스트 엔진·CLI·로컬 결과 조회와 비교 화면까지 구현했습니다. [백테스트 실행과 모델 가정](docs/BACKTESTING.md)을 확인하고 실제 동결 입력과 여러 기간으로 검증합니다.
 4. 주문 의도·예약·소유권 원장·상태 머신을 구현한 후 자체 Paper Trading을 연결합니다.
 5. 인증과 관리 대시보드를 추가하고, 실거래는 별도 승인 범위에서 진행합니다.
