@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { DashboardSnapshot } from '@hth/contracts';
-import { createApp } from './app.js';
+import { createAuthenticatedTestApp as createApp, testOwnerHash } from '../test/app.js';
 import { parseApiConfig } from './config.js';
 import { createDashboardService } from './dashboard-service.js';
 
@@ -26,7 +26,9 @@ describe('대시보드 API 접근 경계', () => {
   it('공개 bind 및 production에서 대시보드 활성화를 거부한다', () => {
     expect(() => parseApiConfig({ DASHBOARD_ENABLED: 'true', API_HOST: '0.0.0.0' })).toThrow();
     expect(() => parseApiConfig({ DASHBOARD_ENABLED: 'true', NODE_ENV: 'production' })).toThrow();
-    expect(parseApiConfig({ DASHBOARD_ENABLED: 'true' }).DASHBOARD_ENABLED).toBe(true);
+    expect(parseApiConfig({ DASHBOARD_ENABLED: 'true', OWNER_PASSWORD_HASH: testOwnerHash }).DASHBOARD_ENABLED).toBe(
+      true,
+    );
   });
 
   it('외부 origin·host·IP와 CSRF성 새로고침을 차단한다', async () => {

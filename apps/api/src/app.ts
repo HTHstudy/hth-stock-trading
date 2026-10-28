@@ -3,12 +3,17 @@ import {
   processHealthSchema,
   paperDashboardStateSchema,
   paperStopAcknowledgementSchema,
+  ownerLoginSchema,
+  ownerSessionSchema,
+  paperStrategyUpdateSchema,
+  paperStrategyAcknowledgementSchema,
 } from '@hth/contracts';
 import Fastify from 'fastify';
 import { z } from 'zod';
 import type { DashboardService } from './dashboard-service.js';
 import type { BacktestReports } from './backtest-reports.js';
 import type { PaperDashboard } from './paper-dashboard.js';
+import type { OwnerAuth } from './owner-auth.js';
 
 export function createApp(
   logLevel = 'silent',
@@ -16,6 +21,7 @@ export function createApp(
   origins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:4000', 'http://127.0.0.1:4000'],
   reports?: BacktestReports,
   paper?: PaperDashboard,
+  owner?: OwnerAuth,
 ) {
   const app = Fastify({
     logger: {
@@ -43,7 +49,8 @@ export function createApp(
   );
 
   app.addHook('onRequest', async (request, reply) => {
-    if (!['/v1/dashboard', '/v1/backtests', '/v1/paper'].some((path) => request.url.startsWith(path))) return;
+    const privateRoute = ['/v1/dashboard', '/v1/backtests', '/v1/paper'].some((path) => request.url.startsWith(path));
+    if (!privateRoute && !request.url.startsWith('/v1/auth')) return;
     reply.header('Cache-Control', 'no-store, private');
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('Cross-Origin-Resource-Policy', 'same-origin');
@@ -53,8 +60,71 @@ export function createApp(
     if (!local || !allowedHost || !allowedOrigin || request.headers['sec-fetch-site'] === 'cross-site') {
       return reply.code(403).send({ error: { code: 'LOCAL_ACCESS_ONLY' } });
     }
-    if (request.method === 'POST' && request.headers['x-hth-dashboard'] !== '1') {
+    if (!['GET', 'HEAD'].includes(request.method) && request.headers['x-hth-dashboard'] !== '1') {
       return reply.code(403).send({ error: { code: 'LOCAL_ACCESS_ONLY' } });
+    }
+    if (privateRoute) {
+      const session = owner?.read(request.headers.cookie);
+      if (!session?.configured) return reply.code(503).send({ error: { code: 'OWNER_NOT_CONFIGURED' } });
+      if (!session.authenticated) return reply.code(401).send({ error: { code: 'OWNER_LOGIN_REQUIRED' } });
+    }
+  });
+  app.get('/v1/auth/session', (request, reply) => {
+    if (!z.object({}).strict().safeParse(request.query).success)
+      return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    return ownerSessionSchema.parse(
+      owner?.read(request.headers.cookie) ?? { configured: false, authenticated: false, expiresAt: null },
+    );
+  });
+  app.post('/v1/auth/login', { bodyLimit: 2048 }, async (request, reply) => {
+    const input = ownerLoginSchema.safeParse(request.body);
+    if (!input.success || !z.object({}).strict().safeParse(request.query).success)
+      return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (!owner) return reply.code(503).send({ error: { code: 'OWNER_NOT_CONFIGURED' } });
+    try {
+      const result = await owner.login(input.data.password);
+      reply.header('Set-Cookie', result.cookie);
+      return ownerSessionSchema.parse(result.session);
+    } catch (error) {
+      const code =
+        error instanceof Error && ['OWNER_RATE_LIMITED', 'OWNER_NOT_CONFIGURED'].includes(error.message)
+          ? error.message
+          : 'OWNER_LOGIN_FAILED';
+      if (code === 'OWNER_RATE_LIMITED') reply.header('Retry-After', '900');
+      return reply
+        .code(code === 'OWNER_RATE_LIMITED' ? 429 : code === 'OWNER_NOT_CONFIGURED' ? 503 : 401)
+        .send({ error: { code } });
+    }
+  });
+  app.post('/v1/auth/logout', (request, reply) => {
+    if (
+      !z.object({}).strict().safeParse(request.body).success ||
+      !z.object({}).strict().safeParse(request.query).success
+    )
+      return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (owner) reply.header('Set-Cookie', owner.logout(request.headers.cookie));
+    return ownerSessionSchema.parse({
+      configured: Boolean(owner?.read().configured),
+      authenticated: false,
+      expiresAt: null,
+    });
+  });
+  app.post('/v1/paper/strategies/:id', async (request, reply) => {
+    const input = paperStrategyUpdateSchema.safeParse(request.body);
+    const params = z
+      .object({ id: z.string().regex(/^[A-Za-z0-9._:-]{1,100}$/) })
+      .strict()
+      .safeParse(request.params);
+    if (!input.success || !params.success || !z.object({}).strict().safeParse(request.query).success)
+      return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (!paper) return reply.code(503).send({ error: { code: 'PAPER_DASHBOARD_DISABLED' } });
+    try {
+      return paperStrategyAcknowledgementSchema.parse(await paper.updateStrategy(params.data.id, input.data));
+    } catch (error) {
+      const conflict = error instanceof Error && error.message === 'PAPER_STRATEGY_REVISION_CONFLICT';
+      return reply
+        .code(conflict ? 409 : 503)
+        .send({ error: { code: conflict ? 'PAPER_STRATEGY_REVISION_CONFLICT' : 'PAPER_STRATEGY_UPDATE_UNCONFIRMED' } });
     }
   });
 
@@ -135,6 +205,7 @@ export function createApp(
   });
   app.addHook('onClose', async () => {
     dashboard?.close();
+    owner?.close();
     await paper?.close();
   });
 

@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "dev": "tsx watch --env-file-if-exists=../../.env --env-file-if-exists=../../.env.owner src/main.ts",
+    "owner:hash": "tsx src/owner-hash.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node --env-file-if-exists=../../.env dist/main.js",
+    "start": "node --env-file-if-exists=../../.env --env-file-if-exists=../../.env.owner dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

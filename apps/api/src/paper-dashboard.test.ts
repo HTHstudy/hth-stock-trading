@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PaperDashboardState } from '@hth/contracts';
-import { createApp } from './app.js';
+import { createAuthenticatedTestApp as createApp, testOwnerHash } from '../test/app.js';
 import { parseApiConfig } from './config.js';
 import type { PaperDashboard } from './paper-dashboard.js';
 
@@ -15,6 +15,9 @@ function fixture() {
   const service: PaperDashboard = {
     read: vi.fn(async () => disabled),
     stop: vi.fn(async () => {}),
+    updateStrategy: vi.fn(async () => {
+      throw new Error('UNUSED_TEST_UPDATE');
+    }),
     close: vi.fn(async () => {}),
   };
   return { service, app: createApp('silent', undefined, undefined, undefined, service) };
@@ -35,6 +38,7 @@ describe('Paper 대시보드 접근·정지 경계', () => {
   it('공개 bind·production·사용자 DB·계좌 미지정을 활성화 설정에서 거부한다', () => {
     const valid = {
       PAPER_DASHBOARD_ENABLED: 'true',
+      OWNER_PASSWORD_HASH: testOwnerHash,
       PAPER_DEMO_DATABASE_URL: 'postgresql://hth_test:x@127.0.0.1:55433/hth_readonly_test',
       PAPER_DEMO_ACCOUNT_ID: 'paper-demo-local',
     };
@@ -91,6 +95,106 @@ describe('Paper 대시보드 접근·정지 경계', () => {
     expect(service.read).not.toHaveBeenCalled();
     await app.close();
     expect(service.close).toHaveBeenCalledOnce();
+  });
+  it('전략 변경은 고정 계좌의 리비전 검증 요청으로만 전달한다', async () => {
+    const { app, service } = fixture();
+    const definition = {
+      kind: 'moving-average-cross',
+      instrument: { market: 'KR', symbol: '005930' },
+      parameters: { fastPeriod: 1, slowPeriod: 2 },
+      quantity: '2',
+      maxFillQuantity: '1',
+    };
+    const input = { expectedRevision: 1, definition, enabled: true };
+    vi.mocked(service.updateStrategy).mockResolvedValueOnce({
+      mode: 'paper',
+      executionEnabled: false,
+      stopped: true,
+      strategy: { id: 'demo-ma', version: '1.0.0', revision: 2, definition, enabled: true },
+    });
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/paper/strategies/demo-ma',
+        headers,
+        payload: input,
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({ stopped: true, strategy: { revision: 2 } });
+      expect(service.updateStrategy).toHaveBeenCalledWith('demo-ma', input);
+      expect(
+        (
+          await app.inject({
+            method: 'POST',
+            url: '/v1/paper/strategies/demo-ma',
+            headers,
+            payload: { ...input, accountId: 'other' },
+          })
+        ).statusCode,
+      ).toBe(400);
+    } finally {
+      await app.close();
+    }
+  });
+  it('전략 리비전 충돌은 409로 반환하고 원본 예외를 숨긴다', async () => {
+    const { app, service } = fixture();
+    const input = {
+      expectedRevision: 1,
+      enabled: false,
+      definition: {
+        kind: 'moving-average-cross',
+        instrument: { market: 'KR', symbol: '005930' },
+        parameters: { fastPeriod: 1, slowPeriod: 2 },
+        quantity: '2',
+        maxFillQuantity: '1',
+      },
+    };
+    try {
+      vi.mocked(service.updateStrategy).mockRejectedValueOnce(new Error('PAPER_STRATEGY_REVISION_CONFLICT'));
+      expect(
+        (await app.inject({ method: 'POST', url: '/v1/paper/strategies/demo-ma', headers, payload: input })).statusCode,
+      ).toBe(409);
+      vi.mocked(service.updateStrategy).mockRejectedValueOnce(new Error('private-sql-data'));
+      const failed = await app.inject({ method: 'POST', url: '/v1/paper/strategies/demo-ma', headers, payload: input });
+      expect(failed.statusCode).toBe(503);
+      expect(failed.body).not.toContain('private-sql-data');
+    } finally {
+      await app.close();
+    }
+  });
+  it('전략 주기·정수 수량·최대 체결 수량을 입력 경계에서 검사한다', async () => {
+    const { app, service } = fixture();
+    try {
+      for (const definition of [
+        {
+          kind: 'moving-average-cross',
+          instrument: { market: 'KR', symbol: '005930' },
+          parameters: { fastPeriod: 2, slowPeriod: 2 },
+          quantity: '2',
+          maxFillQuantity: '1',
+        },
+        {
+          kind: 'moving-average-cross',
+          instrument: { market: 'KR', symbol: '005930' },
+          parameters: { fastPeriod: 1, slowPeriod: 2 },
+          quantity: '2',
+          maxFillQuantity: '3',
+        },
+      ])
+        expect(
+          (
+            await app.inject({
+              method: 'POST',
+              url: '/v1/paper/strategies/demo-ma',
+              headers,
+              payload: { expectedRevision: 1, enabled: true, definition },
+            })
+          ).statusCode,
+        ).toBe(400);
+      expect(service.updateStrategy).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
   });
   it('조회·정지 실패와 잘못된 DTO에서 원본 정보가 노출되지 않는다', async () => {
     const { app, service } = fixture();

@@ -5,7 +5,7 @@ import { expect, it } from 'vitest';
 import { backtestArtifactSchema } from '@hth/contracts';
 import { contentHash } from '@hth/database';
 import { createBacktestReports } from './backtest-reports.js';
-import { createApp } from './app.js';
+import { createAuthenticatedTestApp as createApp } from '../test/app.js';
 
 async function fixture() {
   const directory = await mkdtemp(join(tmpdir(), 'hth-report-view-'));

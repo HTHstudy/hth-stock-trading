@@ -1,4 +1,5 @@
 import { createApp } from './app.js';
+import { createOwnerAuth } from './owner-auth.js';
 import { createDatabase } from '@hth/database';
 import { testDatabaseUrl } from '@hth/database/testing';
 import { createPaperDashboard } from './paper-dashboard.js';
@@ -32,7 +33,14 @@ async function main() {
         config.PAPER_DEMO_ACCOUNT_ID!,
       )
     : undefined;
-  const app = createApp(config.LOG_LEVEL, dashboard, origins, reports, paper);
+  const app = createApp(
+    config.LOG_LEVEL,
+    dashboard,
+    origins,
+    reports,
+    paper,
+    createOwnerAuth(config.OWNER_PASSWORD_HASH),
+  );
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.once(signal, () => {

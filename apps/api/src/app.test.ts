@@ -1,6 +1,6 @@
 import { processHealthSchema } from '@hth/contracts';
 import { describe, expect, it } from 'vitest';
-import { createApp } from './app.js';
+import { createAuthenticatedTestApp as createApp } from '../test/app.js';
 import { parseApiConfig } from './config.js';
 
 describe('API foundation', () => {

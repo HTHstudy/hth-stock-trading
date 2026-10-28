@@ -18,6 +18,7 @@
     "backtest:run": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker backtest:run",
     "risk:demo": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker risk:demo",
     "paper:demo": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:demo",
+    "owner:hash": "corepack pnpm build:packages && corepack pnpm --filter @hth/api owner:hash",
     "build:packages": "corepack pnpm -r --filter './packages/*' build",
     "build": "corepack pnpm -r build",
     "typecheck": "corepack pnpm build:packages && corepack pnpm -r typecheck && tsc -p tsconfig.tools.json",

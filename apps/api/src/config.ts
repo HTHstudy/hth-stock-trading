@@ -1,6 +1,7 @@
 import { paperModeSchema } from '@hth/contracts';
 import { testDatabaseUrl } from '@hth/database/testing';
 import { z } from 'zod';
+import { ownerHashPattern } from './owner-auth.js';
 
 const configSchema = z
   .object({
@@ -9,6 +10,7 @@ const configSchema = z
     API_HOST: z.string().min(1).default('127.0.0.1'),
     API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+    OWNER_PASSWORD_HASH: z.string().regex(ownerHashPattern).optional(),
     DASHBOARD_ENABLED: z
       .enum(['true', 'false'])
       .default('false')
@@ -24,6 +26,11 @@ const configSchema = z
       .optional(),
   })
   .superRefine((config, context) => {
+    if ((config.DASHBOARD_ENABLED || config.PAPER_DASHBOARD_ENABLED) && !config.OWNER_PASSWORD_HASH)
+      context.addIssue({
+        code: 'custom',
+        message: 'Owner authentication must be configured before enabling dashboards',
+      });
     if (
       (config.DASHBOARD_ENABLED || config.PAPER_DASHBOARD_ENABLED) &&
       (config.NODE_ENV === 'production' || !['127.0.0.1', 'localhost', '::1'].includes(config.API_HOST))
