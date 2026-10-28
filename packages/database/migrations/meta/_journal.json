@@ -15,6 +15,13 @@
       "when": 1793151312484,
       "tag": "0001_condemned_moondragon",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793157370058,
+      "tag": "0002_wandering_nehzno",
+      "breakpoints": true
     }
   ]
 }

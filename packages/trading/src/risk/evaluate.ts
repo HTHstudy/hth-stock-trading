@@ -34,6 +34,7 @@ export interface RiskDecision {
     side: 'BUY' | 'SELL';
     quantity: string;
     limitPrice: string;
+    valuationPrice: string;
     cashAmount: string;
     sellQuantity: string;
     notional: string;
@@ -252,6 +253,7 @@ export function evaluatePaperRisk(value: unknown): RiskDecision {
       side: candidate.side,
       quantity: candidate.quantity,
       limitPrice: candidate.limitPrice,
+      valuationPrice: price.toFixed(),
       cashAmount: candidate.side === 'BUY' ? notional.plus(costs).toFixed() : '0',
       sellQuantity: candidate.side === 'SELL' ? candidate.quantity : '0',
       notional: notional.toFixed(),

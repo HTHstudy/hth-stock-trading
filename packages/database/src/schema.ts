@@ -11,8 +11,18 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  bigint,
+  primaryKey,
+  foreignKey,
 } from 'drizzle-orm/pg-core';
-import type { HistoricalDataset } from '@hth/contracts';
+import type {
+  HistoricalDataset,
+  PaperLedgerState,
+  PaperRiskLimits,
+  PaperOrderCandidate,
+  PaperSignal,
+} from '@hth/contracts';
+import type { RiskDecision } from '@hth/trading';
 
 export const marketEnum = pgEnum('market', ['KR', 'US']);
 export const currencyEnum = pgEnum('currency', ['KRW', 'USD']);
@@ -108,4 +118,116 @@ export const historicalDatasets = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   },
   (table) => [check('historical_datasets_hash_check', sql`${table.contentHash} ~ '^[a-f0-9]{64}$'`)],
+);
+
+export const paperIntentState = pgEnum('paper_intent_state', ['INTENT_RECORDED', 'READY', 'RISK_REJECTED', 'ABORTED']);
+export const paperAccounts = pgTable(
+  'paper_accounts',
+  {
+    id: text('id').primaryKey(),
+    mode: text('mode').notNull().default('paper'),
+    version: bigint('version', { mode: 'number' }).notNull().default(0),
+    stopped: boolean('stopped').notNull().default(true),
+    epoch: bigint('epoch', { mode: 'number' }).notNull().default(0),
+    reason: text('reason').notNull().default('INITIAL_STOP'),
+    limits: jsonb('limits').$type<PaperRiskLimits>(),
+    ledger: jsonb('ledger').$type<PaperLedgerState>().notNull(),
+    leaseToken: uuid('lease_token'),
+    leaseUntil: timestamp('lease_until', { withTimezone: true, mode: 'string' }),
+  },
+  (table) => [
+    check('paper_account_mode', sql`${table.mode} = 'paper'`),
+    check(
+      'paper_account_versions',
+      sql`${table.version} >= 0 AND ${table.version} < 9007199254740991 AND ${table.epoch} >= 0 AND ${table.epoch} < 9007199254740991`,
+    ),
+    check('paper_lease_pair', sql`(${table.leaseToken} IS NULL) = (${table.leaseUntil} IS NULL)`),
+  ],
+);
+export const paperStrategies = pgTable(
+  'paper_strategies',
+  {
+    accountId: text('account_id')
+      .notNull()
+      .references(() => paperAccounts.id),
+    strategyId: text('strategy_id').notNull(),
+    version: text('version').notNull(),
+    enabled: boolean('enabled').notNull().default(false),
+  },
+  (table) => [primaryKey({ columns: [table.accountId, table.strategyId] })],
+);
+export const paperIntents = pgTable(
+  'paper_order_intents',
+  {
+    accountId: text('account_id')
+      .notNull()
+      .references(() => paperAccounts.id),
+    intentId: text('intent_id').notNull(),
+    dedupeKey: text('dedupe_key').notNull(),
+    requestHash: text('request_hash').notNull(),
+    candidate: jsonb('candidate').$type<PaperOrderCandidate>().notNull(),
+    signal: jsonb('signal').$type<PaperSignal>().notNull(),
+    recordedEpoch: bigint('recorded_epoch', { mode: 'number' }).notNull(),
+    state: paperIntentState('state').notNull().default('INTENT_RECORDED'),
+    version: bigint('version', { mode: 'number' }).notNull().default(0),
+    decision: jsonb('decision').$type<RiskDecision>(),
+    codes: jsonb('codes').$type<string[]>().notNull().default([]),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.accountId, table.intentId] }),
+    uniqueIndex('paper_intent_dedupe').on(table.accountId, table.dedupeKey),
+    check(
+      'paper_intent_hashes',
+      sql`${table.requestHash} ~ '^[a-f0-9]{64}$' AND ${table.dedupeKey} ~ '^[a-f0-9]{64}$'`,
+    ),
+    check(
+      'paper_intent_versions',
+      sql`${table.version} >= 0 AND ${table.version} < 9007199254740991 AND ${table.recordedEpoch} >= 0`,
+    ),
+  ],
+);
+export const paperReservations = pgTable(
+  'paper_reservations',
+  {
+    accountId: text('account_id').notNull(),
+    intentId: text('intent_id').notNull(),
+    quantity: numeric('quantity').notNull(),
+    valuationPrice: numeric('valuation_price').notNull(),
+    cashAmount: numeric('cash_amount').notNull(),
+    sellQuantity: numeric('sell_quantity').notNull(),
+    costBps: numeric('cost_bps').notNull(),
+    active: boolean('active').notNull().default(true),
+    validUntil: timestamp('valid_until', { withTimezone: true, mode: 'string' }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.accountId, table.intentId] }),
+    foreignKey({
+      columns: [table.accountId, table.intentId],
+      foreignColumns: [paperIntents.accountId, paperIntents.intentId],
+    }),
+    check(
+      'paper_reservation_amounts',
+      sql`${table.quantity} > 0 AND ${table.quantity} = trunc(${table.quantity}) AND ${table.quantity} < 'Infinity'::numeric AND ${table.cashAmount} >= 0 AND ${table.cashAmount} < 'Infinity'::numeric AND ${table.sellQuantity} >= 0 AND ${table.sellQuantity} < 'Infinity'::numeric AND ${table.costBps} >= 0 AND ${table.costBps} < 10000 AND ((${table.cashAmount} > 0 AND ${table.sellQuantity} = 0) OR (${table.cashAmount} = 0 AND ${table.sellQuantity} = ${table.quantity}))`,
+    ),
+  ],
+);
+export const paperEvents = pgTable(
+  'paper_events',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => paperAccounts.id),
+    intentId: text('intent_id'),
+    kind: text('kind').notNull(),
+    details: jsonb('details').$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.accountId, table.intentId],
+      foreignColumns: [paperIntents.accountId, paperIntents.intentId],
+    }),
+  ],
 );

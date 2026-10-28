@@ -17,6 +17,8 @@
   },
   "dependencies": {
     "@hth/contracts": "workspace:*",
+    "@hth/trading": "workspace:*",
+    "zod": "^4.6.7",
     "drizzle-orm": "^0.45.4",
     "pg": "^8.16.0"
   },

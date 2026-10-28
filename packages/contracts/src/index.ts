@@ -17,6 +17,14 @@ export {
 } from './backtest.js';
 export type { MovingAverageConfig, BacktestConfig } from './backtest.js';
 export {
+  paperSignalSchema,
+  paperLedgerStateSchema,
+  paperEvidenceSchema,
+  paperRecordedOrderSchema,
+  paperIntentStateSchema,
+} from './paper-ledger.js';
+export type { PaperSignal, PaperLedgerState, PaperEvidence, PaperIntentState } from './paper-ledger.js';
+export {
   paperRiskLimitsSchema,
   paperControlSchema,
   paperOrderCandidateSchema,
