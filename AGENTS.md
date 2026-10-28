@@ -35,7 +35,8 @@
 - Toss endpoint/DTO를 추측하지 않는다. `docs/TOSS_API.md`의 공식 OpenAPI/AsyncAPI를 재확인한다.
 - token manager는 worker가 소유한다. 실제 연결 명령은 같은 DB에서 client별 advisory lock을 획득한 뒤 실행한다.
 - 테스트는 주입한 가짜 fetch만 사용한다. DB 통합 테스트는 localhost의 `hth_readonly_test` 전용 DB에서만 실행한다.
-- 캔들은 현재 모두 미확정으로 수집한다. timestamp만으로 `isClosed=true`를 설정하지 않는다.
+- broker 원본 봉은 미확정으로 반환한다. worker가 `docs/MARKET_DATA_POLICY.md`의 세션·대기·재관측 증거로만 종료 플래그를 설정한다.
+- 전략 입력은 `prepareStrategyData`를 거친다. 과거 isClosed 플래그·만료된 dataQuality 보고서를 실행 승인으로 사용하지 않는다.
 - 주문 의도는 전송 전 DB에 기록한다. 불확실한 응답에 주문을 무조건 재전송하지 않는다.
 - 중복 방지, 부분 체결, 기존 보유분 보호, 재시작 복구는 `DESIGN.md`의 불변조건을 따른다.
 - 새 의존성을 추가하면 목적과 대안을 문서에 기록한다.
