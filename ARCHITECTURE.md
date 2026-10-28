@@ -28,7 +28,7 @@ apps/
 packages/
   contracts/              Zod 계약, 시장·통화 타입, 안전 설정
   broker/                 공통 읽기 전용 port, toss adapter; Paper는 미구현
-  trading/                전략 계약; 향후 아래 도메인 모듈
+  trading/                시장 데이터 검증·이동평균 전략·백테스트; 향후 risk/execution
   database/               Drizzle 시세 저장·advisory lock·기본 스키마
 docs/
   TOSS_API.md              공식 API 조사와 근거
@@ -37,7 +37,7 @@ infra/
   Dockerfile              API/worker 공용 빌드
 ```
 
-처음 제안한 9개 도메인 패키지 대신 공통 4개 패키지로 시작한다. `packages/trading` 내부에 market-data, strategy, risk, execution, backtest 책임을 유지한다. 전략은 현재 계약만 제공한다. 토스 adapter는 `broker/src/toss`에 구현하고 `@hth/broker/toss`로 공개한다. 독립 배포·외부 재사용·의존성 격리가 실제로 필요해질 때 별도 패키지로 추출한다.
+처음 제안한 9개 도메인 패키지 대신 공통 4개 패키지로 시작한다. `packages/trading` 내부에 market-data, strategy, risk, execution, backtest 책임을 유지한다. 현재 순수 시장 데이터 검증·이동평균 교차·백테스트 엔진을 제공하며, worker가 동결 입력과 리포트 파일 I/O를 조립한다. risk/execution 원장은 후속이다. 토스 adapter는 `broker/src/toss`에 구현하고 `@hth/broker/toss`로 공개한다. 독립 배포·외부 재사용·의존성 격리가 실제로 필요해질 때 별도 패키지로 추출한다.
 
 ```text
 web → contracts

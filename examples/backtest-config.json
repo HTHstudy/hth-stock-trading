@@ -1,0 +1,12 @@
+{
+  "strategy": { "fastPeriod": 3, "slowPeriod": 5 },
+  "execution": {
+    "initialCash": "1000000",
+    "quantity": "10",
+    "priceTick": "1",
+    "buyFeeBps": "10",
+    "sellFeeBps": "10",
+    "sellTaxBps": "20",
+    "slippageBps": "5"
+  }
+}

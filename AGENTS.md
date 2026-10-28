@@ -26,7 +26,7 @@
 - slice 간 직접 참조와 공개 entrypoint 우회를 금지한다. 선택 레이어는 실제 중복이 생긴 뒤 도입한다.
 - 화면 전용 로직은 해당 page에 둔다. 서버 상태는 TanStack Query v5로 관리한다.
 - 실제 자산 snapshot은 localhost 개발 환경에만 제공한다. public bind·production 활성화를 허용하지 않는다. 외부 배포에는 별도 소유자 인증이 필요하다.
-- 금액 계산은 worker의 decimal.js에서 수행하고 프론트엔드는 표시만 한다. 차트 좌표 계산만 number를 사용한다.
+- 금액 계산은 worker·trading의 decimal.js에서 수행하고 프론트엔드는 표시만 한다. 차트 좌표 계산만 number를 사용한다.
 
 ## 구현과 검증
 
@@ -38,6 +38,7 @@
 - broker 원본 봉은 미확정으로 반환한다. worker가 `docs/MARKET_DATA_POLICY.md`의 세션·대기·재관측 증거로만 종료 플래그를 설정한다.
 - 전략 입력은 `prepareStrategyData`를 거친다. 과거 isClosed 플래그·만료된 dataQuality 보고서를 실행 승인으로 사용하지 않는다.
 - 과거 입력은 `docs/HISTORICAL_DATASETS.md`의 커버리지·관측 증거와 hash를 보존한다. revision·동결 데이터셋을 수정·삭제하거나 최신 시세로 바꿔 읽지 않는다. 수집본 재현성과 point-in-time 정확도를 구분한다.
+- 백테스트는 `docs/BACKTESTING.md`의 정보 가용 시각과 다음 체결 가능 시가를 따른다. 전략에 미래 봉을 전달하거나 같은 봉 종가에 체결하지 않는다. 비용·체결 가정과 dataset/결과 hash를 보존한다. 합성 데모 수익률을 실제 성과로 표시하지 않는다.
 - 주문 의도는 전송 전 DB에 기록한다. 불확실한 응답에 주문을 무조건 재전송하지 않는다.
 - 중복 방지, 부분 체결, 기존 보유분 보호, 재시작 복구는 `DESIGN.md`의 불변조건을 따른다.
 - 새 의존성을 추가하면 목적과 대안을 문서에 기록한다.
