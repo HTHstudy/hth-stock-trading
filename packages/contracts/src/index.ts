@@ -17,6 +17,13 @@ export {
 } from './backtest.js';
 export type { MovingAverageConfig, BacktestConfig } from './backtest.js';
 export {
+  reportHashSchema,
+  backtestArtifactSchema,
+  backtestSummarySchema,
+  backtestListSchema,
+} from './backtest-reports.js';
+export type { BacktestArtifact, BacktestSummary, BacktestList } from './backtest-reports.js';
+export {
   historicalCandleSchema,
   historicalRequestSchema,
   historicalObservationSchema,

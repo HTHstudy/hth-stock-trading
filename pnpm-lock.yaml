@@ -53,6 +53,9 @@ importers:
       '@hth/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@hth/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@hth/worker':
         specifier: workspace:*
         version: link:../worker

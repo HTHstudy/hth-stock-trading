@@ -2,11 +2,13 @@ import { dashboardStateSchema, processHealthSchema } from '@hth/contracts';
 import Fastify from 'fastify';
 import { z } from 'zod';
 import type { DashboardService } from './dashboard-service.js';
+import type { BacktestReports } from './backtest-reports.js';
 
 export function createApp(
   logLevel = 'silent',
   dashboard?: DashboardService,
   origins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:4000', 'http://127.0.0.1:4000'],
+  reports?: BacktestReports,
 ) {
   const app = Fastify({
     logger: {
@@ -34,7 +36,7 @@ export function createApp(
   );
 
   app.addHook('onRequest', async (request, reply) => {
-    if (!request.url.startsWith('/v1/dashboard')) return;
+    if (!request.url.startsWith('/v1/dashboard') && !request.url.startsWith('/v1/backtests')) return;
     reply.header('Cache-Control', 'no-store, private');
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('Cross-Origin-Resource-Policy', 'same-origin');
@@ -62,6 +64,28 @@ export function createApp(
       },
     ),
   );
+
+  app.get('/v1/backtests', async (_request, reply) => {
+    if (!reports) return reply.code(503).send({ error: { code: 'BACKTEST_REPORTS_DISABLED' } });
+    try {
+      return await reports.list();
+    } catch {
+      return reply.code(503).send({ error: { code: 'REPORT_DIRECTORY_UNAVAILABLE' } });
+    }
+  });
+  app.get('/v1/backtests/:hash', async (request, reply) => {
+    if (!reports) return reply.code(503).send({ error: { code: 'BACKTEST_REPORTS_DISABLED' } });
+    const parsed = z
+      .object({ hash: z.string().regex(/^[a-f0-9]{64}$/) })
+      .strict()
+      .safeParse(request.params);
+    if (!parsed.success) return reply.code(400).send({ error: { code: 'INVALID_REPORT_ID' } });
+    try {
+      return await reports.get(parsed.data.hash);
+    } catch {
+      return reply.code(404).send({ error: { code: 'REPORT_NOT_FOUND' } });
+    }
+  });
 
   app.post('/v1/dashboard/refresh', (request, reply) => {
     if (!z.object({}).strict().safeParse(request.body).success)

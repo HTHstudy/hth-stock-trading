@@ -12,6 +12,7 @@
   "dependencies": {
     "@hth/worker": "workspace:*",
     "@hth/contracts": "workspace:*",
+    "@hth/database": "workspace:*",
     "fastify": "^5.12.7",
     "zod": "^4.6.7"
   }

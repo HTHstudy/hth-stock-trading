@@ -1,4 +1,6 @@
 import { createApp } from './app.js';
+import { fileURLToPath } from 'node:url';
+import { createBacktestReports } from './backtest-reports.js';
 import { parseApiConfig } from './config.js';
 import { createDashboardService, loadDashboardFromWorker } from './dashboard-service.js';
 
@@ -17,7 +19,11 @@ async function main() {
     `http://localhost:${config.API_PORT}`,
     `http://127.0.0.1:${config.API_PORT}`,
   ];
-  const app = createApp(config.LOG_LEVEL, dashboard, origins);
+  const reports =
+    config.NODE_ENV !== 'production' && ['127.0.0.1', 'localhost', '::1'].includes(config.API_HOST)
+      ? createBacktestReports(fileURLToPath(new URL('../../../.local-data', import.meta.url)))
+      : undefined;
+  const app = createApp(config.LOG_LEVEL, dashboard, origins, reports);
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.once(signal, () => {

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, it } from 'vitest';
 import { contentHash } from '@hth/database';
+import { backtestArtifactSchema } from '@hth/contracts';
 import { createBacktestDemo } from './backtest-demo.js';
 import { createBacktestArtifact, parseDatasetExport } from './backtest-artifact.js';
 
@@ -26,6 +27,7 @@ it('외부 입력의 schema와 hash를 검증하며 변조된 export를 거부�
 it('키·계좌 없이 합성 데이터의 결과와 재현성 hash를 생성한다', () => {
   const input = { dataset: createBacktestDemo(), datasetId: null, source: 'synthetic-demo' as const, config };
   const artifact = createBacktestArtifact(input);
+  expect(backtestArtifactSchema.parse(artifact)).toEqual(artifact);
   expect(artifact.report.mode).toBe('paper');
   expect(artifact.report.executionEnabled).toBe(false);
   expect(artifact.report.metrics.tradeCount).toBeGreaterThan(0);
