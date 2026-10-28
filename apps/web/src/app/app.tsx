@@ -5,6 +5,7 @@ import './global.css';
 import { Providers } from './providers';
 
 const BacktestsPage = lazy(() => import('@pages/backtests').then((module) => ({ default: module.BacktestsPage })));
+const PaperPage = lazy(() => import('@pages/paper').then((module) => ({ default: module.PaperPage })));
 
 export function App() {
   const [hash, setHash] = useState(window.location.hash);
@@ -14,9 +15,11 @@ export function App() {
     return () => window.removeEventListener('hashchange', change);
   }, []);
   const backtests = hash === PATHS.BACKTESTS;
+  const paper = hash === PATHS.PAPER;
   const navigation = [
-    { path: PATHS.HOME, label: '계좌 현황', active: !backtests },
+    { path: PATHS.HOME, label: '계좌 현황', active: !backtests && !paper },
     { path: PATHS.BACKTESTS, label: '백테스트', active: backtests },
+    { path: PATHS.PAPER, label: 'Paper 모의매매', active: paper },
   ];
   return (
     <Providers>
@@ -39,9 +42,9 @@ export function App() {
           ))}
         </nav>
         <p className="mt-auto rounded-xl border border-slate-800 p-4 text-xs leading-6 text-slate-400">
-          <span className="font-medium text-amber-200">PAPER · 읽기 전용</span>
+          <span className="font-medium text-amber-200">실제 주문 비활성</span>
           <br />
-          현재 화면에서 주문을 실행하지 않습니다.
+          Paper는 별도 모의 원장으로 운영합니다.
         </p>
       </aside>
       <nav aria-label="모바일 주 메뉴" className="flex gap-3 border-b border-slate-800 px-5 py-3 text-xs xl:hidden">
@@ -57,7 +60,7 @@ export function App() {
         ))}
       </nav>
       <Suspense fallback={<p className="p-10 text-sm text-slate-400 xl:ml-56">화면을 불러오고 있습니다…</p>}>
-        {backtests ? <BacktestsPage /> : <OverviewPage />}
+        {paper ? <PaperPage /> : backtests ? <BacktestsPage /> : <OverviewPage />}
       </Suspense>
     </Providers>
   );
