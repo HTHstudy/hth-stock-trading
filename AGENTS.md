@@ -30,6 +30,9 @@
 
 - Paper 화면/API는 `docs/PAPER_DASHBOARD.md`를 따른다. 기본 비활성, loopback·전용 테스트 DB·서버 고정 계좌만 허용한다. 조회 DTO에서 계좌 ID·lease token·원본 요청/decision/감사 상세를 제거한다. 긴급 정지는 DB 정지 기록이며 정리 완료·자동 청산·재개를 의미하지 않는다. 조회로 worker를 시작하거나 사용자 DB 마이그레이션을 적용하지 않는다.
 
+- 소유자 인증은 `docs/OWNER_AUTH.md`를 따른다. 비공개 API는 인증 미설정/미로그인 시 차단하며 세션은 서버 검증 cookie로만 식별한다. 비밀번호·해시·세션을 로그/브라우저 저장소에 넣지 않는다. `.env.owner`는 서버 전용이며 등록으로 거래를 재개하지 않는다.
+- 전략 변경은 `docs/STRATEGY_SETTINGS.md`를 따른다. 전략 revision CAS·불변 변경 이력·정지/epoch를 함께 커밋한다. worker는 DB 정의/hash를 사용하고 변경 시 멈춘다. 활성 토글로 같은 봉의 주문을 재생성하지 않는다.
+
 ## 구현과 검증
 
 - TypeScript strict, 명시적인 type import, named export, kebab-case 파일명을 사용한다.

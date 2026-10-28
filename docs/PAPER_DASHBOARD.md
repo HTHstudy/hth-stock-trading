@@ -6,7 +6,7 @@
 
 계좌·현금·원가를 만들거나 전략/worker를 시작하는 조회 동작은 없다. 설정되지 않으면 **아직 연결된 모의 계좌가 없습니다**를 표시하고 가짜 잔고를 넣지 않는다. API 장애 시 마지막 수신값과 오류를 구분하고, 만료된 평가·lease를 정상 실행으로 표시하지 않는다. 프론트엔드는 금액을 표시만 하며 계산은 서버의 100자리 decimal.js 정밀도를 사용한다. 새 외부 라이브러리는 추가하지 않았다.
 
-현재 연결은 localhost의 hth_test/hth_readonly_test 전용 DB와 `paper-demo-*` 계좌로 제한한다. 실제 시세 source·일반 Paper 계좌 관리·소유자 인증·인터넷 배포·실제 주문은 후속이다. 전략 파라미터 편집/활성 토글·재개 버튼도 제공하지 않는다. 등록 활성 상태와 실행 중 상태를 구분한다.
+현재 연결은 localhost의 hth_test/hth_readonly_test 전용 DB와 `paper-demo-*` 계좌로 제한한다. [소유자 인증](OWNER_AUTH.md)과 [전략 파라미터/활성 편집](STRATEGY_SETTINGS.md)을 추가했다. 실제 시세 source·일반 Paper 계좌 관리·인터넷 배포·실제 주문은 후속이다. 재개 버튼은 제공하지 않는다. 등록 활성 상태와 실행 중 상태를 구분한다.
 
 ## API와 공개 데이터
 
@@ -27,7 +27,11 @@ GET은 read-only repeatable-read 트랜잭션으로 ledger·예약·이력을 �
 
 브라우저는 mutation을 자동 재시도하지 않는다. 성공 후 조회 캐시를 무효화한다. 응답이 불확실하면 **정지 여부를 확인하지 못했습니다**를 표시한다. 최신 상태를 조회하고 운영자가 필요하면 정지를 다시 요청한다. 클라이언트 상태만으로 성공을 꾸미거나 worker를 재개하지 않는다.
 
-API는 기존 localhost 경계를 공유한다. loopback peer·허용 Host·정확한 Origin·Sec-Fetch-Site를 검사하고 POST에는 `x-hth-dashboard: 1`을 요구한다. CORS를 공개하지 않으며 응답은 no-store/private다. production/public bind에서 Paper 대시보드 활성화를 거부한다. 이 경계는 소유자 인증의 대체물이 아니며 외부 배포 전에는 별도 인증·인가가 필요하다.
+API는 소유자 세션을 요구하며 기존 localhost 경계도 유지한다. loopback peer·허용 Host·정확한 Origin·Sec-Fetch-Site를 검사하고 POST에는 `x-hth-dashboard: 1`을 요구한다. CORS를 공개하지 않으며 응답은 no-store/private다. production/public bind에서 Paper 대시보드 활성화를 거부한다. 이 경계는 소유자 인증의 대체물이 아니며 외부 배포 전에는 별도 인증·인가가 필요하다.
+
+## 소유자 등록
+
+먼저 `corepack pnpm owner:hash`를 실행해 서버 전용 `.env.owner`를 생성하고 API를 재시작한다. 로그인 전에는 원장을 조회/정지/편집할 수 없다. [등록과 세션 수명](OWNER_AUTH.md)을 따른다.
 
 ## 실행 방법
 
@@ -56,4 +60,4 @@ corepack pnpm dev
 
 가짜 서비스 API 테스트로 기본 비활성·외부 접근/CSRF 차단·설정 검증·입력 주입 거부·정지 응답·원본 오류 제거를 확인한다. 전용 임시 DB 테스트로 부분 체결 후 현금/예약/손익 일치·내부 정보 제거·계좌 범위·50개 제한·stale/만료 표시·조회 무변경·writer 행 잠금을 기다리지 않는 snapshot 조회를 검증한다. 기존 worker/리스크/체결/백테스트 테스트도 함께 실행한다. 브라우저에서 합성 데이터 표시와 정지 → worker lease 해제·보유분 유지도 확인했다.
 
-다음은 소유자 인증·전략 설정의 영속 버전 관리와 활성 제어다. 이후 실제 시세를 읽는 source를 Paper에 연결하고 KR/US 세션·휴장·일일 기준 정책을 검증한다. 실제 broker 주문은 별도 단계다.
+소유자 인증·전략 설정의 영속 revision 관리와 활성 제어도 구현했다. 다음은 실제 시세 source의 Paper 연결과 운영 검증이다. 이후 실제 시세를 읽는 source를 Paper에 연결하고 KR/US 세션·휴장·일일 기준 정책을 검증한다. 실제 broker 주문은 별도 단계다.

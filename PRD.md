@@ -46,7 +46,7 @@
 
 자체 Paper broker, DB 주문 의도, 주문 상태 관리, 부분 체결, 동시 실행 방지, 리스크 예약, 긴급 정지, 데이터 지연·API 장애 차단, 재시작 복구와 계좌 대사. 기존 보유분 매도 방지 검증을 포함한다.
 
-진행 상태: 순수 Paper 리스크와 합성 데모에 이어 전용 DB 원장·영구 신호 dedupe·의도 선기록·계좌 잠금 안의 원자적 현금/수량 예약·정지/lease·복구 확인·감사 이력을 구현했다. 임시 DB에서 경합·중복·롤백·만료를 검증했다. 내부 모의 체결·부분 체결·중복 체결 방지·현금/소유권/원가의 원자적 반영도 구현했다. 상시 Paper 실행기와 합성 테스트 DB 전용 데모, 기본 정지·heartbeat·복구·관측 손익 갱신도 구현했다. 로컬 합성 Paper 자산·주문/체결/실패 이력 조회와 긴급 정지도 구현했다. 사용자 DB 적용·실제 시세 source·인증/전략 편집은 후속이다. [Paper 화면](docs/PAPER_DASHBOARD.md) [worker 정책](docs/PAPER_WORKER.md) [체결 모델](docs/PAPER_FILLS.md) [리스크](docs/PAPER_RISK.md), [Paper 원장](docs/PAPER_LEDGER.md)
+진행 상태: 순수 Paper 리스크와 합성 데모에 이어 전용 DB 원장·영구 신호 dedupe·의도 선기록·계좌 잠금 안의 원자적 현금/수량 예약·정지/lease·복구 확인·감사 이력을 구현했다. 임시 DB에서 경합·중복·롤백·만료를 검증했다. 내부 모의 체결·부분 체결·중복 체결 방지·현금/소유권/원가의 원자적 반영도 구현했다. 상시 Paper 실행기와 합성 테스트 DB 전용 데모, 기본 정지·heartbeat·복구·관측 손익 갱신도 구현했다. 로컬 합성 Paper 자산·주문/체결/실패 이력 조회와 긴급 정지도 구현했다. 단일 소유자 로그인·서버 세션과 전략 조건/활성의 영속 revision 관리·변경 시 정지도 구현했다. 사용자 DB 적용·실제 시세 source·외부 배포는 후속이다. [인증](docs/OWNER_AUTH.md), [전략 설정](docs/STRATEGY_SETTINGS.md) [Paper 화면](docs/PAPER_DASHBOARD.md) [worker 정책](docs/PAPER_WORKER.md) [체결 모델](docs/PAPER_FILLS.md) [리스크](docs/PAPER_RISK.md), [Paper 원장](docs/PAPER_LEDGER.md)
 
 ### Phase 4 — 관리 대시보드
 

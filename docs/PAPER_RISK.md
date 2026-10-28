@@ -53,4 +53,4 @@ corepack pnpm risk:demo --output=../../.local-data/risk/risk-demo.json
 
 ## 다음 작업
 
-Paper 계좌·전략·order intent·reservation·control과 영구 중복 키를 구현하고 마이그레이션을 생성했다. 전용 임시 DB에서 동시 예약·정지/lease·복구 조건과 rollback을 검증했다. 내부 Paper 체결·부분 체결·현금/소유권/원가 반영을 추가했다. 상시 worker 복구·관측 갱신은 합성 데이터로 구현했고 로컬 합성 Paper 조회/정지 UI도 추가했으며 다음은 소유자 인증·전략 설정 관리와 실제 시세 source다. 사용자 DB 적용은 검토 후 별도로 수행하며 실제 broker 주문은 계속 비활성으로 둔다.
+Paper 계좌·전략·order intent·reservation·control과 영구 중복 키를 구현하고 마이그레이션을 생성했다. 전용 임시 DB에서 동시 예약·정지/lease·복구 조건과 rollback을 검증했다. 내부 Paper 체결·부분 체결·현금/소유권/원가 반영을 추가했다. 상시 worker 복구·관측 갱신은 합성 데이터로 구현했고 로컬 합성 Paper 조회/정지 UI도 추가했으며 소유자 인증·전략 조건/revision 관리도 추가했고 다음은 실제 시세 source 검증이다. 사용자 DB 적용은 검토 후 별도로 수행하며 실제 broker 주문은 계속 비활성으로 둔다.

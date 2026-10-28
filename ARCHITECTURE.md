@@ -49,7 +49,7 @@ database → contracts, trading (트랜잭션 안의 순수 리스크 재평가)
 contracts → zod
 ```
 
-현재 앱은 실제 사용하는 의존성만 선언한다. 위 그림은 허용되는 방향이며 모든 연결이 구현되었다는 의미가 아니다. 전략은 broker·database를 import할 수 없다. Paper repository는 계좌 행 잠금과 자원 저장 사이에 순수 리스크 함수를 호출하며 트랜잭션 안에서 외부 API를 호출하지 않는다. 내부 Paper 체결은 같은 트랜잭션에서 순수 정산 함수를 호출한다. Paper 실행 루프는 `apps/worker`의 별도 entrypoint로 연결했다. API는 서버 고정 합성 계좌의 비공개 정보를 제거한 DTO와 정지 요청만 제공하며, web의 Paper page가 TanStack Query로 조회/정지를 조립한다. DB 조회는 read-only repeatable-read snapshot으로 worker 행 잠금을 기다리지 않는다. broker 주문과 실제 시세 source는 후속이다.
+현재 앱은 실제 사용하는 의존성만 선언한다. 위 그림은 허용되는 방향이며 모든 연결이 구현되었다는 의미가 아니다. 전략은 broker·database를 import할 수 없다. Paper repository는 계좌 행 잠금과 자원 저장 사이에 순수 리스크 함수를 호출하며 트랜잭션 안에서 외부 API를 호출하지 않는다. 내부 Paper 체결은 같은 트랜잭션에서 순수 정산 함수를 호출한다. Paper 실행 루프는 `apps/worker`의 별도 entrypoint로 연결했다. API는 서버 고정 합성 계좌의 비공개 정보를 제거한 DTO와 정지 요청만 제공하며, web의 Paper page가 TanStack Query로 조회/정지를 조립한다. DB 조회는 read-only repeatable-read snapshot으로 worker 행 잠금을 기다리지 않는다. 단일 소유자 인증은 API 메모리 세션과 서버 전용 scrypt 해시로 처리한다. app의 인증 gate가 비공개 page를 제어한다. 전략 정의/revision/불변 이력은 DB에 저장하고 worker가 같은 정의/hash를 검증한다. broker 주문과 실제 시세 source·외부 배포는 후속이다.
 
 ## 3. 주요 기술 선택
 
@@ -78,7 +78,7 @@ TanStack Query v5는 조회 캐시·오류·새로고침 상태, Lightweight Cha
 
 `src/app`은 Query Provider·전역 스타일·앱 조립, `src/pages`는 화면 단위 slice, `src/shared`는 범용 UI·환경설정·경로다. 앱 간 계약 패키지는 `@hth/contracts`로 명명해 앱 내부 shared와 구분한다. 같은 slice 내부는 상대경로, 다른 레이어는 alias를 사용한다. 서버 상태는 TanStack Query v5로 관리하고 차트는 client에서 지연 로딩한다. 공개 환경변수 `VITE_*`에는 비밀을 넣지 않는다. 브라우저는 Vite `/api` 프록시를 통해 Fastify와 통신한다.
 
-현재 개발용 대시보드는 loopback IP·허용 Host/Origin·Sec-Fetch-Site를 검사하고 변경 요청에 전용 헤더를 요구한다. production 또는 공개 bind에서는 활성화를 거부한다. 로컬 OS 사용자만 신뢰하며 사용자별 로그인은 아직 없으므로 이 경계를 인터넷 인증으로 대체 해석하지 않는다. Vercel 배포 전에 OIDC/세션·TLS·외부 프록시를 구현한다.
+현재 개발용 대시보드는 loopback IP·허용 Host/Origin·Sec-Fetch-Site를 검사하고 변경 요청에 전용 헤더를 요구한다. production 또는 공개 bind에서는 활성화를 거부한다. 단일 소유자 로그인과 서버 세션을 추가했으며 로컬 컴퓨터의 신뢰 경계를 유지한다. 이 구성을 인터넷 인증/배포로 대체 해석하지 않는다. Vercel 공개 배포 전에 HTTPS·Secure cookie·외부 프록시와 세션 운영 경계를 검증한다.
 
 ## 6. 운영·보안
 

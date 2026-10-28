@@ -81,6 +81,8 @@ stateDiagram-v2
 
 Paper 대시보드는 `docs/PAPER_DASHBOARD.md`의 localhost·테스트 DB 경계와 고정 계좌 DTO를 따른다. 조회는 자원/제어를 변경하지 않는다. 정지는 먼저 커밋된 제어 epoch로 이후 실행을 무효화하며 이미 체결한 보유분은 보존한다. UI 응답을 잔량 정리 완료로 해석하지 않는다.
 
+소유자 인증은 `docs/OWNER_AUTH.md`의 단일 서버 cookie 세션을 따른다. 전략 변경은 `docs/STRATEGY_SETTINGS.md`의 per-strategy revision CAS와 불변 이력을 사용하며 계좌 정지/epoch를 함께 커밋한다. 저장 정의와 신호의 revision/hash를 예약·체결에서 검사한다. 비활성/재활성으로 동일 봉 중복 키를 바꾸지 않는다.
+
 ## 5. DB 스키마 계획
 
 | 테이블                                   | 주요 데이터와 제약                                  | 현재 상태   |
