@@ -16,6 +16,7 @@
     "data:backfill": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker data:backfill",
     "data:export": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker data:export",
     "backtest:run": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker backtest:run",
+    "risk:demo": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker risk:demo",
     "build:packages": "corepack pnpm -r --filter './packages/*' build",
     "build": "corepack pnpm -r build",
     "typecheck": "corepack pnpm build:packages && corepack pnpm -r typecheck && tsc -p tsconfig.tools.json",
