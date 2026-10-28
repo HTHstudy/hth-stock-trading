@@ -9,6 +9,19 @@ export {
 export type { DashboardSnapshot, DashboardState, DashboardErrorCode } from './dashboard.js';
 export { dataBlockerSchema, marketDataQualitySchema } from './market-data.js';
 export type { DataBlocker, MarketDataQuality } from './market-data.js';
+export {
+  historicalCandleSchema,
+  historicalRequestSchema,
+  historicalObservationSchema,
+  historicalCalendarSchema,
+  historicalDatasetSchema,
+} from './historical.js';
+export type {
+  HistoricalRequest,
+  HistoricalObservation,
+  HistoricalCalendarObservation,
+  HistoricalDataset,
+} from './historical.js';
 
 export const marketSchema = z.enum(['KR', 'US']);
 export const currencySchema = z.enum(['KRW', 'USD']);
