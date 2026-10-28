@@ -1,3 +1,4 @@
+import { notifyUnauthorized } from '@shared/lib/auth-events';
 import { ENV } from '@shared/config/env';
 
 export async function backtestsRequest(path: string, signal?: AbortSignal): Promise<unknown> {
@@ -7,6 +8,7 @@ export async function backtestsRequest(path: string, signal?: AbortSignal): Prom
     credentials: 'same-origin',
     signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
   });
+  notifyUnauthorized(response.status);
   if (!response.ok)
     throw new Error(
       response.status === 404

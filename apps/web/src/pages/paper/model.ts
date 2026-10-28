@@ -38,7 +38,7 @@ const codeLabels: Record<string, string> = {
   DUPLICATE_BUY: '기존 보유·매수 예약',
   DATA_NOT_READY: '시장 데이터 확인 필요',
   SOURCE_UNHEALTHY: '시세 수집 이상',
-  SIGNAL_NOT_CURRENT: '신호 봉 변경',
+  SIGNAL_NOT_CURRENT: '신호·설정 버전 변경',
   EMERGENCY_STOP: '긴급 정지',
   STRATEGY_DISABLED: '전략 비활성',
   WORKER_RECOVERY: '재시작 복구',
@@ -51,6 +51,7 @@ const codeLabels: Record<string, string> = {
   PAPER_FILL_DATA_NOT_READY: '체결 데이터 확인 필요',
   PAPER_DAILY_LOSS_LIMIT: '일일 손실 한도',
   PAPER_BASIS_MISMATCH: '전략 원가 확인 필요',
+  PAPER_STRATEGY_CONFIG_MISMATCH: '저장된 전략 조건과 불일치',
 };
 export function eventLabel(kind: string) {
   return eventLabels[kind] ?? '기타 원장 이벤트';

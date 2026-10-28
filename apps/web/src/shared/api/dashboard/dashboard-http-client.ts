@@ -1,3 +1,4 @@
+import { notifyUnauthorized } from '@shared/lib/auth-events';
 import { ENV } from '@shared/config/env';
 
 export async function dashboardRequest(path: string, method: 'GET' | 'POST', signal?: AbortSignal): Promise<unknown> {
@@ -10,6 +11,7 @@ export async function dashboardRequest(path: string, method: 'GET' | 'POST', sig
     headers: { 'Content-Type': 'application/json', 'X-HTH-Dashboard': '1' },
     ...(method === 'POST' ? { body: '{}' } : {}),
   });
+  notifyUnauthorized(response.status);
   if (!response.ok) throw new Error(response.status === 429 ? 'REFRESH_NOT_AVAILABLE' : 'DASHBOARD_UNAVAILABLE');
   return response.json();
 }

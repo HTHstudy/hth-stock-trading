@@ -4,11 +4,14 @@ import { PAPER_API } from '@shared/api/paper';
 import { formatDecimal, formatMoney, formatTime, profitClass } from '@shared/lib/format';
 import { PaperHistory } from './history';
 import type { HistoryTab } from './history';
+import { StrategyEditor } from './strategy-editor';
 
 const queryKey = ['paper-dashboard'] as const;
 const buttonFocus = 'focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal-300';
 export function PaperPage() {
   const [tab, setTab] = useState<HistoryTab>('orders');
+  const [editing, setEditing] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
   const client = useQueryClient();
   const query = useQuery({
     queryKey,
@@ -59,6 +62,14 @@ export function PaperPage() {
         합성 데이터로 검증하는 모의 거래입니다. 표시된 금액과 성과는 실제 투자 결과가 아닙니다. 긴급 정지는 모의 실행만
         멈추며 보유 주식을 자동 매도하지 않습니다.
       </p>
+      {saved && (
+        <p
+          role="status"
+          className="mb-5 rounded-xl border border-teal-300/20 bg-teal-300/5 px-5 py-4 text-xs text-teal-200"
+        >
+          전략 설정을 저장하고 모의 실행을 정지했습니다. 재개 시 저장된 조건을 사용합니다.
+        </p>
+      )}
       {stop.isSuccess && (
         <p
           role="status"
@@ -241,7 +252,26 @@ export function PaperPage() {
                     <span className="text-xs font-medium">{strategy.id}</span>
                     <span className="ml-3 text-[11px] text-slate-500">
                       v{strategy.version} · {strategy.enabled ? '등록 활성' : '비활성'}
+                      {' · 리비전 '}
+                      {strategy.revision}
                     </span>
+                    {strategy.definition && (
+                      <p className="mt-2 text-[11px] text-slate-500">
+                        {strategy.definition.instrument.market} · {strategy.definition.instrument.symbol} · MA{' '}
+                        {strategy.definition.parameters.fastPeriod}/{strategy.definition.parameters.slowPeriod} · 주문{' '}
+                        {strategy.definition.quantity}주 / 체결 최대 {strategy.definition.maxFillQuantity}주
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditing(strategy.id);
+                        setSaved(false);
+                      }}
+                      className="mt-3 block rounded-md border border-slate-700 px-3 py-2 text-[11px] text-teal-200 hover:bg-slate-800"
+                    >
+                      설정 · 활성 관리
+                    </button>
                   </div>
                 ))
               ) : (
@@ -251,6 +281,19 @@ export function PaperPage() {
             <p className="mt-3 text-[11px] text-slate-500">
               전략이 등록 활성 상태여도 실행 제어가 정지되어 있으면 거래하지 않습니다.
             </p>
+            {snapshot.strategies
+              .filter((strategy) => strategy.id === editing)
+              .map((strategy) => (
+                <StrategyEditor
+                  key={strategy.id}
+                  strategy={strategy}
+                  onClose={() => setEditing(null)}
+                  onSaved={() => {
+                    setSaved(true);
+                    setEditing(null);
+                  }}
+                />
+              ))}
           </section>
           <section className="mt-6 overflow-hidden rounded-2xl border border-slate-800 bg-[#0d1424]">
             <div className="flex flex-wrap gap-1 px-3 pt-3" aria-label="원장 이력 선택">
