@@ -1,5 +1,5 @@
 import type { DataBlocker, MarketDataQuality } from '@shared/api/dashboard';
-import { formatTime } from './format';
+import { formatTime } from '@shared/lib/format';
 
 const explanations: Record<DataBlocker, string> = {
   INVALID_DATA: '데이터 형식·순서 불일치',

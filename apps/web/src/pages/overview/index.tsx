@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DASHBOARD_API } from '@shared/api/dashboard';
-import { formatDecimal, formatMoney, formatTime, profitClass } from './format';
+import { formatDecimal, formatMoney, formatTime, profitClass } from '@shared/lib/format';
 import { DataQualityPanel } from './data-quality';
 
 const PriceChart = lazy(() => import('./price-chart').then((module) => ({ default: module.PriceChart })));
@@ -57,32 +57,6 @@ export function OverviewPage() {
 
   return (
     <div className="min-h-screen bg-[#0b1120] text-slate-200">
-      <aside className="fixed inset-y-0 left-0 hidden w-56 flex-col border-r border-slate-800/80 bg-[#0d1424] px-5 py-8 xl:flex">
-        <a href="#overview" className="flex items-center gap-3 text-lg font-bold tracking-tight">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-teal-300 text-sm text-slate-950">H</span> HTH
-          Trading
-        </a>
-        <p className="mt-10 px-3 text-[10px] font-semibold tracking-[0.2em] text-slate-500">WORKSPACE</p>
-        <nav className="mt-4 space-y-2 text-sm" aria-label="주 메뉴">
-          <a
-            href="#overview"
-            className="flex items-center gap-3 rounded-lg bg-teal-300/10 px-3 py-3 font-medium text-teal-200"
-          >
-            <span>◫</span> 대시보드
-          </a>
-          <a href="#holdings" className="block rounded-lg px-3 py-3 text-slate-400 hover:bg-slate-800">
-            보유 종목
-          </a>
-          <a href="#watchlist" className="block rounded-lg px-3 py-3 text-slate-400 hover:bg-slate-800">
-            관심 종목 · 차트
-          </a>
-        </nav>
-        <div className="mt-auto rounded-xl border border-slate-800 p-4 text-xs leading-6 text-slate-400">
-          <span className="font-medium text-amber-200">읽기 전용</span>
-          <br />
-          현재 화면에서 주문을 실행하지 않습니다.
-        </div>
-      </aside>
       <main id="overview" className="mx-auto max-w-[1600px] px-5 py-7 sm:px-9 xl:ml-56 xl:px-10">
         <header className="flex flex-wrap items-center justify-between gap-5 border-b border-slate-800/80 pb-7">
           <div>

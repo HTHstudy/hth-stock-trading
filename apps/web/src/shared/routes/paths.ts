@@ -1,1 +1,1 @@
-export const PATHS = { HOME: '/' } as const;
+export const PATHS = { HOME: '#overview', BACKTESTS: '#backtests' } as const;
