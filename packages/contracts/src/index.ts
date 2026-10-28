@@ -17,6 +17,22 @@ export {
 } from './backtest.js';
 export type { MovingAverageConfig, BacktestConfig } from './backtest.js';
 export {
+  paperRiskLimitsSchema,
+  paperControlSchema,
+  paperOrderCandidateSchema,
+  paperRiskSnapshotSchema,
+  paperRiskInputSchema,
+  riskBlockerSchema,
+} from './risk.js';
+export type {
+  PaperRiskLimits,
+  PaperControl,
+  PaperOrderCandidate,
+  PaperRiskSnapshot,
+  PaperRiskInput,
+  RiskBlocker,
+} from './risk.js';
+export {
   reportHashSchema,
   backtestArtifactSchema,
   backtestSummarySchema,

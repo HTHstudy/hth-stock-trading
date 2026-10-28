@@ -9,3 +9,6 @@ export type { Strategy, StrategyContext, StrategySignal } from './strategy/types
 export { movingAverageCross } from './strategy/moving-average.js';
 export { runBacktest } from './backtest/engine.js';
 export type { BacktestReport, BacktestSignal, BacktestFill, EquityPoint, ClosedTrade } from './backtest/engine.js';
+export { evaluatePaperRisk, isPaperRiskCurrent } from './risk/evaluate.js';
+export type { RiskDecision } from './risk/evaluate.js';
+export { initialPaperControl, stopPaperControl } from './risk/control.js';

@@ -1,0 +1,108 @@
+{
+  "asOf": "2026-03-25T10:03:00+09:00",
+  "candidate": {
+    "mode": "paper",
+    "accountId": "synthetic-account",
+    "intentId": "synthetic-intent-1",
+    "strategyId": "synthetic-ma",
+    "instrument": { "market": "KR", "symbol": "005930" },
+    "side": "BUY",
+    "quantity": "10",
+    "limitPrice": "1000"
+  },
+  "limits": {
+    "KRW": {
+      "maxOrderAmount": "100000",
+      "maxInstrumentAmount": "200000",
+      "maxDailyLoss": "10000",
+      "buyCostBps": "10",
+      "sellCostBps": "30"
+    },
+    "USD": {
+      "maxOrderAmount": "100",
+      "maxInstrumentAmount": "200",
+      "maxDailyLoss": "50",
+      "buyCostBps": "10",
+      "sellCostBps": "30"
+    },
+    "maxPositions": 2
+  },
+  "control": { "mode": "paper", "stopped": true, "epoch": 0, "reason": "INITIAL_STOP" },
+  "snapshot": {
+    "mode": "paper",
+    "accountId": "synthetic-account",
+    "version": 0,
+    "observedAt": "2026-03-25T10:03:00+09:00",
+    "reconciled": true,
+    "cash": { "KRW": "1000000", "USD": "1000" },
+    "positions": [],
+    "reservations": [],
+    "dailyPnl": {
+      "KRW": { "tradingDate": "2026-03-25", "netPnl": "0" },
+      "USD": { "tradingDate": "2026-03-24", "netPnl": "0" }
+    }
+  },
+  "runtime": {
+    "workerOwned": true,
+    "sourcesHealthy": true,
+    "hasUnknownOrders": false,
+    "strategyEnabled": true,
+    "dedupeClear": true
+  },
+  "quote": {
+    "instrument": { "market": "KR", "symbol": "005930" },
+    "price": "1000",
+    "timestamp": "2026-03-25T10:03:00+09:00",
+    "observedAt": "2026-03-25T10:03:00+09:00"
+  },
+  "marketData": {
+    "nxtSupported": false,
+    "restricted": false,
+    "candles": [
+      {
+        "instrument": { "market": "KR", "symbol": "005930" },
+        "interval": "1m",
+        "timestamp": "2026-03-25T10:02:00+09:00",
+        "tradingDate": "2026-03-25",
+        "open": "1000",
+        "high": "1000",
+        "low": "1000",
+        "close": "1000",
+        "volume": "10",
+        "currency": "KRW",
+        "adjusted": false,
+        "source": "synthetic-risk-v1",
+        "isClosed": false
+      }
+    ],
+    "candlesObservedAt": "2026-03-25T10:03:00+09:00",
+    "calendar": {
+      "today": {
+        "market": "KR",
+        "tradingDate": "2026-03-25",
+        "sessionsKnown": true,
+        "sessions": [
+          { "type": "regular", "startsAt": "2026-03-25T09:00:00+09:00", "endsAt": "2026-03-25T15:30:00+09:00" }
+        ]
+      },
+      "previousBusinessDay": {
+        "market": "KR",
+        "tradingDate": "2026-03-24",
+        "sessionsKnown": true,
+        "sessions": [
+          { "type": "regular", "startsAt": "2026-03-24T09:00:00+09:00", "endsAt": "2026-03-24T15:30:00+09:00" }
+        ]
+      },
+      "nextBusinessDay": {
+        "market": "KR",
+        "tradingDate": "2026-03-26",
+        "sessionsKnown": true,
+        "sessions": [
+          { "type": "regular", "startsAt": "2026-03-26T09:00:00+09:00", "endsAt": "2026-03-26T15:30:00+09:00" }
+        ]
+      }
+    },
+    "calendarObservedAt": "2026-03-25T10:03:00+09:00",
+    "exchangeRate": { "validFrom": "2026-03-25T09:00:00+09:00", "validUntil": "2026-03-25T18:00:00+09:00" }
+  }
+}
