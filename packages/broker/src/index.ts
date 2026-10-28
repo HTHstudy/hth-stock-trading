@@ -1,4 +1,5 @@
-import type { Candle, Currency, DecimalString, InstrumentId, Market, Money } from '@hth/contracts';
+import type { Candle, Currency, DecimalString, InstrumentId, Market, MarketCalendar, Money } from '@hth/contracts';
+export type { MarketSession, MarketDay, MarketCalendar } from '@hth/contracts';
 
 export interface BrokerAccount {
   readonly reference: string;
@@ -29,6 +30,7 @@ export interface BrokerInstrument {
   readonly status: string;
   readonly krxTradingSuspended: boolean | null;
   readonly nxtTradingSuspended: boolean | null;
+  readonly nxtSupported: boolean | null;
 }
 
 export interface ExchangeRate {
@@ -38,25 +40,6 @@ export interface ExchangeRate {
   readonly midRate: DecimalString;
   readonly validFrom: string;
   readonly validUntil: string;
-}
-
-export interface MarketSession {
-  readonly type: 'day' | 'pre' | 'regular' | 'after';
-  readonly startsAt: string;
-  readonly endsAt: string;
-}
-
-export interface MarketDay {
-  readonly market: Market;
-  readonly tradingDate: string;
-  readonly sessions: readonly MarketSession[];
-  readonly sessionsKnown: boolean;
-}
-
-export interface MarketCalendar {
-  readonly today: MarketDay;
-  readonly previousBusinessDay: MarketDay;
-  readonly nextBusinessDay: MarketDay;
 }
 
 export interface CandleQuery {

@@ -50,6 +50,7 @@ export const instrumentsDto = z.object({
       koreanMarketDetail: z
         .object({
           krxTradingSuspended: z.boolean(),
+          nxtSupported: z.boolean().optional(),
           nxtTradingSuspended: z.boolean().nullish(),
         })
         .nullish(),

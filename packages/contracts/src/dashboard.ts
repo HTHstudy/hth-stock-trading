@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { marketDataQualitySchema } from './market-data.js';
 
 const decimal = z.string().regex(/^-?\d+(\.\d+)?$/);
 const instant = z.iso.datetime({ offset: true });
@@ -6,6 +7,7 @@ const market = z.enum(['KR', 'US']);
 const currency = z.enum(['KRW', 'USD']);
 
 export const dashboardSnapshotSchema = z.object({
+  dataQuality: marketDataQualitySchema.optional(),
   collectedAt: instant,
   accountCount: z.number().int().nonnegative(),
   portfolios: z

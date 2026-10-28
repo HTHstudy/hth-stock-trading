@@ -7,6 +7,8 @@ export {
   dashboardWorkerMessageSchema,
 } from './dashboard.js';
 export type { DashboardSnapshot, DashboardState, DashboardErrorCode } from './dashboard.js';
+export { dataBlockerSchema, marketDataQualitySchema } from './market-data.js';
+export type { DataBlocker, MarketDataQuality } from './market-data.js';
 
 export const marketSchema = z.enum(['KR', 'US']);
 export const currencySchema = z.enum(['KRW', 'USD']);
@@ -26,6 +28,25 @@ export interface InstrumentId {
 export interface Money {
   readonly amount: DecimalString;
   readonly currency: Currency;
+}
+
+export interface MarketSession {
+  readonly type: 'day' | 'pre' | 'regular' | 'after';
+  readonly startsAt: string;
+  readonly endsAt: string;
+}
+
+export interface MarketDay {
+  readonly market: Market;
+  readonly tradingDate: string;
+  readonly sessions: readonly MarketSession[];
+  readonly sessionsKnown: boolean;
+}
+
+export interface MarketCalendar {
+  readonly today: MarketDay;
+  readonly previousBusinessDay: MarketDay;
+  readonly nextBusinessDay: MarketDay;
 }
 
 export interface Candle {

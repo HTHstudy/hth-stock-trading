@@ -216,6 +216,7 @@ export function createTossReadonlyBroker(options: TossOptions): ReadonlyBroker {
           status: item.status,
           krxTradingSuspended: item.koreanMarketDetail?.krxTradingSuspended ?? null,
           nxtTradingSuspended: item.koreanMarketDetail?.nxtTradingSuspended ?? null,
+          nxtSupported: item.koreanMarketDetail?.nxtSupported ?? null,
         };
       });
     },
