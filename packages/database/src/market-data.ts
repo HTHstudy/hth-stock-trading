@@ -1,7 +1,8 @@
 import type { Candle } from '@hth/contracts';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type * as schema from './schema.js';
-import { candles, instruments } from './schema.js';
+import { candleRevisions, candles, instruments } from './schema.js';
+import { candleRevision } from './content-hash.js';
 
 export interface MarketDataBatch {
   readonly instrument: {
@@ -53,6 +54,18 @@ export function createMarketDataStore(db: NodePgDatabase<typeof schema>) {
             .returning({ id: instruments.id });
           if (!instrument) throw new Error('INSTRUMENT_SAVE_FAILED');
           for (const candle of batch.candles) {
+            const revision = candleRevision(candle);
+            await transaction
+              .insert(candleRevisions)
+              .values({
+                instrumentId: instrument.id,
+                interval: candle.interval,
+                timestamp: candle.timestamp,
+                adjusted: candle.adjusted,
+                source: candle.source,
+                ...revision,
+              })
+              .onConflictDoNothing();
             const values = {
               instrumentId: instrument.id,
               interval: candle.interval,

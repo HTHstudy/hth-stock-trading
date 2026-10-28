@@ -4,6 +4,7 @@ import {
   check,
   date,
   numeric,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -11,6 +12,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import type { HistoricalDataset } from '@hth/contracts';
 
 export const marketEnum = pgEnum('market', ['KR', 'US']);
 export const currencyEnum = pgEnum('currency', ['KRW', 'USD']);
@@ -67,4 +69,43 @@ export const candles = pgTable(
       sql`${table.low} >= 0 AND ${table.high} >= ${table.low} AND ${table.open} BETWEEN ${table.low} AND ${table.high} AND ${table.close} BETWEEN ${table.low} AND ${table.high} AND ${table.volume} >= 0`,
     ),
   ],
+);
+
+export const candleRevisions = pgTable(
+  'candle_revisions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    instrumentId: uuid('instrument_id')
+      .notNull()
+      .references(() => instruments.id),
+    interval: intervalEnum('interval').notNull(),
+    timestamp: timestamp('timestamp', { withTimezone: true, mode: 'string' }).notNull(),
+    adjusted: boolean('adjusted').notNull(),
+    source: text('source').notNull(),
+    valueHash: text('value_hash').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('candle_revisions_identity_idx').on(
+      table.instrumentId,
+      table.interval,
+      table.timestamp,
+      table.adjusted,
+      table.source,
+      table.valueHash,
+    ),
+    check('candle_revisions_hash_check', sql`${table.valueHash} ~ '^[a-f0-9]{64}$'`),
+  ],
+);
+
+export const historicalDatasets = pgTable(
+  'historical_datasets',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    contentHash: text('content_hash').notNull().unique(),
+    payload: jsonb('payload').$type<HistoricalDataset>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  },
+  (table) => [check('historical_datasets_hash_check', sql`${table.contentHash} ~ '^[a-f0-9]{64}$'`)],
 );
