@@ -44,6 +44,8 @@ Strategy는 버전·설정과 닫힌 캔들·해당 전략 소유 수량을 입�
 
 ## 4. 주문 의도·상태·대사
 
+현재 Paper 전용으로 INTENT_RECORDED·READY·RISK_REJECTED·ABORTED와 영구 dedupe, 계좌 행 잠금 안의 리스크 재평가·예약/해제·정지·worker lease·복구 확인을 구현했다. [Paper 원장](docs/PAPER_LEDGER.md)을 따른다. 아래 SUBMITTING 이후 전송·체결·대사는 아직 구현하지 않았다.
+
 ```mermaid
 stateDiagram-v2
   [*] --> INTENT_RECORDED
@@ -79,22 +81,25 @@ stateDiagram-v2
 
 ## 5. DB 스키마 계획
 
-| 테이블                            | 주요 데이터와 제약                                  | 현재 상태   |
-| --------------------------------- | --------------------------------------------------- | ----------- |
-| instruments                       | market+symbol unique, currency, name                | 기본 스키마 |
-| candles                           | 복합 unique, OHLCV, 수집시각, adjusted, source      | 기본 스키마 |
-| candle_revisions                  | 정규화된 값 hash, 원본 가격 추가 이력, 변경 차단    | 구현        |
-| historical_datasets               | 관측·캘린더·종료 증거·선택 봉, content hash         | 구현        |
-| accounts / cash_snapshots         | broker 계좌 참조, mode·currency별 잔고·수집시각     | 설계        |
-| strategy_runs                     | 전략/버전/설정, 활성화, 실행 mode                   | 설계        |
-| signals                           | 전략·종목·봉·신호 unique                            | 설계        |
-| order_intents / order_attempts    | 영구 dedupe key, 상태/version, 요청 hash, broker ID | 설계        |
-| order_events / executions         | broker 누적량·대금·수수료, 이벤트 중복 키           | 설계        |
-| position_ownership / reservations | 수동/자동 소유권, 예약 수량·현금, strategyRun       | 설계        |
-| trading_controls / risk_limits    | singleton 긴급 정지, epoch, 기본 true, 통화별 한도  | 설계        |
-| market_sessions / fx_rates        | 거래일·세션·source·timestamp                        | 설계        |
-| backtest_runs / equity_points     | 버전·설정·비용·지표와 곡선                          | 설계        |
-| audit_events / worker_leases      | 실패·설정 변경·heartbeat·독점 실행                  | 설계        |
+| 테이블                                   | 주요 데이터와 제약                                  | 현재 상태   |
+| ---------------------------------------- | --------------------------------------------------- | ----------- |
+| instruments                              | market+symbol unique, currency, name                | 기본 스키마 |
+| candles                                  | 복합 unique, OHLCV, 수집시각, adjusted, source      | 기본 스키마 |
+| candle_revisions                         | 정규화된 값 hash, 원본 가격 추가 이력, 변경 차단    | 구현        |
+| historical_datasets                      | 관측·캘린더·종료 증거·선택 봉, content hash         | 구현        |
+| paper_accounts / paper_strategies        | Paper 잔고·소유권, 정지/lease/한도, 전략 활성       | 구현        |
+| paper_order_intents / paper_reservations | 영구 신호 키·불변 요청·상태, 원자적 예약/해제       | 구현        |
+| paper_events                             | Paper 제어·예약·거부·복구 감사 이력, 변경 차단      | 구현        |
+| accounts / cash_snapshots                | broker 계좌 참조, mode·currency별 잔고·수집시각     | 설계        |
+| strategy_runs                            | 전략/버전/설정, 활성화, 실행 mode                   | 설계        |
+| signals                                  | 전략·종목·봉·신호 unique                            | 설계        |
+| order_intents / order_attempts           | 영구 dedupe key, 상태/version, 요청 hash, broker ID | 설계        |
+| order_events / executions                | broker 누적량·대금·수수료, 이벤트 중복 키           | 설계        |
+| position_ownership / reservations        | 수동/자동 소유권, 예약 수량·현금, strategyRun       | 설계        |
+| trading_controls / risk_limits           | singleton 긴급 정지, epoch, 기본 true, 통화별 한도  | 설계        |
+| market_sessions / fx_rates               | 거래일·세션·source·timestamp                        | 설계        |
+| backtest_runs / equity_points            | 버전·설정·비용·지표와 곡선                          | 설계        |
+| audit_events / worker_leases             | 실패·설정 변경·heartbeat·독점 실행                  | 설계        |
 
 Paper와 Live 원장은 모든 unique key에서 mode로 분리한다. API 토큰·client secret은 이 업무 스키마에 저장하지 않는다. 추후 토큰을 영속화할 경우 암호화·접근 제한·발급 소유권을 별도로 설계한다. 마이그레이션은 검토 후 배포 작업으로 수행하며 서버 시작 시 자동 적용하지 않는다.
 

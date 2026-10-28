@@ -4,7 +4,7 @@
 
 `evaluatePaperRisk`는 명시적으로 전달한 검사 시각·Paper 주문 후보·한도·정지 상태·계좌 원장 snapshot·시장 데이터에서 예약 가능 여부를 계산한다. 순수 함수이며 broker·DB·현재 시스템 시각·로그에 의존하지 않는다. 외부 입력은 Zod로 검증하고 실패 시 `canReserve=false`를 반환한다. 결과의 `executionEnabled`는 항상 false다.
 
-이 결과는 **DB 예약이나 주문 실행 승인 자체가 아니다.** 현재 실제 계좌·상시 worker·HTTP 실행 경로에 연결하지 않았다. DB 원장·동시 예약·영구 dedupe·체결·복구·운영용 긴급 정지 버튼은 후속 작업이다. 기존 백테스트 체결 엔진에도 이 검사를 자동 적용하지 않았으므로 이전 리포트가 새 정책을 통과했다고 주장하지 않는다.
+이 결과는 **DB 예약이나 주문 실행 승인 자체가 아니다.** 이후 [Paper 원장](PAPER_LEDGER.md)에 연결해 잠금 안의 재평가·동시 예약·영구 dedupe·정지/lease·복구 조건을 구현했다. 실제 계좌·상시 worker·HTTP 실행·체결·운영용 긴급 정지 버튼은 후속이다. 기존 백테스트 체결 엔진에도 이 검사를 자동 적용하지 않았으므로 이전 리포트가 새 정책을 통과했다고 주장하지 않는다.
 
 ## 계좌·소유권·통화 계약
 
@@ -35,11 +35,11 @@
 
 결과에는 검사 시각, 가장 빠른 유효시간, controlEpoch, snapshotVersion, 계좌·주문 내용과 예약 후보를 묶는다. 계좌/quote/캘린더/캔들/환율/정규장 종료와 요청 통화 보유분 mark의 만료 중 가장 이른 시각 이후에는 사용할 수 없다. 내부 결과에 계좌 범위가 있으므로 원본 전체를 로그나 공개 API에 출력하지 않는다.
 
-`initialPaperControl()`은 항상 stopped=true, epoch=0이다. `stopPaperControl`은 입력을 변경하지 않고 stopped=true와 증가한 epoch를 반환한다. 안전 정수 상한에서는 정지를 유지하고 추가 승인을 차단한다. 자동 해제 함수는 제공하지 않는다. 미래 운영 계층에서 정지와 설정 변경을 DB에 영속화하고, 복구·한도·작업 소유권 재검증 후 명시적인 해제를 구현해야 한다. 데모의 stopped=false는 가짜 정상 사례를 평가하기 위한 입력일 뿐 실행 모드 변경이 아니다.
+`initialPaperControl()`은 항상 stopped=true, epoch=0이다. `stopPaperControl`은 입력을 변경하지 않고 stopped=true와 증가한 epoch를 반환한다. 안전 정수 상한에서는 정지를 유지하고 추가 승인을 차단한다. 순수 모듈은 자동 해제를 제공하지 않는다. 이후 구현한 Paper DB 원장에서 정지·설정 변경을 영속화하고 복구·한도·lease 재검증 후 명시적으로 resume한다. 데모의 stopped=false는 가짜 정상 사례를 평가하기 위한 입력일 뿐 실행 모드 변경이 아니다.
 
 `isPaperRiskCurrent`는 시간·epoch·snapshotVersion·주문 전체 내용·계좌·전략과 최신 runtime 상태를 다시 확인한다. 중지·원장 변경·실행 장애·주문 변경 후 이전 결과를 재사용하지 않는다. 이것은 내부 순수 함수 결과의 정합성 검사이며 서명 토큰이나 외부 클라이언트의 주문 권한 검증이 아니다. 설정 변경 시에도 epoch를 올려야 한다. 새로운 quote·한도·원장 정보가 오면 전체 리스크 검사를 다시 실행한다.
 
-두 작업이 같은 snapshot을 동시에 검사하면 둘 다 canReserve=true일 수 있다. 다음 단계에서 DB transaction/계좌 행 잠금 안에서 최신 입력으로 재평가하고 version compare-and-set·영구 unique key·현금/수량 예약을 원자적으로 처리해야 한다. 여기서는 예약을 실제 기록하지 않는다.
+두 작업이 같은 snapshot을 동시에 검사하면 둘 다 canReserve=true일 수 있다. Paper DB 원장이 계좌 행 잠금 안에서 최신 입력으로 재평가하고 version compare-and-set·영구 unique key·현금/수량 예약을 원자적으로 처리한다. 이 순수 함수와 합성 CLI 자체는 예약을 기록하지 않는다.
 
 ## 오프라인 확인
 
@@ -53,4 +53,4 @@ corepack pnpm risk:demo --output=../../.local-data/risk/risk-demo.json
 
 ## 다음 작업
 
-Paper 계좌·전략·소유권·order intent·reservation·control 테이블과 영구 중복 키를 설계하고 마이그레이션을 생성한다. 전용 임시 DB에서 동시 예약·정지 경합·부분 체결 예약 해제·재시작 복구를 검증한다. 사용자 DB 적용은 검토 후 별도로 수행한다. 그다음 내부 Paper 체결을 연결하며 실제 broker 주문은 계속 비활성으로 둔다.
+Paper 계좌·전략·order intent·reservation·control과 영구 중복 키를 구현하고 마이그레이션을 생성했다. 전용 임시 DB에서 동시 예약·정지/lease·복구 조건과 rollback을 검증했다. 다음은 내부 Paper 체결·부분 체결·잔고/소유권 반영이다. 사용자 DB 적용은 검토 후 별도로 수행하며 실제 broker 주문은 계속 비활성으로 둔다.
