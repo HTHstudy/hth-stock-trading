@@ -9,6 +9,37 @@ const instruments = [
 ] as const;
 
 describe('읽기 전용 snapshot', () => {
+  it('조회 시각을 주입해 봉 종료와 종목별 차단 사유를 함께 기록한다', async () => {
+    const { broker } = createHarness();
+    vi.spyOn(broker, 'getQuotes').mockResolvedValue(
+      instruments.map((instrument) => ({
+        instrument,
+        currency: instrument.market === 'KR' ? 'KRW' : 'USD',
+        price: '72000',
+        timestamp: '2026-03-25T00:32:50Z',
+      })),
+    );
+    const exchangeRate = await broker.getExchangeRate('USD', 'KRW');
+    vi.spyOn(broker, 'getExchangeRate').mockResolvedValue({
+      ...exchangeRate,
+      validFrom: '2026-03-25T00:32:00Z',
+      validUntil: '2026-03-25T00:34:00Z',
+    });
+    const snapshot = await collectReadonlySnapshot(broker, instruments, '1m', 1, () =>
+      Date.parse('2026-03-25T00:33:00Z'),
+    );
+    expect(snapshot.dataQuality.readyCount).toBe(1);
+    expect(snapshot.dataQuality.instruments[0]).toMatchObject({
+      ready: true,
+      closedCandles: 2,
+      strategyCandles: 2,
+      validUntil: '2026-03-25T00:34:00.000Z',
+    });
+    expect(snapshot.dataQuality.instruments[1]?.blockers).toContain('MARKET_CLOSED');
+    expect(snapshot.batches[0]?.candles.every((candle) => candle.isClosed)).toBe(true);
+    expect(snapshot.batches[1]?.candles.every((candle) => !candle.isClosed)).toBe(true);
+  });
+
   it('전체 조회를 실행하고 로그용 요약에 계좌·금액을 노출하지 않는다', async () => {
     const { broker, fetcher } = createHarness();
     const snapshot = await collectReadonlySnapshot(broker, instruments, '1m', 1);

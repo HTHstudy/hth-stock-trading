@@ -114,6 +114,9 @@ importers:
       '@hth/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@hth/trading':
+        specifier: workspace:*
+        version: link:../../packages/trading
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0

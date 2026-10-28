@@ -45,6 +45,7 @@ export function createDashboardSnapshot(
     };
   });
   return dashboardSnapshotSchema.parse({
+    dataQuality: source.dataQuality,
     collectedAt,
     accountCount: source.summary.accounts,
     portfolios,

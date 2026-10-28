@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DASHBOARD_API } from '@shared/api/dashboard';
 import { formatDecimal, formatMoney, formatTime, profitClass } from './format';
+import { DataQualityPanel } from './data-quality';
 
 const PriceChart = lazy(() => import('./price-chart').then((module) => ({ default: module.PriceChart })));
 
@@ -188,6 +189,8 @@ export function OverviewPage() {
         <p className="mt-3 text-[11px] text-slate-500">
           평가액은 보유 주식 기준이며 현금을 포함하지 않습니다. 평가 손익은 수수료·세금 미반영입니다.
         </p>
+
+        <DataQualityPanel quality={snapshot?.dataQuality} now={now} />
 
         <section id="watchlist" className="mt-8 grid scroll-mt-6 gap-5 lg:grid-cols-[1fr_300px]">
           <article className="min-w-0 overflow-hidden rounded-2xl border border-slate-800 bg-[#111a2b]">

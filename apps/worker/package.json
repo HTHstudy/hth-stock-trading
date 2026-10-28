@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@hth/contracts": "workspace:*",
+    "@hth/trading": "workspace:*",
     "@hth/broker": "workspace:*",
     "@hth/database": "workspace:*",
     "zod": "^4.6.7",
