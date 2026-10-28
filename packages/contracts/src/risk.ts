@@ -55,6 +55,8 @@ const reservation = z
     remainingQuantity: positive,
     limitPrice: positive,
     costBps: bps,
+    filledNotional: amount.default('0'),
+    paidCosts: amount.default('0'),
   })
   .strict();
 const position = z

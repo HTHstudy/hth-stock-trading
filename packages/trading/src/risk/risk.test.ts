@@ -140,6 +140,8 @@ it('다른 전략의 매수 예약도 현금과 보유 종목 수에 포함한�
       remainingQuantity: '10',
       limitPrice: '1000',
       costBps: '10',
+      filledNotional: '0',
+      paidCosts: '0',
     },
   ];
   expect(evaluatePaperRisk(input).blockers).toContain('INSUFFICIENT_CASH');
@@ -169,6 +171,8 @@ it('수동 보유분은 매도할 수 없고 자기 전략의 미예약 수량�
       remainingQuantity: '7',
       limitPrice: '1000',
       costBps: '30',
+      filledNotional: '0',
+      paidCosts: '0',
     },
   ];
   expect(evaluatePaperRisk(input).blockers).toContain('INSUFFICIENT_OWNED_QUANTITY');
@@ -194,6 +198,8 @@ it('소유권 불일치·중복 종목·과다 예약은 원장 오류로 차단
       remainingQuantity: '1',
       limitPrice: '1000',
       costBps: '0',
+      filledNotional: '0',
+      paidCosts: '0',
     },
   ];
   expect(evaluatePaperRisk(input).blockers).toContain('RESERVATION_MISMATCH');
@@ -228,6 +234,26 @@ it('평가 가격·일일 손익 날짜의 신선도를 검사하고 유효시�
   expect(evaluatePaperRisk(input).blockers).toContain('POSITION_MARK_STALE');
   input.snapshot!.dailyPnl.KRW.tradingDate = '2026-03-24';
   expect(evaluatePaperRisk(input).blockers).toContain('DAILY_PNL_DATE_MISMATCH');
+});
+it('부분 체결에 이미 지불한 올림 수수료는 잔여 예약에서 다시 차감하지 않는다', () => {
+  const input = fixture();
+  input.snapshot!.cash.KRW = '10011';
+  input.snapshot!.reservations = [
+    {
+      intentId: 'partial-other',
+      strategyId: 'other',
+      instrument: { market: 'KR', symbol: '005380' },
+      side: 'BUY',
+      remainingQuantity: '1',
+      limitPrice: '1',
+      costBps: '10',
+      filledNotional: '10',
+      paidCosts: '1',
+    },
+  ];
+  expect(evaluatePaperRisk(input).canReserve).toBe(true);
+  input.snapshot!.reservations[0]!.paidCosts = '2';
+  expect(evaluatePaperRisk(input).blockers).toContain('RESERVATION_MISMATCH');
 });
 it('정지 epoch가 상한이어도 정지 상태로 전환한다', () => {
   expect(

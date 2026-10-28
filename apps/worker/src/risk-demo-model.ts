@@ -46,6 +46,8 @@ export function createRiskDemo(value: unknown) {
       remainingQuantity: '10',
       limitPrice: '1000',
       costBps: '10',
+      filledNotional: '0',
+      paidCosts: '0',
     },
   ];
   add('PENDING_CASH_RESERVED', cash);
@@ -78,6 +80,8 @@ export function createRiskDemo(value: unknown) {
       remainingQuantity: '7',
       limitPrice: '1000',
       costBps: '30',
+      filledNotional: '0',
+      paidCosts: '0',
     },
   ];
   add('PENDING_SELL_RESERVED', sellReserved);

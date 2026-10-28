@@ -22,6 +22,7 @@ export {
   paperEvidenceSchema,
   paperRecordedOrderSchema,
   paperIntentStateSchema,
+  paperFillRequestSchema,
 } from './paper-ledger.js';
 export type { PaperSignal, PaperLedgerState, PaperEvidence, PaperIntentState } from './paper-ledger.js';
 export {

@@ -23,7 +23,20 @@ export const paperEvidenceSchema = paperRiskInputSchema
 export const paperRecordedOrderSchema = z
   .object({ candidate: paperOrderCandidateSchema, signal: paperSignalSchema })
   .strict();
-export const paperIntentStateSchema = z.enum(['INTENT_RECORDED', 'READY', 'RISK_REJECTED', 'ABORTED']);
+export const paperFillRequestSchema = z
+  .object({
+    fillId: paperOrderCandidateSchema.shape.intentId,
+    quantity: paperOrderCandidateSchema.shape.quantity,
+  })
+  .strict();
+export const paperIntentStateSchema = z.enum([
+  'INTENT_RECORDED',
+  'READY',
+  'PARTIALLY_FILLED',
+  'FILLED',
+  'RISK_REJECTED',
+  'ABORTED',
+]);
 export type PaperSignal = z.infer<typeof paperSignalSchema>;
 export type PaperLedgerState = z.infer<typeof paperLedgerStateSchema>;
 export type PaperEvidence = z.infer<typeof paperEvidenceSchema>;

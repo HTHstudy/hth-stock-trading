@@ -1,4 +1,5 @@
 import { Decimal } from 'decimal.js';
+import { pendingPaperFee, paperFee } from '../execution/paper-money.js';
 import { instantSchema, paperControlSchema, paperOrderCandidateSchema, paperRiskInputSchema } from '@hth/contracts';
 import type { PaperOrderCandidate, PaperRiskInput, PaperRiskSnapshot, RiskBlocker } from '@hth/contracts';
 import type { DataBlocker } from '../market-data/policy.js';
@@ -10,10 +11,7 @@ const key = (instrument: PaperOrderCandidate['instrument']) => `${instrument.mar
 const currencyOf = (instrument: PaperOrderCandidate['instrument']) =>
   instrument.market === 'KR' ? ('KRW' as const) : ('USD' as const);
 const total = (values: readonly Decimal[]) => values.reduce((sum, value) => sum.plus(value), new Money(0));
-const charge = (notional: Decimal, bps: string, currency: 'KRW' | 'USD') => {
-  const unit = currency === 'KRW' ? '1' : '0.01';
-  return notional.mul(bps).div(10_000).div(unit).ceil().mul(unit);
-};
+const charge = paperFee;
 
 export interface RiskDecision {
   policyVersion: 'paper-risk-v1';
@@ -134,9 +132,21 @@ export function evaluatePaperRisk(value: unknown): RiskDecision {
     const marketKey = key(reservation.instrument);
     const reserveCurrency = currencyOf(reservation.instrument);
     const amount = new Money(reservation.limitPrice).mul(reservation.remainingQuantity);
-    reservedCosts[reserveCurrency] = reservedCosts[reserveCurrency].plus(
-      charge(amount, reservation.costBps, reserveCurrency),
-    );
+    let pendingCost = new Money(0);
+    try {
+      pendingCost = new Money(
+        pendingPaperFee(
+          amount,
+          reservation.costBps,
+          reserveCurrency,
+          reservation.filledNotional,
+          reservation.paidCosts,
+        ),
+      );
+    } catch {
+      blockers.add('RESERVATION_MISMATCH');
+    }
+    reservedCosts[reserveCurrency] = reservedCosts[reserveCurrency].plus(pendingCost);
     if (
       !new Money(reservation.remainingQuantity).isInteger() ||
       !new Money(reservation.limitPrice).mod(reserveCurrency === 'KRW' ? '1' : '0.01').isZero()
@@ -144,9 +154,7 @@ export function evaluatePaperRisk(value: unknown): RiskDecision {
       blockers.add('RESERVATION_MISMATCH');
     if (reservation.side === 'BUY') {
       const notional = new Money(reservation.limitPrice).mul(reservation.remainingQuantity);
-      reservedCash[reserveCurrency] = reservedCash[reserveCurrency]
-        .plus(notional)
-        .plus(charge(notional, reservation.costBps, reserveCurrency));
+      reservedCash[reserveCurrency] = reservedCash[reserveCurrency].plus(notional).plus(pendingCost);
     } else {
       const ownerKey = `${marketKey}|${reservation.strategyId}`;
       reservedSells.set(ownerKey, (reservedSells.get(ownerKey) ?? new Money(0)).plus(reservation.remainingQuantity));
@@ -171,6 +179,7 @@ export function evaluatePaperRisk(value: unknown): RiskDecision {
     )
       blockers.add('RESERVATION_MISMATCH');
   }
+  if (blockers.has('RESERVATION_MISMATCH')) return { ...result, blockers: [...blockers] };
   const day = snapshot.dailyPnl[currency];
   if (day.tradingDate !== marketDate(Date.parse(input.asOf), candidate.instrument.market))
     blockers.add('DAILY_PNL_DATE_MISMATCH');
@@ -199,7 +208,9 @@ export function evaluatePaperRisk(value: unknown): RiskDecision {
           const amount = new Money(reservation.remainingQuantity).mul(
             Money.max(reservation.limitPrice, input.quote.price),
           );
-          return amount.plus(charge(amount, reservation.costBps, currency));
+          return amount.plus(
+            pendingPaperFee(amount, reservation.costBps, currency, reservation.filledNotional, reservation.paidCosts),
+          );
         }),
     );
     if (exposure.plus(pending).plus(notional).plus(costs).gt(policy.maxInstrumentAmount))
