@@ -52,6 +52,23 @@ export default tseslint.config(
     rules: { 'import/no-default-export': 'off' },
   },
   {
+    files: ['packages/trading/src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            ...basePatterns,
+            {
+              group: ['@hth/broker', '@hth/broker/*', '@hth/database', '@hth/database/*', 'node:*'],
+              message: '순수 trading 도메인은 broker·DB·Node I/O에 의존하지 않습니다.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['apps/web/**/*.{ts,tsx}'],
     languageOptions: { globals: globals.browser },
     rules: {

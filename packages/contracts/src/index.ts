@@ -10,6 +10,13 @@ export type { DashboardSnapshot, DashboardState, DashboardErrorCode } from './da
 export { dataBlockerSchema, marketDataQualitySchema } from './market-data.js';
 export type { DataBlocker, MarketDataQuality } from './market-data.js';
 export {
+  movingAverageConfigSchema,
+  strategySignalSchema,
+  backtestConfigSchema,
+  movingAverageBacktestConfigSchema,
+} from './backtest.js';
+export type { MovingAverageConfig, BacktestConfig } from './backtest.js';
+export {
   historicalCandleSchema,
   historicalRequestSchema,
   historicalObservationSchema,
