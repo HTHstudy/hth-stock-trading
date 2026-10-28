@@ -17,6 +17,7 @@
     "data:export": "tsx --env-file-if-exists=../../.env src/data-export.ts",
     "backtest:run": "tsx --env-file-if-exists=../../.env src/backtest-run.ts",
     "risk:demo": "tsx src/risk-demo-run.ts",
+    "paper:demo": "tsx src/paper-demo-run.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node --env-file-if-exists=../../.env dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
