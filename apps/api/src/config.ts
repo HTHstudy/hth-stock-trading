@@ -1,4 +1,5 @@
 import { paperModeSchema } from '@hth/contracts';
+import { testDatabaseUrl } from '@hth/database/testing';
 import { z } from 'zod';
 
 const configSchema = z
@@ -12,13 +13,31 @@ const configSchema = z
       .enum(['true', 'false'])
       .default('false')
       .transform((value) => value === 'true'),
+    PAPER_DASHBOARD_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
+    PAPER_DEMO_DATABASE_URL: z.string().min(1).optional(),
+    PAPER_DEMO_ACCOUNT_ID: z
+      .string()
+      .regex(/^paper-demo-[A-Za-z0-9._:-]{1,80}$/)
+      .optional(),
   })
   .superRefine((config, context) => {
     if (
-      config.DASHBOARD_ENABLED &&
+      (config.DASHBOARD_ENABLED || config.PAPER_DASHBOARD_ENABLED) &&
       (config.NODE_ENV === 'production' || !['127.0.0.1', 'localhost', '::1'].includes(config.API_HOST))
     ) {
       context.addIssue({ code: 'custom', message: 'Dashboard is available on a development loopback server only' });
+    }
+    if (config.PAPER_DASHBOARD_ENABLED && (!config.PAPER_DEMO_DATABASE_URL || !config.PAPER_DEMO_ACCOUNT_ID))
+      context.addIssue({ code: 'custom', message: 'Paper demo DB and account configuration are required' });
+    if (config.PAPER_DASHBOARD_ENABLED && config.PAPER_DEMO_DATABASE_URL) {
+      try {
+        testDatabaseUrl(config.PAPER_DEMO_DATABASE_URL);
+      } catch {
+        context.addIssue({ code: 'custom', message: 'Paper dashboard requires the dedicated loopback test DB' });
+      }
     }
   });
 

@@ -1,14 +1,21 @@
-import { dashboardStateSchema, processHealthSchema } from '@hth/contracts';
+import {
+  dashboardStateSchema,
+  processHealthSchema,
+  paperDashboardStateSchema,
+  paperStopAcknowledgementSchema,
+} from '@hth/contracts';
 import Fastify from 'fastify';
 import { z } from 'zod';
 import type { DashboardService } from './dashboard-service.js';
 import type { BacktestReports } from './backtest-reports.js';
+import type { PaperDashboard } from './paper-dashboard.js';
 
 export function createApp(
   logLevel = 'silent',
   dashboard?: DashboardService,
   origins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:4000', 'http://127.0.0.1:4000'],
   reports?: BacktestReports,
+  paper?: PaperDashboard,
 ) {
   const app = Fastify({
     logger: {
@@ -36,7 +43,7 @@ export function createApp(
   );
 
   app.addHook('onRequest', async (request, reply) => {
-    if (!request.url.startsWith('/v1/dashboard') && !request.url.startsWith('/v1/backtests')) return;
+    if (!['/v1/dashboard', '/v1/backtests', '/v1/paper'].some((path) => request.url.startsWith(path))) return;
     reply.header('Cache-Control', 'no-store, private');
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('Cross-Origin-Resource-Policy', 'same-origin');
@@ -73,6 +80,37 @@ export function createApp(
       return reply.code(503).send({ error: { code: 'REPORT_DIRECTORY_UNAVAILABLE' } });
     }
   });
+  app.get('/v1/paper', async (request, reply) => {
+    if (!z.object({}).strict().safeParse(request.query).success)
+      return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (!paper)
+      return paperDashboardStateSchema.parse({
+        status: 'disabled',
+        mode: 'paper',
+        source: 'synthetic-only',
+        executionEnabled: false,
+        snapshot: null,
+      });
+    try {
+      return paperDashboardStateSchema.parse(await paper.read());
+    } catch {
+      return reply.code(503).send({ error: { code: 'PAPER_UNAVAILABLE' } });
+    }
+  });
+  app.post('/v1/paper/stop', async (request, reply) => {
+    if (
+      !z.object({}).strict().safeParse(request.body).success ||
+      !z.object({}).strict().safeParse(request.query).success
+    )
+      return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (!paper) return reply.code(503).send({ error: { code: 'PAPER_DASHBOARD_DISABLED' } });
+    try {
+      await paper.stop();
+      return paperStopAcknowledgementSchema.parse({ mode: 'paper', executionEnabled: false, stopped: true });
+    } catch {
+      return reply.code(503).send({ error: { code: 'PAPER_STOP_UNCONFIRMED' } });
+    }
+  });
   app.get('/v1/backtests/:hash', async (request, reply) => {
     if (!reports) return reply.code(503).send({ error: { code: 'BACKTEST_REPORTS_DISABLED' } });
     const parsed = z
@@ -97,6 +135,7 @@ export function createApp(
   });
   app.addHook('onClose', async () => {
     dashboard?.close();
+    await paper?.close();
   });
 
   return app;

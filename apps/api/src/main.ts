@@ -1,4 +1,7 @@
 import { createApp } from './app.js';
+import { createDatabase } from '@hth/database';
+import { testDatabaseUrl } from '@hth/database/testing';
+import { createPaperDashboard } from './paper-dashboard.js';
 import { fileURLToPath } from 'node:url';
 import { createBacktestReports } from './backtest-reports.js';
 import { parseApiConfig } from './config.js';
@@ -23,7 +26,13 @@ async function main() {
     config.NODE_ENV !== 'production' && ['127.0.0.1', 'localhost', '::1'].includes(config.API_HOST)
       ? createBacktestReports(fileURLToPath(new URL('../../../.local-data', import.meta.url)))
       : undefined;
-  const app = createApp(config.LOG_LEVEL, dashboard, origins, reports);
+  const paper = config.PAPER_DASHBOARD_ENABLED
+    ? createPaperDashboard(
+        createDatabase(testDatabaseUrl(config.PAPER_DEMO_DATABASE_URL!)),
+        config.PAPER_DEMO_ACCOUNT_ID!,
+      )
+    : undefined;
+  const app = createApp(config.LOG_LEVEL, dashboard, origins, reports, paper);
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.once(signal, () => {
@@ -31,7 +40,12 @@ async function main() {
     });
   }
 
-  await app.listen({ host: config.API_HOST, port: config.API_PORT });
+  try {
+    await app.listen({ host: config.API_HOST, port: config.API_PORT });
+  } catch (error) {
+    await app.close();
+    throw error;
+  }
   dashboard.refresh();
 }
 
