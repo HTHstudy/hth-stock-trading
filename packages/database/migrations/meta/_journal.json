@@ -29,6 +29,13 @@
       "when": 1793167605308,
       "tag": "0003_silent_harpoon",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793176388385,
+      "tag": "0004_right_mauler",
+      "breakpoints": true
     }
   ]
 }

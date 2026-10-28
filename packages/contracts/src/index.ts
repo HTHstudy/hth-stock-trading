@@ -1,4 +1,12 @@
 import { z } from 'zod';
+export {
+  paperDashboardSnapshotSchema,
+  paperDashboardStateSchema,
+  paperStopAcknowledgementSchema,
+  paperReasonSchema,
+  paperEventKindSchema,
+} from './paper-dashboard.js';
+export type { PaperDashboardSnapshot, PaperDashboardState } from './paper-dashboard.js';
 
 export {
   dashboardSnapshotSchema,

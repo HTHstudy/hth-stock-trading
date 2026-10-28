@@ -1,0 +1,3 @@
+CREATE INDEX "paper_event_history" ON "paper_events" USING btree ("account_id","created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "paper_fill_history" ON "paper_fills" USING btree ("account_id","created_at" DESC NULLS LAST,"fill_id" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "paper_intent_history" ON "paper_order_intents" USING btree ("account_id","created_at" DESC NULLS LAST,"intent_id" DESC NULLS LAST);

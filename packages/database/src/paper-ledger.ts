@@ -1,9 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, ne, or, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { z } from 'zod';
 import {
   paperEvidenceSchema,
+  paperDashboardSnapshotSchema,
+  paperReasonSchema,
+  paperEventKindSchema,
+  riskBlockerSchema,
   paperObservationSchema,
   paperFillRequestSchema,
   paperLedgerStateSchema,
@@ -19,6 +23,9 @@ import {
   prepareStrategyData,
   settlePaperFill,
   observePaperLedger,
+  paperPortfolios,
+  paperPositionValue,
+  marketTradingDate,
 } from '@hth/trading';
 import type * as schema from './schema.js';
 import {
@@ -87,6 +94,24 @@ function checkLimits(value: unknown) {
 }
 
 export function createPaperLedger(db: Database) {
+  async function consistent<Result>(
+    id: string,
+    operation: (transaction: Transaction, account: Account) => Promise<Result>,
+  ) {
+    parse(accountIdSchema, id);
+    return safe(() =>
+      db.transaction(
+        async (transaction) => {
+          await transaction.execute(sql`SET LOCAL statement_timeout = '3s'`);
+          const [account] = await transaction.select().from(paperAccounts).where(eq(paperAccounts.id, id));
+          if (!account) throw new Error('PAPER_ACCOUNT_NOT_FOUND');
+          parse(paperLedgerStateSchema, account.ledger);
+          return operation(transaction, account);
+        },
+        { isolationLevel: 'repeatable read', accessMode: 'read only' },
+      ),
+    );
+  }
   async function locked<Result>(
     id: string,
     operation: (transaction: Transaction, account: Account) => Promise<Result>,
@@ -272,6 +297,179 @@ export function createPaperLedger(db: Database) {
           .from(paperStrategies)
           .where(eq(paperStrategies.accountId, id)),
       );
+    },
+    async readDashboard(id: string) {
+      return consistent(id, async (transaction, account) => {
+        const now = await clock(transaction);
+        const state = await snapshot(transaction, account);
+        const orders = await transaction
+          .select({
+            id: paperIntents.intentId,
+            candidate: paperIntents.candidate,
+            state: paperIntents.state,
+            filledQuantity: paperIntents.filledQuantity,
+            filledNotional: paperIntents.filledNotional,
+            paidCosts: paperIntents.paidCosts,
+            codes: paperIntents.codes,
+            createdAt: paperIntents.createdAt,
+          })
+          .from(paperIntents)
+          .where(eq(paperIntents.accountId, id))
+          .orderBy(sql`${paperIntents.createdAt} DESC NULLS LAST`, sql`${paperIntents.intentId} DESC NULLS LAST`)
+          .limit(51);
+        const fills = await transaction
+          .select({
+            id: paperFills.fillId,
+            orderId: paperFills.intentId,
+            candidate: paperIntents.candidate,
+            quantity: paperFills.quantity,
+            price: paperFills.price,
+            costs: paperFills.costs,
+            realizedPnl: paperFills.realizedPnl,
+            createdAt: paperFills.createdAt,
+          })
+          .from(paperFills)
+          .innerJoin(
+            paperIntents,
+            and(eq(paperFills.accountId, paperIntents.accountId), eq(paperFills.intentId, paperIntents.intentId)),
+          )
+          .where(eq(paperFills.accountId, id))
+          .orderBy(sql`${paperFills.createdAt} DESC NULLS LAST`, sql`${paperFills.fillId} DESC NULLS LAST`)
+          .limit(51);
+        const events = await transaction
+          .select({
+            id: paperEvents.id,
+            orderId: paperEvents.intentId,
+            kind: paperEvents.kind,
+            codes: sql<unknown>`${paperEvents.details}->'codes'`,
+            code: sql<unknown>`${paperEvents.details}->>'code'`,
+            reason: sql<unknown>`${paperEvents.details}->>'reason'`,
+            createdAt: paperEvents.createdAt,
+          })
+          .from(paperEvents)
+          .where(and(eq(paperEvents.accountId, id), ne(paperEvents.kind, 'ACCOUNT_OBSERVED')))
+          .orderBy(sql`${paperEvents.createdAt} DESC NULLS LAST`, sql`${paperEvents.id} DESC NULLS LAST`)
+          .limit(51);
+        const strategies = await transaction
+          .select({
+            id: paperStrategies.strategyId,
+            version: paperStrategies.version,
+            enabled: paperStrategies.enabled,
+          })
+          .from(paperStrategies)
+          .where(eq(paperStrategies.accountId, id))
+          .orderBy(paperStrategies.strategyId);
+        const allowedCodes = new Set([
+          'STALE_RESERVATION',
+          'CONTROL_CHANGED',
+          'EXPIRED_BEFORE_READY',
+          'WORKER_RECOVERY',
+          'WORKER_EXPIRED',
+          'WORKER_SHUTDOWN',
+          'WORKER_FINISHED',
+          'WORKER_STEP_FAILED',
+          'WORKER_FAILED',
+          'PAPER_LEASE_NOT_OWNED',
+          'PAPER_FILL_STATE_INVALID',
+          'PAPER_RESERVATION_STALE',
+          'PAPER_STRATEGY_DISABLED',
+          'PAPER_FILL_DATA_NOT_READY',
+          'PAPER_FILL_QUANTITY_INVALID',
+          'PAPER_BASIS_MISMATCH',
+          'PAPER_INSUFFICIENT_CASH',
+          'PAPER_INSUFFICIENT_OWNED_QUANTITY',
+          'PAPER_DAILY_LOSS_LIMIT',
+          'PAPER_FILL_INVALID',
+        ]);
+        const codes = (values: unknown[]) =>
+          values
+            .filter(
+              (value): value is string =>
+                typeof value === 'string' && (allowedCodes.has(value) || riskBlockerSchema.safeParse(value).success),
+            )
+            .slice(0, 100);
+        const reason = paperReasonSchema.safeParse(account.reason);
+        return paperDashboardSnapshotSchema.parse({
+          asOf: now.toISOString(),
+          control: { stopped: account.stopped, epoch: account.epoch, reason: reason.success ? reason.data : 'OTHER' },
+          worker: {
+            state:
+              account.leaseUntil === null
+                ? 'absent'
+                : Date.parse(account.leaseUntil) > now.getTime()
+                  ? 'active'
+                  : 'expired',
+            leaseUntil: account.leaseUntil === null ? null : new Date(account.leaseUntil).toISOString(),
+          },
+          valuation: {
+            observedAt: state.observedAt,
+            stale:
+              state.positions.some((position) =>
+                [position.markTimestamp, position.markObservedAt].some(
+                  (instant) =>
+                    instant === null ||
+                    now.getTime() - Date.parse(instant) >= 120_000 ||
+                    Date.parse(instant) > now.getTime() + 5000,
+                ),
+              ) ||
+              state.dailyPnl.KRW.tradingDate !== marketTradingDate(now.getTime(), 'KR') ||
+              state.dailyPnl.USD.tradingDate !== marketTradingDate(now.getTime(), 'US') ||
+              !state.reconciled ||
+              now.getTime() - Date.parse(state.observedAt) >= 60_000 ||
+              Date.parse(state.observedAt) > now.getTime() + 5000,
+            reconciled: state.reconciled,
+          },
+          portfolios: paperPortfolios(state),
+          positions: state.positions.map((position) => ({
+            instrument: position.instrument,
+            quantity: position.quantity,
+            manualQuantity: position.manualQuantity,
+            sellableQuantity: position.sellableQuantity,
+            ownership: position.ownership,
+            markPrice: position.markPrice,
+            value: paperPositionValue(position.quantity, position.markPrice),
+          })),
+          strategies,
+          orders: orders.slice(0, 50).map((order) => ({
+            id: order.id,
+            strategyId: order.candidate.strategyId,
+            instrument: order.candidate.instrument,
+            side: order.candidate.side,
+            quantity: order.candidate.quantity,
+            limitPrice: order.candidate.limitPrice,
+            filledQuantity: order.filledQuantity,
+            filledNotional: order.filledNotional,
+            paidCosts: order.paidCosts,
+            state: order.state,
+            codes: codes(order.codes),
+            createdAt: new Date(order.createdAt).toISOString(),
+          })),
+          fills: fills.slice(0, 50).map((fill) => ({
+            id: fill.id,
+            orderId: fill.orderId,
+            instrument: fill.candidate.instrument,
+            side: fill.candidate.side,
+            quantity: fill.quantity,
+            price: fill.price,
+            costs: fill.costs,
+            realizedPnl: fill.realizedPnl,
+            createdAt: new Date(fill.createdAt).toISOString(),
+          })),
+          events: events.slice(0, 50).map((event) => ({
+            id: event.id,
+            orderId: event.orderId,
+            kind: paperEventKindSchema.safeParse(event.kind).success ? event.kind : 'OTHER',
+            codes: codes([...(Array.isArray(event.codes) ? event.codes : []), event.code, event.reason]),
+            createdAt: new Date(event.createdAt).toISOString(),
+          })),
+          history: {
+            limit: 50,
+            ordersLimited: orders.length > 50,
+            fillsLimited: fills.length > 50,
+            eventsLimited: events.length > 50,
+          },
+        });
+      });
     },
     async recoverLease(id: string, token: string, epoch: number) {
       parse(z.uuid(), token);

@@ -14,6 +14,7 @@ import {
   bigint,
   primaryKey,
   foreignKey,
+  index,
 } from 'drizzle-orm/pg-core';
 import type {
   HistoricalDataset,
@@ -181,6 +182,7 @@ export const paperIntents = pgTable(
   (table) => [
     primaryKey({ columns: [table.accountId, table.intentId] }),
     uniqueIndex('paper_intent_dedupe').on(table.accountId, table.dedupeKey),
+    index('paper_intent_history').on(table.accountId, table.createdAt.desc(), table.intentId.desc()),
     check(
       'paper_intent_state_check',
       sql`${table.state} IN ('INTENT_RECORDED','READY','PARTIALLY_FILLED','FILLED','RISK_REJECTED','ABORTED')`,
@@ -237,6 +239,7 @@ export const paperEvents = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   },
   (table) => [
+    index('paper_event_history').on(table.accountId, table.createdAt.desc(), table.id.desc()),
     foreignKey({
       columns: [table.accountId, table.intentId],
       foreignColumns: [paperIntents.accountId, paperIntents.intentId],
@@ -262,6 +265,7 @@ export const paperFills = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull(),
   },
   (table) => [
+    index('paper_fill_history').on(table.accountId, table.createdAt.desc(), table.fillId.desc()),
     primaryKey({ columns: [table.accountId, table.fillId] }),
     foreignKey({
       columns: [table.accountId, table.intentId],
