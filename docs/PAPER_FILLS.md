@@ -2,7 +2,7 @@
 
 ## 범위
 
-`createDatabase(url).paper.fill(accountId, intentId, leaseToken, { fillId, quantity }, evidence)`는 **내부 DB 모의 체결**이다. 증권사·네트워크·실제 계좌와 연결하지 않는다. 기본 정지·Paper 모드를 유지하며 `executionEnabled=false`다. [Paper worker](PAPER_WORKER.md)가 순차 tick과 복구·관측 갱신을 조립하며 CLI는 합성 테스트 DB 전용이다. 실제 시세·HTTP·운영 화면에는 아직 연결하지 않았다. 의도 선기록과 예약은 [Paper 원장](PAPER_LEDGER.md)을 따른다.
+`createDatabase(url).paper.fill(accountId, intentId, leaseToken, { fillId, quantity }, evidence)`는 **내부 DB 모의 체결**이다. 증권사·네트워크·실제 계좌와 연결하지 않는다. 기본 정지·Paper 모드를 유지하며 `executionEnabled=false`다. [Paper worker](PAPER_WORKER.md)가 순차 tick과 복구·관측 갱신을 조립하며 CLI는 합성 테스트 DB 전용이다. [로컬 합성 Paper 조회·정지 API/화면](PAPER_DASHBOARD.md)을 추가했다. 실제 시세에는 연결하지 않았다. 의도 선기록과 예약은 [Paper 원장](PAPER_LEDGER.md)을 따른다.
 
 `quote-proxy-v1`은 주문 예약 후 새로 관측한 현재가를 체결가의 대용으로 사용하는 제한된 검증 모델이다. 매수는 KRW 1원/USD 1센트 단위로 올림하고 매도는 내린다. 매수 가격 ≤ 지정가, 매도 가격 ≥ 지정가일 때만 체결한다. 호가·거래량·대기열·시장별 tick·정산일·실제 세금 체계를 재현하지 않는다. 슬리피지는 별도로 넣지 않으며 현재가와 비용 가정만 사용한다. 부분 체결 수량은 신뢰된 서버 호출자가 명시한다. 실제 체결 확률이나 투자 성과의 근거로 사용하지 않는다.
 
@@ -52,4 +52,4 @@ SQL 트리거는 체결의 변경/삭제/truncate, 지정가·비용 불일치, 
 1. 상시 Paper worker의 단일 소유권·lease 갱신·중단·재시작 복구 루프는 합성 데이터로 구현·검증했다.
 2. 예약을 유지하는 관측 갱신, 연속 관측 중 거래일 전환, 만료 잔량 처리를 추가했다. 실제 시세 source와 실제 운영 세션/일일 기준을 검증한다.
 3. 신뢰된 전략 신호 → 의도 선기록 → 예약 → 모의 체결을 합성 입력으로 통합 검증했다. 사용자 DB의 초기 자금·한도와 마이그레이션 적용은 별도 검토한다.
-4. Paper 전용 상태·거래/실패 이력·긴급 정지 UI와 소유자 인증을 연결한다. 실제 broker 주문·체결 대사는 별도 단계다.
+4. Paper 전용 상태·거래/실패 이력·긴급 정지 UI를 합성 테스트 DB로 연결했다. 소유자 인증과 전략 관리·실제 시세 검증을 진행한다. 실제 broker 주문·체결 대사는 별도 단계다.

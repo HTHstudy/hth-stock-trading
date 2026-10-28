@@ -4,7 +4,7 @@
 
 `evaluatePaperRisk`는 명시적으로 전달한 검사 시각·Paper 주문 후보·한도·정지 상태·계좌 원장 snapshot·시장 데이터에서 예약 가능 여부를 계산한다. 순수 함수이며 broker·DB·현재 시스템 시각·로그에 의존하지 않는다. 외부 입력은 Zod로 검증하고 실패 시 `canReserve=false`를 반환한다. 결과의 `executionEnabled`는 항상 false다.
 
-이 결과는 **DB 예약이나 주문 실행 승인 자체가 아니다.** 이후 [Paper 원장](PAPER_LEDGER.md)에 연결해 잠금 안의 재평가·동시 예약·영구 dedupe·정지/lease·복구 조건을 구현했다. 내부 합성 체결도 구현했으며 [체결 모델](PAPER_FILLS.md)을 따른다. 상시 Paper 실행기는 합성 데이터로 연결했다. 실제 계좌·실제 시세 source·HTTP 실행·운영용 긴급 정지 버튼은 후속이다. 기존 백테스트 체결 엔진에도 이 검사를 자동 적용하지 않았으므로 이전 리포트가 새 정책을 통과했다고 주장하지 않는다.
+이 결과는 **DB 예약이나 주문 실행 승인 자체가 아니다.** 이후 [Paper 원장](PAPER_LEDGER.md)에 연결해 잠금 안의 재평가·동시 예약·영구 dedupe·정지/lease·복구 조건을 구현했다. 내부 합성 체결도 구현했으며 [체결 모델](PAPER_FILLS.md)을 따른다. 상시 Paper 실행기는 합성 데이터로 연결했다. [로컬 합성 Paper 조회·긴급 정지](PAPER_DASHBOARD.md)도 추가했다. 실제 계좌·실제 시세 source·HTTP 실행/재개는 후속이다. 기존 백테스트 체결 엔진에도 이 검사를 자동 적용하지 않았으므로 이전 리포트가 새 정책을 통과했다고 주장하지 않는다.
 
 ## 계좌·소유권·통화 계약
 
@@ -53,4 +53,4 @@ corepack pnpm risk:demo --output=../../.local-data/risk/risk-demo.json
 
 ## 다음 작업
 
-Paper 계좌·전략·order intent·reservation·control과 영구 중복 키를 구현하고 마이그레이션을 생성했다. 전용 임시 DB에서 동시 예약·정지/lease·복구 조건과 rollback을 검증했다. 내부 Paper 체결·부분 체결·현금/소유권/원가 반영을 추가했다. 상시 worker 복구·관측 갱신은 합성 데이터로 구현했고 다음은 실제 시세 source와 운영 UI다. 사용자 DB 적용은 검토 후 별도로 수행하며 실제 broker 주문은 계속 비활성으로 둔다.
+Paper 계좌·전략·order intent·reservation·control과 영구 중복 키를 구현하고 마이그레이션을 생성했다. 전용 임시 DB에서 동시 예약·정지/lease·복구 조건과 rollback을 검증했다. 내부 Paper 체결·부분 체결·현금/소유권/원가 반영을 추가했다. 상시 worker 복구·관측 갱신은 합성 데이터로 구현했고 로컬 합성 Paper 조회/정지 UI도 추가했으며 다음은 소유자 인증·전략 설정 관리와 실제 시세 source다. 사용자 DB 적용은 검토 후 별도로 수행하며 실제 broker 주문은 계속 비활성으로 둔다.

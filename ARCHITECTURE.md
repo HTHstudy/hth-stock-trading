@@ -49,7 +49,7 @@ database → contracts, trading (트랜잭션 안의 순수 리스크 재평가)
 contracts → zod
 ```
 
-현재 앱은 실제 사용하는 의존성만 선언한다. 위 그림은 허용되는 방향이며 모든 연결이 구현되었다는 의미가 아니다. 전략은 broker·database를 import할 수 없다. Paper repository는 계좌 행 잠금과 자원 저장 사이에 순수 리스크 함수를 호출하며 트랜잭션 안에서 외부 API를 호출하지 않는다. 내부 Paper 체결은 같은 트랜잭션에서 순수 정산 함수를 호출한다. Paper 실행 루프는 `apps/worker`의 별도 entrypoint로 연결했으며 broker 주문과 실제 시세 source는 후속이다.
+현재 앱은 실제 사용하는 의존성만 선언한다. 위 그림은 허용되는 방향이며 모든 연결이 구현되었다는 의미가 아니다. 전략은 broker·database를 import할 수 없다. Paper repository는 계좌 행 잠금과 자원 저장 사이에 순수 리스크 함수를 호출하며 트랜잭션 안에서 외부 API를 호출하지 않는다. 내부 Paper 체결은 같은 트랜잭션에서 순수 정산 함수를 호출한다. Paper 실행 루프는 `apps/worker`의 별도 entrypoint로 연결했다. API는 서버 고정 합성 계좌의 비공개 정보를 제거한 DTO와 정지 요청만 제공하며, web의 Paper page가 TanStack Query로 조회/정지를 조립한다. DB 조회는 read-only repeatable-read snapshot으로 worker 행 잠금을 기다리지 않는다. broker 주문과 실제 시세 source는 후속이다.
 
 ## 3. 주요 기술 선택
 

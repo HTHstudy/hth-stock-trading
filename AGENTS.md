@@ -28,6 +28,8 @@
 - 실제 자산 snapshot은 localhost 개발 환경에만 제공한다. public bind·production 활성화를 허용하지 않는다. 외부 배포에는 별도 소유자 인증이 필요하다.
 - 금액 계산은 worker·trading의 decimal.js에서 수행하고 프론트엔드는 표시만 한다. 차트 좌표 계산만 number를 사용한다.
 
+- Paper 화면/API는 `docs/PAPER_DASHBOARD.md`를 따른다. 기본 비활성, loopback·전용 테스트 DB·서버 고정 계좌만 허용한다. 조회 DTO에서 계좌 ID·lease token·원본 요청/decision/감사 상세를 제거한다. 긴급 정지는 DB 정지 기록이며 정리 완료·자동 청산·재개를 의미하지 않는다. 조회로 worker를 시작하거나 사용자 DB 마이그레이션을 적용하지 않는다.
+
 ## 구현과 검증
 
 - TypeScript strict, 명시적인 type import, named export, kebab-case 파일명을 사용한다.

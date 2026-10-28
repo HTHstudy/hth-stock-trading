@@ -79,6 +79,8 @@ stateDiagram-v2
 
 재시작 시 신규 전략 실행을 먼저 막고, 열린 의도·예약·UNKNOWN·OPEN·부분 체결을 복구한다. broker OPEN 전량과 CLOSED pagination을 조회하고 주문 상세·보유수량·현금과 대사한 뒤 재개한다. REST 체결 내역은 개별 fill이 아닌 주문별 누적값이다. 끊긴 WS 구간을 개별 fill로 복원할 수 있다고 가정하지 않고 복구분은 reconciliation adjustment로 출처를 남긴다. 외부 앱 주문을 시스템 주문으로 자동 편입하지 않는다.
 
+Paper 대시보드는 `docs/PAPER_DASHBOARD.md`의 localhost·테스트 DB 경계와 고정 계좌 DTO를 따른다. 조회는 자원/제어를 변경하지 않는다. 정지는 먼저 커밋된 제어 epoch로 이후 실행을 무효화하며 이미 체결한 보유분은 보존한다. UI 응답을 잔량 정리 완료로 해석하지 않는다.
+
 ## 5. DB 스키마 계획
 
 | 테이블                                   | 주요 데이터와 제약                                  | 현재 상태   |

@@ -4,7 +4,7 @@
 
 `apps/worker/src/paper-worker.ts`는 Paper 원장과 주입한 읽기 전용 데이터 source를 조립한다. 이동평균 교차의 신호 → 의도 선기록 → 리스크 예약 → 다음 관측의 모의 체결을 실행한다. 원장은 [Paper 원장](PAPER_LEDGER.md), 가격·비용 모델은 [Paper 체결](PAPER_FILLS.md)을 따른다. 새 외부 라이브러리·Redis·작업 큐는 추가하지 않았다.
 
-실행 가능한 `paper:demo`는 **합성 KR 데이터 + 전용 테스트 DB**로만 동작한다. 실제 계좌·토스 시세·주문 API를 연결하지 않는다. 기본 worker/dev/start는 여전히 대기 모드이며 키 설정으로 실행 루프가 활성화되지 않는다. Paper 운영 화면·실제 시세 source·Docker 자동 실행은 후속이다. `executionEnabled=false`는 broker 실행이 없다는 의미이며 모의 원장에는 변경이 생길 수 있다.
+실행 가능한 `paper:demo`는 **합성 KR 데이터 + 전용 테스트 DB**로만 동작한다. 실제 계좌·토스 시세·주문 API를 연결하지 않는다. 기본 worker/dev/start는 여전히 대기 모드이며 키 설정으로 실행 루프가 활성화되지 않는다. [로컬 합성 Paper 조회·정지 화면](PAPER_DASHBOARD.md)을 추가했다. 실제 시세 source·외부 배포용 인증·Docker 자동 실행은 후속이다. `executionEnabled=false`는 broker 실행이 없다는 의미이며 모의 원장에는 변경이 생길 수 있다.
 
 ## 실행 수명과 권한
 
@@ -65,4 +65,4 @@ corepack pnpm paper:demo --account=paper-demo-local --stop
 
 순수 관측 테스트와 전용 임시 DB의 worker 통합 테스트로 기본 정지, 매수/부분 체결/매도, 재시작 손실 보존, 경합, 긴급 정지, source timeout, 중복 tick 차단, 취소, lease 인수, heartbeat 갱신/실패와 종료를 검사한다. 기존 시장 데이터·백테스트·리스크·원장 테스트도 함께 실행한다. 실제 증권사 API는 호출하지 않는다.
 
-다음은 Paper 전용 조회 API와 실행 상태·의도/체결·실패 이력·긴급 정지 화면이다. 이후 소유자 인증, 실제 시세를 읽는 source, KR/US 세션·휴장/일일 기준 정책과 장애 복구를 검증하고 Docker 운영에 연결한다. 실제 broker 주문은 별도 단계다.
+Paper 전용 조회 API와 실행 상태·의도/체결·실패 이력·긴급 정지 화면을 localhost/테스트 DB 범위로 구현했다. 다음은 소유자 인증과 전략 설정 관리다. 이후 소유자 인증, 실제 시세를 읽는 source, KR/US 세션·휴장/일일 기준 정책과 장애 복구를 검증하고 Docker 운영에 연결한다. 실제 broker 주문은 별도 단계다.
