@@ -1,7 +1,6 @@
-import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import { migrateTestDatabase, testDatabaseUrl } from '../test/setup.js';
 import { expect, it } from 'vitest';
 import type { Candle, HistoricalDataset } from '@hth/contracts';
 import { createDatabase } from './index.js';
@@ -10,14 +9,7 @@ import { candles, instruments, candleRevisions, historicalDatasets } from './sch
 it.skipIf(!process.env.TEST_DATABASE_URL)(
   '전용 PostgreSQL에서 upsert·트랜잭션 rollback·프로세스 간 lease를 검증한다',
   async () => {
-    const connectionString = process.env.TEST_DATABASE_URL!;
-    const target = new URL(connectionString);
-    if (
-      !['localhost', '127.0.0.1'].includes(target.hostname) ||
-      target.pathname !== '/hth_readonly_test' ||
-      target.username !== 'hth_test'
-    )
-      throw new Error('UNSAFE_TEST_DATABASE');
+    const connectionString = testDatabaseUrl();
     const database = createDatabase(connectionString);
     const contender = createDatabase(connectionString);
     const candle: Candle = {
@@ -37,7 +29,7 @@ it.skipIf(!process.env.TEST_DATABASE_URL)(
     };
     const instrument = { id: candle.instrument, currency: candle.currency, name: 'Apple' };
     try {
-      await migrate(database.db, { migrationsFolder: fileURLToPath(new URL('../migrations', import.meta.url)) });
+      await migrateTestDatabase(database);
       expect(await database.marketData.save([{ instrument, candles: [candle] }])).toBe(1);
       expect(await database.marketData.save([{ instrument, candles: [{ ...candle, close: '185.75' }] }])).toBe(1);
       const [savedInstrument] = await database.db

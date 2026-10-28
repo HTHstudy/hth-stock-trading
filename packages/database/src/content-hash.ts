@@ -22,7 +22,7 @@ export function contentHash(value: unknown) {
   return createHash('sha256').update(canonicalJson(value)).digest('hex');
 }
 
-function normalizeDecimal(value: string) {
+export function normalizeDecimal(value: string) {
   const [whole = '', fraction = ''] = value.split('.');
   const integer = whole.replace(/^0+(?=\d)/, '');
   const decimals = fraction.replace(/0+$/, '');
