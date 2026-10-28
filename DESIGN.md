@@ -32,7 +32,7 @@ Strategy는 버전·설정과 닫힌 캔들·해당 전략 소유 수량을 입�
 
 ## 3. 리스크와 기존 보유분 보호
 
-현재 `evaluatePaperRisk`는 명시적 입력으로 Paper 한도·원장 정합성·미체결 잔량·소유권과 데이터 신선도를 검증한다. `initialPaperControl`/`stopPaperControl`과 epoch·snapshotVersion·유효시간 재검사를 제공한다. 모두 순수 함수이고 실제 DB 예약·정지 영속화·체결에 연결하지 않았다. `canReserve`를 주문 승인으로 사용하지 않는다. [Paper 리스크 계약과 합성 검증](docs/PAPER_RISK.md)을 따른다.
+현재 `evaluatePaperRisk`는 명시적 입력으로 Paper 한도·원장 정합성·미체결 잔량·소유권과 데이터 신선도를 검증한다. `initialPaperControl`/`stopPaperControl`과 epoch·snapshotVersion·유효시간 재검사를 제공한다. 리스크 계산은 순수 함수이며, 별도 Paper repository가 잠금 안의 DB 예약·정지 영속화와 모의 체결에 연결한다. `canReserve`를 주문 승인으로 사용하지 않는다. [Paper 리스크 계약과 합성 검증](docs/PAPER_RISK.md)을 따른다.
 
 검증 순서: 실행 권한/긴급 정지 → worker 소유권 → 데이터·계좌·세션 신선도 → 시장/종목 거래 가능 여부 → 전략 활성 여부 → 한도·중복 → 현금/소유 수량 예약. 하나라도 불확실하면 신규 주문을 거부한다. 종목/일일 한도는 DB transaction과 행 잠금으로 동시 예약까지 합산한다.
 
@@ -44,7 +44,7 @@ Strategy는 버전·설정과 닫힌 캔들·해당 전략 소유 수량을 입�
 
 ## 4. 주문 의도·상태·대사
 
-현재 Paper 전용으로 INTENT_RECORDED·READY·RISK_REJECTED·ABORTED와 영구 dedupe, 계좌 행 잠금 안의 리스크 재평가·예약/해제·정지·worker lease·복구 확인을 구현했다. [Paper 원장](docs/PAPER_LEDGER.md)을 따른다. 아래 SUBMITTING 이후 전송·체결·대사는 아직 구현하지 않았다.
+현재 Paper 전용으로 INTENT_RECORDED·READY·PARTIALLY_FILLED·FILLED·RISK_REJECTED·ABORTED와 영구 dedupe, 계좌 행 잠금 안의 리스크 재평가·예약/해제·정지·worker lease·복구 확인을 구현했다. 내부 합성 체결은 현금·전략 소유권·원가·누적 비용과 잔량을 함께 반영한다. [체결 정책](docs/PAPER_FILLS.md)을 따른다. [Paper 원장](docs/PAPER_LEDGER.md)을 따른다. 아래 SUBMITTING 이후 전송·체결·대사는 아직 구현하지 않았다.
 
 ```mermaid
 stateDiagram-v2
@@ -90,6 +90,7 @@ stateDiagram-v2
 | paper_accounts / paper_strategies        | Paper 잔고·소유권, 정지/lease/한도, 전략 활성       | 구현        |
 | paper_order_intents / paper_reservations | 영구 신호 키·불변 요청·상태, 원자적 예약/해제       | 구현        |
 | paper_events                             | Paper 제어·예약·거부·복구 감사 이력, 변경 차단      | 구현        |
+| paper_fills / paper_cost_basis           | 불변 체결 키·비용·실현 손익, 전략별 잔여 수량/원가  | 구현        |
 | accounts / cash_snapshots                | broker 계좌 참조, mode·currency별 잔고·수집시각     | 설계        |
 | strategy_runs                            | 전략/버전/설정, 활성화, 실행 mode                   | 설계        |
 | signals                                  | 전략·종목·봉·신호 unique                            | 설계        |

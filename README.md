@@ -1,6 +1,6 @@
 # HTH Stock Trading
 
-개인용 국내·미국주식 자동매매 시스템입니다. **읽기 전용 토스 연동·캔들 저장·로컬 대시보드와 이동평균 교차 백테스트를 제공합니다. 상시 전략 실행·Paper 주문 원장·실제 주문은 아직 없습니다.** 기본 dev는 키 없이 실행할 수 있으며, `DASHBOARD_ENABLED=true`일 때만 대시보드가 worker를 통해 실제 데이터를 조회합니다. `TRADING_MODE=live`는 거부합니다.
+개인용 국내·미국주식 자동매매 시스템입니다. **읽기 전용 토스 연동·캔들 저장·로컬 대시보드와 이동평균 교차 백테스트를 제공합니다. Paper 주문 원장·원자적 예약·내부 모의 체결도 구현했습니다. 상시 전략 실행·Paper 운영 화면·실제 주문은 후속입니다.** 기본 dev는 키 없이 실행할 수 있으며, `DASHBOARD_ENABLED=true`일 때만 대시보드가 worker를 통해 실제 데이터를 조회합니다. `TRADING_MODE=live`는 거부합니다.
 
 ## 구성
 
@@ -95,7 +95,7 @@ corepack pnpm db:migrate
 corepack pnpm infra:down
 ```
 
-초기 마이그레이션 SQL은 `packages/database/migrations`에 포함되어 있습니다. 스키마를 바꿀 때 `db:generate`로 추가 생성하고 SQL을 검토한 뒤 명시적으로 적용합니다. 현재 스키마는 instruments/candles뿐이며 주문 원장은 설계 단계입니다. Compose 비밀번호는 localhost 개발 전용이며 운영에 재사용하지 마세요. DB volume은 `infra:down`으로 삭제하지 않습니다.
+초기 마이그레이션 SQL은 `packages/database/migrations`에 포함되어 있습니다. 스키마를 바꿀 때 `db:generate`로 추가 생성하고 SQL을 검토한 뒤 명시적으로 적용합니다. 현재 스키마는 시세·revision·동결 데이터셋과 Paper 의도·예약·체결·전략별 원가 원장을 포함합니다. Compose 비밀번호는 localhost 개발 전용이며 운영에 재사용하지 마세요. DB volume은 `infra:down`으로 삭제하지 않습니다.
 
 ```bash
 docker compose -f infra/docker-compose.yml --profile apps up --build
@@ -114,5 +114,5 @@ Paper 리스크 검증 기반도 구현했습니다. `corepack pnpm risk:demo`�
 1. 외부 배포용 소유자 인증·세션·TLS 및 프록시 경계를 구현합니다. 로컬 읽기 전용 대시보드는 구현했습니다.
 2. 날짜별 캘린더·백필·revision·동결 데이터셋을 구현했습니다. 생성한 마이그레이션을 검토한 뒤 사용자 DB 적용과 데이터셋 저장을 진행합니다.
 3. 백테스트 엔진·CLI·로컬 결과 조회와 비교 화면까지 구현했습니다. [백테스트 실행과 모델 가정](docs/BACKTESTING.md)을 확인하고 실제 동결 입력과 여러 기간으로 검증합니다.
-4. [Paper 주문 원장·원자적 예약](docs/PAPER_LEDGER.md)을 구현하고 임시 DB에서 검증했습니다. 다음은 모의 체결·부분 체결·잔고/소유권 반영과 상시 복구 작업입니다. 사용자 DB에는 새 마이그레이션을 적용하지 않았습니다.
+4. [Paper 주문 원장·원자적 예약](docs/PAPER_LEDGER.md)을 구현하고 임시 DB에서 검증했습니다. [모의 체결·부분 체결·잔고/소유권·원가 반영](docs/PAPER_FILLS.md)도 구현했습니다. 다음은 상시 worker의 복구·관측 갱신·실행 루프입니다. 사용자 DB에는 새 마이그레이션을 적용하지 않았습니다.
 5. 인증과 관리 대시보드를 추가하고, 실거래는 별도 승인 범위에서 진행합니다.
