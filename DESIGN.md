@@ -92,7 +92,7 @@ Paper와 Live 원장은 모든 unique key에서 mode로 분리한다. API 토큰
 
 ## 6. API·인증·장애 정책
 
-현재 구현된 애플리케이션 endpoint는 `GET /health/live`뿐이다. 이 endpoint는 프로세스 생존만 의미하며 DB 연결·시세 수집·거래 준비 완료를 의미하지 않는다. 거래 기능은 없고 mode=paper, executionEnabled=false를 명시한다.
+현재 endpoint는 `GET /health/live`, `GET /v1/dashboard`, `POST /v1/dashboard/refresh`다. health는 프로세스 생존만 의미한다. dashboard는 localhost 개발 전용으로 키·계좌 식별자를 제외한 snapshot을 제공하고 no-store를 설정한다. 새로고침은 worker를 fork하여 실제 데이터를 한 번 조회하며 DB 저장이나 거래를 수행하지 않는다. 토스 호출은 최소 30초 간격, API 메모리 조회는 브라우저에서 3초 polling한다. 실패 시 과거 데이터와 오류를 함께 유지한다. mode=paper, executionEnabled=false를 명시한다. 개발용 loopback·Host·Origin 차단은 구현했지만 인터넷 소유자 인증은 아직 없다.
 
 향후 `/v1/accounts`, `/v1/strategies`, `/v1/orders`, `/v1/backtests`, `/v1/trading-controls`를 내부 API 후보로 사용한다. 아직 확정 HTTP 계약이 아니며 토스 endpoint와 구분한다. 인증은 OIDC 소유자 subject allowlist와 서버 세션을 검토한다. cookie 방식은 Secure/HttpOnly와 배포 도메인에 맞는 SameSite, CSRF token·Origin 검증이 필요하다. 서로 다른 site의 인증 쿠키 제한은 custom domain 구성으로 해결할지 Phase 4에서 확정한다.
 

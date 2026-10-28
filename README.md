@@ -1,13 +1,13 @@
 # HTH Stock Trading
 
-개인용 국내·미국주식 자동매매 시스템입니다. **읽기 전용 토스 adapter와 캔들 저장을 구현하고 실제 계좌·시세 조회를 확인했습니다. 전략 실행·Paper 체결·실제 주문은 아직 없습니다.** 기본 dev는 키 없이 실행하고 외부 API를 호출하지 않습니다. `TRADING_MODE=live`는 거부합니다.
+개인용 국내·미국주식 자동매매 시스템입니다. **읽기 전용 토스 연동·캔들 저장과 로컬 대시보드를 제공합니다. 전략 실행·Paper 체결·실제 주문은 아직 없습니다.** 기본 dev는 키 없이 실행할 수 있으며, `DASHBOARD_ENABLED=true`일 때만 대시보드가 worker를 통해 실제 데이터를 조회합니다. `TRADING_MODE=live`는 거부합니다.
 
 ## 구성
 
-- `apps/web`: React + Vite + Tailwind CSS, Vercel에 배포할 SPA 안내 화면
-- `apps/api`: Fastify, `GET /health/live`만 제공하는 서버
-- `apps/worker`: 기본 대기 프로세스와 명시적인 읽기 전용 확인·수집 명령
-- `packages/shared`, `broker`, `trading`, `database`: 공통 계약, 토스 adapter, 전략 계약, Drizzle 저장소
+- `apps/web`: React + Vite + Tailwind CSS, TanStack Query v5와 Lightweight Charts 대시보드
+- `apps/api`: Fastify, 생존 확인 및 localhost 전용 대시보드 API
+- `apps/worker`: 읽기 전용 확인·수집 명령과 대시보드 조회용 자식 프로세스
+- `packages/contracts`, `broker`, `trading`, `database`: 공통 계약, 토스 adapter, 전략 계약, Drizzle 저장소
 
 설계: [PRD](PRD.md), [아키텍처](ARCHITECTURE.md), [상세 설계](DESIGN.md), [토스 공식 API 조사](docs/TOSS_API.md), [개발 지침](AGENTS.md).
 
@@ -23,7 +23,26 @@ corepack pnpm dev
 
 web: http://localhost:5173, API 생존 확인: http://localhost:4000/health/live. 앱은 현재 PostgreSQL 없이 실행됩니다. API의 health는 거래 준비 상태나 DB 연결을 보장하지 않습니다.
 
-개별 실행은 `corepack pnpm dev:web`, `dev:api`, `dev:worker`입니다. 공통 패키지는 실행 전에 빌드됩니다. 개발 중 공통 패키지 변경 후에는 `corepack pnpm build:packages`를 실행하고 앱을 재시작하세요. 서버 설정은 루트 `.env`, 브라우저 공개 설정은 `apps/web/.env.local`에 둡니다. 필요하면 `apps/web/.env.example`을 복사합니다. 현재 web은 API를 호출하지 않습니다.
+개별 실행은 `corepack pnpm dev:web`, `dev:api`, `dev:worker`입니다. dev는 web/API를 실행하며 API 실행 전에 공통 패키지와 worker를 빌드합니다. 기본 worker 상시 프로세스는 아직 대기용이므로 별도 실행하지 않아도 됩니다. 패키지나 worker 소스를 변경하면 다시 빌드하고 API를 재시작하세요. 서버 설정은 루트 `.env`, 공개 웹 설정은 `apps/web/.env.local`에 둡니다. `VITE_API_URL`은 `/api`로 설정하며 Vite가 localhost API에 프록시합니다.
+
+## 실제 데이터 대시보드
+
+키·DB·허용 IP 설정이 완료됐다면 루트 `.env`에 `DASHBOARD_ENABLED=true`를 설정하고 다음을 실행합니다. `false`가 기본값이며 해당 설정은 거래 권한이 아닙니다.
+
+```bash
+corepack pnpm infra:up
+corepack pnpm dev
+```
+
+http://localhost:5173 에서 KRW/USD 주식 평가액·평가 손익·매수 가능 금액·보유 종목·관심 종목·캔들 차트·시장 세션을 확인합니다. 관심 종목 선택과 전체/국내/미국 보유분 필터를 지원합니다. 평가액은 현금 제외 주식 가치이며 손익은 수수료·세금 미반영입니다. 모든 기존 보유분은 조회만 하며 자동매매 소유권을 부여하지 않습니다.
+
+API 시작 시 한 번 조회하고 새로고침 버튼으로 재조회합니다. 브라우저의 3초 polling은 API의 메모리 캐시만 읽으며 토스를 반복 호출하지 않습니다. 재조회는 단일 작업·최소 30초 간격·전체 120초 제한입니다. 실패하면 마지막 성공 결과와 오류 표시를 유지하며 3분 경과 시 오래된 데이터로 표시합니다. 데이터는 서버·브라우저 메모리에만 있고 계좌번호·토큰·client secret은 공개 모델에 포함하지 않습니다. 서버 응답은 `no-store, private`이며 로그에 잔고와 원문 응답을 남기지 않습니다.
+
+현재 대시보드는 **같은 컴퓨터의 개발 환경 전용**입니다. API는 대시보드 활성 상태에서 loopback bind만 허용하고 production 시작을 거부합니다. 요청의 원격 IP·Host·Origin·Sec-Fetch-Site 및 새로고침 전용 헤더를 검사합니다. 이는 로컬 OS 사용자 신뢰 경계이며 사용자 로그인·OIDC 인증을 구현한 것은 아닙니다. LAN 공개, 포트포워딩, 터널 또는 실제 자산 정보의 Vercel 공개 배포는 지원하지 않습니다. 외부 배포 전에 소유자 인증과 TLS 배포 경계를 구현해야 합니다.
+
+API가 직접 증권사에 접속하지 않고 공개 worker entrypoint를 fork하여 Node IPC로 검증된 모델을 받습니다. worker는 기존 DB advisory lock을 사용합니다. 조회마다 worker와 메모리 토큰이 종료되며, 같은 client의 동시 CLI 조회는 잠금으로 제한합니다. 대시보드는 마이그레이션이나 시세 DB 저장을 수행하지 않습니다.
+
+`packages/contracts` (`@hth/contracts`)는 앱 간 공유하는 Zod 계약·시장/통화 타입이며 앱 내부 `src/shared`와 구분합니다. 새 의존성은 서버 상태용 TanStack Query v5, 캔들 표시용 Lightweight Charts, 정확한 자산 계산용 `decimal.js`입니다. 차트 렌더링에서만 가격을 number로 변환하며 원장·자산 계산은 십진 문자열과 80자리 정밀 계산을 사용합니다. Lightweight Charts의 TradingView attribution을 화면에 표시합니다.
 
 ## 검증
 
@@ -84,11 +103,11 @@ API와 대기 worker를 컨테이너로 확인하는 개발용 구성입니다. 
 
 ## Vercel
 
-Git 저장소를 연결하고 Root Directory를 `apps/web`, Framework를 Vite로 선택합니다. `vercel.json`에 빌드·출력 경로와 SPA rewrite가 있습니다. 필요한 공개 API 주소만 `VITE_API_URL`로 설정하고 변경 시 다시 빌드합니다. 토스 키·토큰·계좌 정보는 Vercel 프론트 환경변수에 등록하지 않습니다. 이번 작업에서는 실제 배포를 수행하지 않습니다.
+공개 SPA 빌드의 Root Directory는 `apps/web`, Framework는 Vite입니다. `vercel.json`에 빌드·출력 경로와 SPA rewrite가 있습니다. 현재 `/api` 프록시는 로컬 Vite 개발·미리보기 서버에만 있으며 Vercel에서 실제 계좌를 조회할 수 있도록 연결하지 않습니다. 외부 배포는 소유자 인증과 안전한 프록시 구성을 구현한 후 진행합니다. 토스 키·토큰·계좌 정보는 Vercel 프론트 환경변수에 등록하지 않습니다. 실제 배포는 수행하지 않았습니다.
 
 ## 다음 작업
 
-1. 실제 조회 결과를 보여줄 소유자 전용 읽기 전용 대시보드와 인증을 구현합니다.
+1. 외부 배포용 소유자 인증·세션·TLS 및 프록시 경계를 구현합니다. 로컬 읽기 전용 대시보드는 구현했습니다.
 2. 세션별 봉 확정·신선도·revision 및 데이터셋 버전 정책을 구현합니다.
 3. 정밀 계산을 도입하고 이동평균 교차 전략·백테스트를 검증합니다.
 4. 주문 의도·예약·소유권 원장·상태 머신을 구현한 후 자체 Paper Trading을 연결합니다.
