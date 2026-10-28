@@ -8,6 +8,8 @@ import {
   paperReasonSchema,
   paperEventKindSchema,
   riskBlockerSchema,
+  paperStrategyDefinitionSchema,
+  paperStrategyUpdateSchema,
   paperObservationSchema,
   paperFillRequestSchema,
   paperLedgerStateSchema,
@@ -16,7 +18,7 @@ import {
   paperRiskLimitsSchema,
   paperRiskSnapshotSchema,
 } from '@hth/contracts';
-import type { PaperLedgerState, PaperRiskSnapshot } from '@hth/contracts';
+import type { PaperLedgerState, PaperRiskSnapshot, PaperStrategyDefinition } from '@hth/contracts';
 import {
   evaluatePaperRisk,
   isPaperRiskCurrent,
@@ -26,6 +28,7 @@ import {
   paperPortfolios,
   paperPositionValue,
   marketTradingDate,
+  movingAverageCross,
 } from '@hth/trading';
 import type * as schema from './schema.js';
 import {
@@ -36,6 +39,7 @@ import {
   paperStrategies,
   paperFills,
   paperCostBasis,
+  paperStrategyRevisions,
 } from './schema.js';
 import { contentHash, normalizeDecimal } from './content-hash.js';
 
@@ -293,6 +297,9 @@ export function createPaperLedger(db: Database) {
             id: paperStrategies.strategyId,
             version: paperStrategies.version,
             enabled: paperStrategies.enabled,
+            revision: paperStrategies.revision,
+            definition: paperStrategies.definition,
+            definitionHash: paperStrategies.definitionHash,
           })
           .from(paperStrategies)
           .where(eq(paperStrategies.accountId, id)),
@@ -355,6 +362,8 @@ export function createPaperLedger(db: Database) {
             id: paperStrategies.strategyId,
             version: paperStrategies.version,
             enabled: paperStrategies.enabled,
+            revision: paperStrategies.revision,
+            definition: paperStrategies.definition,
           })
           .from(paperStrategies)
           .where(eq(paperStrategies.accountId, id))
@@ -373,6 +382,7 @@ export function createPaperLedger(db: Database) {
           'PAPER_FILL_STATE_INVALID',
           'PAPER_RESERVATION_STALE',
           'PAPER_STRATEGY_DISABLED',
+          'PAPER_STRATEGY_CONFIG_MISMATCH',
           'PAPER_FILL_DATA_NOT_READY',
           'PAPER_FILL_QUANTITY_INVALID',
           'PAPER_BASIS_MISMATCH',
@@ -540,20 +550,49 @@ export function createPaperLedger(db: Database) {
         return updated.version;
       });
     },
-    async configureStrategy(id: string, version: number, strategy: { id: string; version: string; enabled: boolean }) {
+    async configureStrategy(
+      id: string,
+      version: number,
+      strategy: { id: string; version: string; enabled: boolean; definition?: PaperStrategyDefinition },
+    ) {
       const config = parse(
-        z.object({ id: accountIdSchema, version: z.string().min(1).max(40), enabled: z.boolean() }).strict(),
+        z
+          .object({
+            id: accountIdSchema,
+            version: z.string().min(1).max(40),
+            enabled: z.boolean(),
+            definition: paperStrategyDefinitionSchema.optional(),
+          })
+          .strict(),
         strategy,
       );
       return locked(id, async (transaction, account) => {
         expected(account, version);
-        await transaction
-          .insert(paperStrategies)
-          .values({ accountId: id, strategyId: config.id, version: config.version, enabled: config.enabled })
-          .onConflictDoUpdate({
-            target: [paperStrategies.accountId, paperStrategies.strategyId],
-            set: { version: config.version, enabled: config.enabled },
-          });
+        const [previous] = await transaction
+          .select()
+          .from(paperStrategies)
+          .where(and(eq(paperStrategies.accountId, id), eq(paperStrategies.strategyId, config.id)));
+        const revision = (previous?.revision ?? 0) + 1;
+        if (revision >= Number.MAX_SAFE_INTEGER - 1) throw new Error('PAPER_VERSION_EXHAUSTED');
+        const definition = config.definition ?? previous?.definition ?? null;
+        const definitionHash = contentHash({ version: config.version, definition });
+        const change = { version: config.version, enabled: config.enabled, revision, definition, definitionHash };
+        if (previous)
+          await transaction
+            .update(paperStrategies)
+            .set(change)
+            .where(and(eq(paperStrategies.accountId, id), eq(paperStrategies.strategyId, config.id)));
+        else await transaction.insert(paperStrategies).values({ accountId: id, strategyId: config.id, ...change });
+        await transaction.insert(paperStrategyRevisions).values({
+          accountId: id,
+          strategyId: config.id,
+          revision,
+          version: config.version,
+          enabled: config.enabled,
+          definition,
+          actor: 'system',
+          valueHash: contentHash({ revision, version: config.version, enabled: config.enabled, definition }),
+        });
         const updated = await advance(transaction, account, {
           stopped: true,
           epoch: account.epoch + 1,
@@ -561,6 +600,40 @@ export function createPaperLedger(db: Database) {
         });
         await event(transaction, id, 'STRATEGY_CHANGED', { epoch: updated.epoch });
         return updated.version;
+      });
+    },
+    async updateStrategy(id: string, strategyId: string, value: unknown) {
+      parse(accountIdSchema, strategyId);
+      const input = parse(paperStrategyUpdateSchema, value);
+      return locked(id, async (transaction, account) => {
+        const [previous] = await transaction
+          .select()
+          .from(paperStrategies)
+          .where(and(eq(paperStrategies.accountId, id), eq(paperStrategies.strategyId, strategyId)));
+        if (!previous) throw new Error('PAPER_STRATEGY_NOT_FOUND');
+        if (previous.revision !== input.expectedRevision) throw new Error('PAPER_STRATEGY_REVISION_CONFLICT');
+        const revision = previous.revision + 1;
+        if (revision >= Number.MAX_SAFE_INTEGER - 1) throw new Error('PAPER_VERSION_EXHAUSTED');
+        const version = movingAverageCross.version;
+        const definition = input.definition;
+        const definitionHash = contentHash({ version, definition });
+        await transaction
+          .update(paperStrategies)
+          .set({ version, enabled: input.enabled, revision, definition, definitionHash })
+          .where(and(eq(paperStrategies.accountId, id), eq(paperStrategies.strategyId, strategyId)));
+        await transaction.insert(paperStrategyRevisions).values({
+          accountId: id,
+          strategyId,
+          revision,
+          version,
+          enabled: input.enabled,
+          definition,
+          actor: 'owner',
+          valueHash: contentHash({ revision, version, enabled: input.enabled, definition }),
+        });
+        await advance(transaction, account, { stopped: true, epoch: account.epoch + 1, reason: 'STRATEGY_CHANGED' });
+        await event(transaction, id, 'STRATEGY_CHANGED', { strategyId, revision, epoch: account.epoch + 1 });
+        return { id: strategyId, version, enabled: input.enabled, revision, definition };
       });
     },
     async acquireLease(id: string, ttlMs = 30_000) {
@@ -698,7 +771,11 @@ export function createPaperLedger(db: Database) {
         strategyId: candidate.strategyId,
         instrument: candidate.instrument,
         side: candidate.side,
-        ...signal,
+        strategyVersion: signal.strategyVersion,
+        barTimestamp: signal.barTimestamp,
+        interval: signal.interval,
+        adjusted: signal.adjusted,
+        source: signal.source,
       });
       const requestHash = contentHash({ candidate: economics, signal });
       const result = await locked(candidate.accountId, async (transaction, account) => {
@@ -813,6 +890,15 @@ export function createPaperLedger(db: Database) {
         const latest = prepared.candles.at(-1);
         const matches =
           strategy?.version === intent.signal.strategyVersion &&
+          (!strategy.definition ||
+            (intent.signal.configHash === strategy.definitionHash &&
+              intent.signal.strategyRevision === strategy.revision &&
+              strategy.definitionHash === contentHash({ version: strategy.version, definition: strategy.definition }) &&
+              intent.candidate.instrument.market === strategy.definition.instrument.market &&
+              intent.candidate.instrument.symbol === strategy.definition.instrument.symbol &&
+              (intent.candidate.side === 'BUY'
+                ? intent.candidate.quantity === strategy.definition.quantity
+                : BigInt(intent.candidate.quantity) <= BigInt(strategy.definition.quantity)))) &&
           latest &&
           Date.parse(latest.timestamp) === Date.parse(intent.signal.barTimestamp) &&
           latest.interval === intent.signal.interval &&
@@ -931,6 +1017,13 @@ export function createPaperLedger(db: Database) {
           .where(and(eq(paperStrategies.accountId, id), eq(paperStrategies.strategyId, intent.candidate.strategyId)));
         if (!strategy?.enabled || strategy.version !== intent.signal.strategyVersion || !account.limits)
           return reject('PAPER_STRATEGY_DISABLED');
+        if (
+          strategy.definition &&
+          (intent.signal.configHash !== strategy.definitionHash ||
+            intent.signal.strategyRevision !== strategy.revision ||
+            BigInt(input.quantity) > BigInt(strategy.definition.maxFillQuantity))
+        )
+          return reject('PAPER_STRATEGY_CONFIG_MISMATCH');
         const state = await snapshot(transaction, account);
         const prepared = prepareStrategyData({
           ...evidence.marketData,

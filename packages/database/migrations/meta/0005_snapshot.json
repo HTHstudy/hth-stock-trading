@@ -1,0 +1,1386 @@
+{
+  "id": "41b3d73a-14f8-4176-b0cd-130857921a07",
+  "prevId": "875cb619-555f-486b-9c29-e16e5949bd3e",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.candle_revisions": {
+      "name": "candle_revisions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "instrument_id": {
+          "name": "instrument_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "interval": {
+          "name": "interval",
+          "type": "candle_interval",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "adjusted": {
+          "name": "adjusted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value_hash": {
+          "name": "value_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "candle_revisions_identity_idx": {
+          "name": "candle_revisions_identity_idx",
+          "columns": [
+            {
+              "expression": "instrument_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "interval",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "timestamp",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "adjusted",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "source",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "value_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "candle_revisions_instrument_id_instruments_id_fk": {
+          "name": "candle_revisions_instrument_id_instruments_id_fk",
+          "tableFrom": "candle_revisions",
+          "tableTo": "instruments",
+          "columnsFrom": [
+            "instrument_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "candle_revisions_hash_check": {
+          "name": "candle_revisions_hash_check",
+          "value": "\"candle_revisions\".\"value_hash\" ~ '^[a-f0-9]{64}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.candles": {
+      "name": "candles",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "instrument_id": {
+          "name": "instrument_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "interval": {
+          "name": "interval",
+          "type": "candle_interval",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "trading_date": {
+          "name": "trading_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "open": {
+          "name": "open",
+          "type": "numeric(30, 10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "high": {
+          "name": "high",
+          "type": "numeric(30, 10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "low": {
+          "name": "low",
+          "type": "numeric(30, 10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "close": {
+          "name": "close",
+          "type": "numeric(30, 10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "volume": {
+          "name": "volume",
+          "type": "numeric(30, 10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "adjusted": {
+          "name": "adjusted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_closed": {
+          "name": "is_closed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "collected_at": {
+          "name": "collected_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "candles_identity_idx": {
+          "name": "candles_identity_idx",
+          "columns": [
+            {
+              "expression": "instrument_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "interval",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "timestamp",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "adjusted",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "source",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "candles_instrument_id_instruments_id_fk": {
+          "name": "candles_instrument_id_instruments_id_fk",
+          "tableFrom": "candles",
+          "tableTo": "instruments",
+          "columnsFrom": [
+            "instrument_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "candles_ohlcv_check": {
+          "name": "candles_ohlcv_check",
+          "value": "\"candles\".\"low\" >= 0 AND \"candles\".\"high\" >= \"candles\".\"low\" AND \"candles\".\"open\" BETWEEN \"candles\".\"low\" AND \"candles\".\"high\" AND \"candles\".\"close\" BETWEEN \"candles\".\"low\" AND \"candles\".\"high\" AND \"candles\".\"volume\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.historical_datasets": {
+      "name": "historical_datasets",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "content_hash": {
+          "name": "content_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "historical_datasets_content_hash_unique": {
+          "name": "historical_datasets_content_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "content_hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "historical_datasets_hash_check": {
+          "name": "historical_datasets_hash_check",
+          "value": "\"historical_datasets\".\"content_hash\" ~ '^[a-f0-9]{64}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.instruments": {
+      "name": "instruments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "market": {
+          "name": "market",
+          "type": "market",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "symbol": {
+          "name": "symbol",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "currency",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "instruments_market_symbol_idx": {
+          "name": "instruments_market_symbol_idx",
+          "columns": [
+            {
+              "expression": "market",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "symbol",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "instruments_currency_check": {
+          "name": "instruments_currency_check",
+          "value": "(\"instruments\".\"market\" = 'KR' AND \"instruments\".\"currency\" = 'KRW') OR (\"instruments\".\"market\" = 'US' AND \"instruments\".\"currency\" = 'USD')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.paper_accounts": {
+      "name": "paper_accounts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "mode": {
+          "name": "mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'paper'"
+        },
+        "version": {
+          "name": "version",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "stopped": {
+          "name": "stopped",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "epoch": {
+          "name": "epoch",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'INITIAL_STOP'"
+        },
+        "limits": {
+          "name": "limits",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ledger": {
+          "name": "ledger",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lease_token": {
+          "name": "lease_token",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lease_until": {
+          "name": "lease_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "paper_account_mode": {
+          "name": "paper_account_mode",
+          "value": "\"paper_accounts\".\"mode\" = 'paper'"
+        },
+        "paper_account_versions": {
+          "name": "paper_account_versions",
+          "value": "\"paper_accounts\".\"version\" >= 0 AND \"paper_accounts\".\"version\" < 9007199254740991 AND \"paper_accounts\".\"epoch\" >= 0 AND \"paper_accounts\".\"epoch\" < 9007199254740991"
+        },
+        "paper_lease_pair": {
+          "name": "paper_lease_pair",
+          "value": "(\"paper_accounts\".\"lease_token\" IS NULL) = (\"paper_accounts\".\"lease_until\" IS NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.paper_cost_basis": {
+      "name": "paper_cost_basis",
+      "schema": "",
+      "columns": {
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "market": {
+          "name": "market",
+          "type": "market",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "symbol": {
+          "name": "symbol",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "strategy_id": {
+          "name": "strategy_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount": {
+          "name": "amount",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "paper_cost_basis_account_id_paper_accounts_id_fk": {
+          "name": "paper_cost_basis_account_id_paper_accounts_id_fk",
+          "tableFrom": "paper_cost_basis",
+          "tableTo": "paper_accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "paper_cost_basis_account_id_market_symbol_strategy_id_pk": {
+          "name": "paper_cost_basis_account_id_market_symbol_strategy_id_pk",
+          "columns": [
+            "account_id",
+            "market",
+            "symbol",
+            "strategy_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "paper_basis_amounts": {
+          "name": "paper_basis_amounts",
+          "value": "\"paper_cost_basis\".\"quantity\" >= 0 AND \"paper_cost_basis\".\"quantity\" = trunc(\"paper_cost_basis\".\"quantity\") AND \"paper_cost_basis\".\"quantity\" < 'Infinity'::numeric AND \"paper_cost_basis\".\"amount\" >= 0 AND \"paper_cost_basis\".\"amount\" < 'Infinity'::numeric AND (\"paper_cost_basis\".\"quantity\" > 0 OR \"paper_cost_basis\".\"amount\" = 0)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.paper_events": {
+      "name": "paper_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "intent_id": {
+          "name": "intent_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "paper_event_history": {
+          "name": "paper_event_history",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "paper_events_account_id_paper_accounts_id_fk": {
+          "name": "paper_events_account_id_paper_accounts_id_fk",
+          "tableFrom": "paper_events",
+          "tableTo": "paper_accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "paper_events_account_id_intent_id_paper_order_intents_account_id_intent_id_fk": {
+          "name": "paper_events_account_id_intent_id_paper_order_intents_account_id_intent_id_fk",
+          "tableFrom": "paper_events",
+          "tableTo": "paper_order_intents",
+          "columnsFrom": [
+            "account_id",
+            "intent_id"
+          ],
+          "columnsTo": [
+            "account_id",
+            "intent_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.paper_fills": {
+      "name": "paper_fills",
+      "schema": "",
+      "columns": {
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fill_id": {
+          "name": "fill_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "intent_id": {
+          "name": "intent_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_hash": {
+          "name": "request_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'quote-proxy-v1'"
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price": {
+          "name": "price",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notional": {
+          "name": "notional",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "costs": {
+          "name": "costs",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "realized_pnl": {
+          "name": "realized_pnl",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quote_timestamp": {
+          "name": "quote_timestamp",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quote_observed_at": {
+          "name": "quote_observed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "paper_fill_history": {
+          "name": "paper_fill_history",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "fill_id",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "paper_fills_account_id_intent_id_paper_order_intents_account_id_intent_id_fk": {
+          "name": "paper_fills_account_id_intent_id_paper_order_intents_account_id_intent_id_fk",
+          "tableFrom": "paper_fills",
+          "tableTo": "paper_order_intents",
+          "columnsFrom": [
+            "account_id",
+            "intent_id"
+          ],
+          "columnsTo": [
+            "account_id",
+            "intent_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "paper_fills_account_id_fill_id_pk": {
+          "name": "paper_fills_account_id_fill_id_pk",
+          "columns": [
+            "account_id",
+            "fill_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "paper_fill_amounts": {
+          "name": "paper_fill_amounts",
+          "value": "\"paper_fills\".\"quantity\" > 0 AND \"paper_fills\".\"quantity\" = trunc(\"paper_fills\".\"quantity\") AND \"paper_fills\".\"quantity\" < 'Infinity'::numeric AND \"paper_fills\".\"price\" > 0 AND \"paper_fills\".\"price\" < 'Infinity'::numeric AND \"paper_fills\".\"notional\" = \"paper_fills\".\"price\" * \"paper_fills\".\"quantity\" AND \"paper_fills\".\"costs\" >= 0 AND \"paper_fills\".\"costs\" < 'Infinity'::numeric AND \"paper_fills\".\"realized_pnl\" > '-Infinity'::numeric AND \"paper_fills\".\"realized_pnl\" < 'Infinity'::numeric"
+        },
+        "paper_fill_identity": {
+          "name": "paper_fill_identity",
+          "value": "\"paper_fills\".\"request_hash\" ~ '^[a-f0-9]{64}$' AND \"paper_fills\".\"model\" = 'quote-proxy-v1'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.paper_order_intents": {
+      "name": "paper_order_intents",
+      "schema": "",
+      "columns": {
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "intent_id": {
+          "name": "intent_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dedupe_key": {
+          "name": "dedupe_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_hash": {
+          "name": "request_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "candidate": {
+          "name": "candidate",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "signal": {
+          "name": "signal",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorded_epoch": {
+          "name": "recorded_epoch",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'INTENT_RECORDED'"
+        },
+        "filled_quantity": {
+          "name": "filled_quantity",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "filled_notional": {
+          "name": "filled_notional",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "paid_costs": {
+          "name": "paid_costs",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "version": {
+          "name": "version",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "decision": {
+          "name": "decision",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "codes": {
+          "name": "codes",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "paper_intent_dedupe": {
+          "name": "paper_intent_dedupe",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "dedupe_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "paper_intent_history": {
+          "name": "paper_intent_history",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "intent_id",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "paper_order_intents_account_id_paper_accounts_id_fk": {
+          "name": "paper_order_intents_account_id_paper_accounts_id_fk",
+          "tableFrom": "paper_order_intents",
+          "tableTo": "paper_accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "paper_order_intents_account_id_intent_id_pk": {
+          "name": "paper_order_intents_account_id_intent_id_pk",
+          "columns": [
+            "account_id",
+            "intent_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "paper_intent_state_check": {
+          "name": "paper_intent_state_check",
+          "value": "\"paper_order_intents\".\"state\" IN ('INTENT_RECORDED','READY','PARTIALLY_FILLED','FILLED','RISK_REJECTED','ABORTED')"
+        },
+        "paper_intent_filled_amounts": {
+          "name": "paper_intent_filled_amounts",
+          "value": "\"paper_order_intents\".\"filled_quantity\" >= 0 AND \"paper_order_intents\".\"filled_quantity\" = trunc(\"paper_order_intents\".\"filled_quantity\") AND \"paper_order_intents\".\"filled_quantity\" <= (\"paper_order_intents\".\"candidate\"->>'quantity')::numeric AND \"paper_order_intents\".\"filled_notional\" >= 0 AND \"paper_order_intents\".\"filled_notional\" < 'Infinity'::numeric AND \"paper_order_intents\".\"paid_costs\" >= 0 AND \"paper_order_intents\".\"paid_costs\" < 'Infinity'::numeric"
+        },
+        "paper_intent_hashes": {
+          "name": "paper_intent_hashes",
+          "value": "\"paper_order_intents\".\"request_hash\" ~ '^[a-f0-9]{64}$' AND \"paper_order_intents\".\"dedupe_key\" ~ '^[a-f0-9]{64}$'"
+        },
+        "paper_intent_versions": {
+          "name": "paper_intent_versions",
+          "value": "\"paper_order_intents\".\"version\" >= 0 AND \"paper_order_intents\".\"version\" < 9007199254740991 AND \"paper_order_intents\".\"recorded_epoch\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.paper_reservations": {
+      "name": "paper_reservations",
+      "schema": "",
+      "columns": {
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "intent_id": {
+          "name": "intent_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valuation_price": {
+          "name": "valuation_price",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cash_amount": {
+          "name": "cash_amount",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sell_quantity": {
+          "name": "sell_quantity",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cost_bps": {
+          "name": "cost_bps",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "valid_until": {
+          "name": "valid_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "paper_reservations_account_id_intent_id_paper_order_intents_account_id_intent_id_fk": {
+          "name": "paper_reservations_account_id_intent_id_paper_order_intents_account_id_intent_id_fk",
+          "tableFrom": "paper_reservations",
+          "tableTo": "paper_order_intents",
+          "columnsFrom": [
+            "account_id",
+            "intent_id"
+          ],
+          "columnsTo": [
+            "account_id",
+            "intent_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "paper_reservations_account_id_intent_id_pk": {
+          "name": "paper_reservations_account_id_intent_id_pk",
+          "columns": [
+            "account_id",
+            "intent_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "paper_reservation_amounts": {
+          "name": "paper_reservation_amounts",
+          "value": "\"paper_reservations\".\"quantity\" >= 0 AND (NOT \"paper_reservations\".\"active\" OR \"paper_reservations\".\"quantity\" > 0) AND \"paper_reservations\".\"quantity\" = trunc(\"paper_reservations\".\"quantity\") AND \"paper_reservations\".\"quantity\" < 'Infinity'::numeric AND \"paper_reservations\".\"cash_amount\" >= 0 AND \"paper_reservations\".\"cash_amount\" < 'Infinity'::numeric AND \"paper_reservations\".\"sell_quantity\" >= 0 AND \"paper_reservations\".\"sell_quantity\" < 'Infinity'::numeric AND \"paper_reservations\".\"cost_bps\" >= 0 AND \"paper_reservations\".\"cost_bps\" < 10000 AND ((\"paper_reservations\".\"cash_amount\" > 0 AND \"paper_reservations\".\"sell_quantity\" = 0) OR (\"paper_reservations\".\"cash_amount\" = 0 AND \"paper_reservations\".\"sell_quantity\" = \"paper_reservations\".\"quantity\"))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.paper_strategies": {
+      "name": "paper_strategies",
+      "schema": "",
+      "columns": {
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "strategy_id": {
+          "name": "strategy_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "definition": {
+          "name": "definition",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "definition_hash": {
+          "name": "definition_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "paper_strategies_account_id_paper_accounts_id_fk": {
+          "name": "paper_strategies_account_id_paper_accounts_id_fk",
+          "tableFrom": "paper_strategies",
+          "tableTo": "paper_accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "paper_strategies_account_id_strategy_id_pk": {
+          "name": "paper_strategies_account_id_strategy_id_pk",
+          "columns": [
+            "account_id",
+            "strategy_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "paper_strategy_revision": {
+          "name": "paper_strategy_revision",
+          "value": "\"paper_strategies\".\"revision\" >= 0 AND \"paper_strategies\".\"revision\" < 9007199254740990"
+        },
+        "paper_strategy_definition_hash": {
+          "name": "paper_strategy_definition_hash",
+          "value": "\"paper_strategies\".\"definition_hash\" IS NULL OR \"paper_strategies\".\"definition_hash\" ~ '^[a-f0-9]{64}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.paper_strategy_revisions": {
+      "name": "paper_strategy_revisions",
+      "schema": "",
+      "columns": {
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "strategy_id": {
+          "name": "strategy_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "definition": {
+          "name": "definition",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "value_hash": {
+          "name": "value_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor": {
+          "name": "actor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "paper_strategy_revisions_account_id_strategy_id_paper_strategies_account_id_strategy_id_fk": {
+          "name": "paper_strategy_revisions_account_id_strategy_id_paper_strategies_account_id_strategy_id_fk",
+          "tableFrom": "paper_strategy_revisions",
+          "tableTo": "paper_strategies",
+          "columnsFrom": [
+            "account_id",
+            "strategy_id"
+          ],
+          "columnsTo": [
+            "account_id",
+            "strategy_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "paper_strategy_revisions_account_id_strategy_id_revision_pk": {
+          "name": "paper_strategy_revisions_account_id_strategy_id_revision_pk",
+          "columns": [
+            "account_id",
+            "strategy_id",
+            "revision"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "paper_strategy_history_value": {
+          "name": "paper_strategy_history_value",
+          "value": "\"paper_strategy_revisions\".\"revision\" > 0 AND \"paper_strategy_revisions\".\"revision\" < 9007199254740990 AND \"paper_strategy_revisions\".\"value_hash\" ~ '^[a-f0-9]{64}$' AND \"paper_strategy_revisions\".\"actor\" IN ('owner','system')"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.currency": {
+      "name": "currency",
+      "schema": "public",
+      "values": [
+        "KRW",
+        "USD"
+      ]
+    },
+    "public.candle_interval": {
+      "name": "candle_interval",
+      "schema": "public",
+      "values": [
+        "1m",
+        "1d"
+      ]
+    },
+    "public.market": {
+      "name": "market",
+      "schema": "public",
+      "values": [
+        "KR",
+        "US"
+      ]
+    },
+    "public.paper_intent_state": {
+      "name": "paper_intent_state",
+      "schema": "public",
+      "values": [
+        "INTENT_RECORDED",
+        "READY",
+        "RISK_REJECTED",
+        "ABORTED"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

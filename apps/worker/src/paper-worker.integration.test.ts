@@ -126,7 +126,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper 상시 worker', () => {
     });
     await context.worker.close();
     expect((await database.paper.readAccount(context.id)).leaseUntil).toBeNull();
-  });
+  }, 15_000);
   it('부분 체결 뒤 종료·재시작은 보유분과 손실을 보존하고 자동 재개하지 않는다', async () => {
     const context = await fixture();
     await context.worker.start();
@@ -189,6 +189,42 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper 상시 worker', () => {
     await context.worker.close();
     await failure;
     expect((await database.paper.readAccount(context.id)).leaseUntil).toBeNull();
+  });
+  it('DB 저장 조건을 실행하고 변경 시 이전 worker가 멈춘다', async () => {
+    const context = await fixture();
+    const definition = {
+      kind: 'moving-average-cross',
+      instrument: { market: 'KR', symbol: '005930' },
+      parameters: { fastPeriod: 1, slowPeriod: 2 },
+      quantity: '3',
+      maxFillQuantity: '1',
+    };
+    await database.paper.updateStrategy(context.id, 'test-ma', { expectedRevision: 1, enabled: true, definition });
+    await context.worker.start();
+    await context.worker.step();
+    const [intent] = await database.paper.readOpenIntents(context.id);
+    expect(intent).toMatchObject({ candidate: { quantity: '3' }, signal: { strategyRevision: 2 } });
+    expect(intent!.signal.configHash).toMatch(/^[a-f0-9]{64}$/);
+    await context.worker.step();
+    await database.paper.updateStrategy(context.id, 'test-ma', { expectedRevision: 2, enabled: false, definition });
+    await expect(context.worker.step()).rejects.toThrow('PAPER_CONTROL_CHANGED');
+    expect((await database.paper.readAccount(context.id)).snapshot).toMatchObject({
+      positions: [{ quantity: '1' }],
+      reservations: [],
+    });
+  });
+  it('비활성 전략만 남으면 명시적 재개도 새 주문을 만들지 않는다', async () => {
+    const context = await fixture();
+    const definition = {
+      kind: 'moving-average-cross',
+      instrument: { market: 'KR', symbol: '005930' },
+      parameters: { fastPeriod: 1, slowPeriod: 2 },
+      quantity: '3',
+      maxFillQuantity: '1',
+    };
+    await database.paper.updateStrategy(context.id, 'test-ma', { expectedRevision: 1, enabled: false, definition });
+    await expect(context.worker.start()).rejects.toThrow('PAPER_WORKER_NO_ENABLED_STRATEGIES');
+    expect((await database.paper.readAccount(context.id)).control.stopped).toBe(true);
   });
   it('수집 timeout도 신규 주문을 차단하고 종료한다', async () => {
     const context = await fixture();

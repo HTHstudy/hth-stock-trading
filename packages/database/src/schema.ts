@@ -23,6 +23,7 @@ import type {
   PaperOrderCandidate,
   PaperSignal,
   PaperIntentState,
+  PaperStrategyDefinition,
 } from '@hth/contracts';
 import type { RiskDecision } from '@hth/trading';
 
@@ -155,8 +156,43 @@ export const paperStrategies = pgTable(
     strategyId: text('strategy_id').notNull(),
     version: text('version').notNull(),
     enabled: boolean('enabled').notNull().default(false),
+    revision: bigint('revision', { mode: 'number' }).notNull().default(0),
+    definition: jsonb('definition').$type<PaperStrategyDefinition>(),
+    definitionHash: text('definition_hash'),
   },
-  (table) => [primaryKey({ columns: [table.accountId, table.strategyId] })],
+  (table) => [
+    primaryKey({ columns: [table.accountId, table.strategyId] }),
+    check('paper_strategy_revision', sql`${table.revision} >= 0 AND ${table.revision} < 9007199254740990`),
+    check(
+      'paper_strategy_definition_hash',
+      sql`${table.definitionHash} IS NULL OR ${table.definitionHash} ~ '^[a-f0-9]{64}$'`,
+    ),
+  ],
+);
+export const paperStrategyRevisions = pgTable(
+  'paper_strategy_revisions',
+  {
+    accountId: text('account_id').notNull(),
+    strategyId: text('strategy_id').notNull(),
+    revision: bigint('revision', { mode: 'number' }).notNull(),
+    version: text('version').notNull(),
+    enabled: boolean('enabled').notNull(),
+    definition: jsonb('definition').$type<PaperStrategyDefinition>(),
+    valueHash: text('value_hash').notNull(),
+    actor: text('actor').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.accountId, table.strategyId, table.revision] }),
+    foreignKey({
+      columns: [table.accountId, table.strategyId],
+      foreignColumns: [paperStrategies.accountId, paperStrategies.strategyId],
+    }),
+    check(
+      'paper_strategy_history_value',
+      sql`${table.revision} > 0 AND ${table.revision} < 9007199254740990 AND ${table.valueHash} ~ '^[a-f0-9]{64}$' AND ${table.actor} IN ('owner','system')`,
+    ),
+  ],
 );
 export const paperIntents = pgTable(
   'paper_order_intents',

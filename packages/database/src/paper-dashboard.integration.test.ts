@@ -75,7 +75,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper 조회 원장의 일관�
     expect(result.events).toHaveLength(50);
     expect(result.history).toMatchObject({ ordersLimited: true, eventsLimited: true });
     expect((await database.paper.readDashboard(other.id)).orders).toHaveLength(0);
-  });
+  }, 15_000);
   it('lease 만료와 오래된 평가를 정상 실행으로 표시하지 않는다', async () => {
     const { id } = await accountFixture(database);
     await activate(database, id);

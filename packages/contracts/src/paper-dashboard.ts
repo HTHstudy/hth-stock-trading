@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { paperIntentStateSchema } from './paper-ledger.js';
 import { paperOrderCandidateSchema } from './risk.js';
+import { paperStrategyViewSchema } from './paper-strategy.js';
 
 const decimal = z
   .string()
@@ -86,9 +87,7 @@ export const paperDashboardSnapshotSchema = z
           .strict(),
       )
       .max(10_000),
-    strategies: z
-      .array(z.object({ id, version: z.string().min(1).max(40), enabled: z.boolean() }).strict())
-      .max(10_000),
+    strategies: z.array(paperStrategyViewSchema).max(10_000),
     orders: z
       .array(
         z

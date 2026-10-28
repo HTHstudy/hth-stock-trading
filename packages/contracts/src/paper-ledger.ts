@@ -8,6 +8,16 @@ export const paperSignalSchema = z
     interval: z.enum(['1m', '1d']),
     adjusted: z.boolean(),
     source: z.string().min(1).max(40),
+    strategyRevision: z
+      .number()
+      .int()
+      .min(0)
+      .max(Number.MAX_SAFE_INTEGER - 2)
+      .optional(),
+    configHash: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
   })
   .strict();
 export const paperLedgerStateSchema = paperRiskSnapshotSchema.omit({

@@ -1,7 +1,12 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { Decimal } from 'decimal.js';
 import { z } from 'zod';
-import { movingAverageConfigSchema, paperEvidenceSchema, paperOrderCandidateSchema } from '@hth/contracts';
+import {
+  movingAverageConfigSchema,
+  paperEvidenceSchema,
+  paperOrderCandidateSchema,
+  paperStrategyDefinitionSchema,
+} from '@hth/contracts';
 import type { InstrumentId } from '@hth/contracts';
 import { contentHash } from '@hth/database';
 import type { createDatabase } from '@hth/database';
@@ -34,6 +39,10 @@ export const paperWorkerConfigSchema = z
   .refine((config) => new Set(config.strategies.map((strategy) => strategy.id)).size === config.strategies.length);
 
 export type PaperSource = (instruments: readonly InstrumentId[], signal: AbortSignal) => Promise<unknown>;
+type StrategyConfig = z.infer<typeof paperWorkerConfigSchema>['strategies'][number] & {
+  revision?: number;
+  configHash?: string;
+};
 type Ledger = ReturnType<typeof createDatabase>['paper'];
 export interface PaperWorkerStatus {
   state: 'paused' | 'running';
@@ -44,6 +53,7 @@ export interface PaperWorkerStatus {
 
 export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSource) {
   const config = paperWorkerConfigSchema.parse(value);
+  let strategies: StrategyConfig[] = [...config.strategies];
   const controller = new AbortController();
   let token: string | null = null;
   let epoch = -1;
@@ -70,7 +80,7 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
     const current = await view();
     const requested = new Map(
       [
-        ...config.strategies.map((strategy) => strategy.instrument),
+        ...strategies.map((strategy) => strategy.instrument),
         ...current.snapshot.positions.map((position) => position.instrument),
       ].map((instrument) => [key(instrument), instrument]),
     );
@@ -153,12 +163,28 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
         });
     }, 5000);
     await paper.recoverLease(config.accountId, token, epoch);
-    const strategies = await paper.readStrategies(config.accountId);
-    for (const configured of config.strategies) {
-      const stored = strategies.find((strategy) => strategy.id === configured.id);
-      if (!stored?.enabled || stored.version !== movingAverageCross.version)
+    const storedStrategies = await paper.readStrategies(config.accountId);
+    strategies = config.strategies.flatMap((configured): StrategyConfig[] => {
+      const stored = storedStrategies.find((strategy) => strategy.id === configured.id);
+      if (!stored || stored.version !== movingAverageCross.version) throw new Error('PAPER_WORKER_STRATEGY_MISMATCH');
+      if (!stored.enabled) return [];
+      if (!stored.definition) return [configured];
+      const definition = paperStrategyDefinitionSchema.parse(stored.definition);
+      if (stored.definitionHash !== contentHash({ version: stored.version, definition }))
         throw new Error('PAPER_WORKER_STRATEGY_MISMATCH');
-    }
+      return [
+        {
+          id: configured.id,
+          instrument: definition.instrument,
+          parameters: definition.parameters,
+          quantity: definition.quantity,
+          maxFillQuantity: definition.maxFillQuantity,
+          revision: stored.revision,
+          configHash: stored.definitionHash,
+        },
+      ];
+    });
+    if (config.resume && strategies.length === 0) throw new Error('PAPER_WORKER_NO_ENABLED_STRATEGIES');
     const { current } = await frame();
     if (config.resume) {
       await paper.resume(config.accountId, token, current.snapshot.version);
@@ -186,7 +212,7 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
     };
     if (current.control.stopped) return status;
     const prepared = new Map<string, ReturnType<typeof prepareStrategyData>>();
-    for (const strategy of config.strategies) {
+    for (const strategy of strategies) {
       const entry = evidence.get(key(strategy.instrument))!;
       const data = prepareStrategyData({
         ...entry.marketData,
@@ -203,7 +229,7 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
     }
     for (const intent of await paper.readOpenIntents(config.accountId)) {
       assertActive();
-      const strategy = config.strategies.find(
+      const strategy = strategies.find(
         (item) => item.id === intent.candidate.strategyId && key(item.instrument) === key(intent.candidate.instrument),
       );
       if (!strategy) throw new Error('PAPER_WORKER_ORDER_MISMATCH');
@@ -230,7 +256,7 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
       );
       if (result.fill && !result.replayed) status.fills++;
     }
-    for (const strategy of config.strategies) {
+    for (const strategy of strategies) {
       assertActive();
       const data = prepared.get(strategy.id)!;
       if (!data.ready) continue;
@@ -283,7 +309,15 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
         quantity: signal.action === 'BUY' ? strategy.quantity : Money.min(owned, strategy.quantity).toFixed(),
         limitPrice: (signal.action === 'BUY' ? price.ceil() : price.floor()).mul(unit).toFixed(),
       };
-      await paper.recordIntent({ candidate, signal: provenance });
+      await paper.recordIntent({
+        candidate,
+        signal: {
+          ...provenance,
+          ...(strategy.configHash === undefined
+            ? {}
+            : { configHash: strategy.configHash, strategyRevision: strategy.revision! }),
+        },
+      });
       assertActive();
       await paper.reserve(config.accountId, intentId, token!, evidence.get(key(strategy.instrument))!);
       status.signals++;

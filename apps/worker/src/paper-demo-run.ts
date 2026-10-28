@@ -6,7 +6,7 @@ import { createDatabase } from '@hth/database';
 import { migrateTestDatabase, testDatabaseUrl } from '@hth/database/testing';
 import { marketTradingDate, movingAverageCross } from '@hth/trading';
 import { createPaperWorker } from './paper-worker.js';
-import { paperSyntheticSource } from './paper-synthetic-source.js';
+import { createPaperSyntheticSource } from './paper-synthetic-source.js';
 
 async function main() {
   paperModeSchema.parse(process.env.TRADING_MODE);
@@ -83,24 +83,30 @@ async function main() {
         id: 'demo-ma',
         version: movingAverageCross.version,
         enabled: true,
+        definition: {
+          kind: 'moving-average-cross',
+          instrument: { market: 'KR', symbol: '005930' },
+          parameters: { fastPeriod: 1, slowPeriod: 2 },
+          quantity: '2',
+          maxFillQuantity: '1',
+        },
       });
     }
+    const strategies = (await database.paper.readStrategies(id)).map((strategy) => ({
+      id: strategy.id,
+      instrument: strategy.definition?.instrument ?? { market: 'KR' as const, symbol: '005930' },
+      parameters: strategy.definition?.parameters ?? { fastPeriod: 1, slowPeriod: 2 },
+      quantity: strategy.definition?.quantity ?? '2',
+      maxFillQuantity: strategy.definition?.maxFillQuantity ?? '1',
+    }));
     const worker = createPaperWorker(
       database.paper,
       {
         accountId: id,
         resume: values.resume,
-        strategies: [
-          {
-            id: 'demo-ma',
-            instrument: { market: 'KR', symbol: '005930' },
-            parameters: { fastPeriod: 1, slowPeriod: 2 },
-            quantity: '2',
-            maxFillQuantity: '1',
-          },
-        ],
+        strategies,
       },
-      paperSyntheticSource,
+      createPaperSyntheticSource(Math.max(3, ...strategies.map((strategy) => strategy.parameters.slowPeriod + 1))),
     );
     await worker.run(controller.signal, (status) => report({ ...status }), ticks);
     report({ state: 'stopped' });

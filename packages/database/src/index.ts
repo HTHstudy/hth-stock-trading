@@ -23,4 +23,5 @@ export function createDatabase(connectionString: string) {
 export { candles, instruments, candleRevisions, historicalDatasets } from './schema.js';
 export { paperAccounts, paperStrategies, paperIntents, paperReservations, paperEvents } from './schema.js';
 export { paperFills, paperCostBasis } from './schema.js';
+export { paperStrategyRevisions } from './schema.js';
 export { canonicalJson, contentHash, candleRevision } from './content-hash.js';

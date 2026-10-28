@@ -1,4 +1,14 @@
 import { z } from 'zod';
+export { ownerLoginSchema, ownerSessionSchema } from './owner.js';
+export type { OwnerSession } from './owner.js';
+export {
+  paperStrategyDefinitionSchema,
+  paperStrategyViewSchema,
+  paperStrategyUpdateSchema,
+  paperStrategyAcknowledgementSchema,
+  strategyRevisionSchema,
+} from './paper-strategy.js';
+export type { PaperStrategyDefinition } from './paper-strategy.js';
 export {
   paperDashboardSnapshotSchema,
   paperDashboardStateSchema,

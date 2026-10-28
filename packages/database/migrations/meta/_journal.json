@@ -36,6 +36,13 @@
       "when": 1793176388385,
       "tag": "0004_right_mauler",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793179105885,
+      "tag": "0005_happy_machine_man",
+      "breakpoints": true
     }
   ]
 }
