@@ -192,10 +192,10 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper DB 원장과 원자적 �
     const request = order(id, evidence);
     await database.paper.recordIntent(request);
     await database.db.execute(
-      sql`CREATE FUNCTION fail_paper_test_event() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.kind = 'RESERVATION_CREATED' THEN RAISE EXCEPTION 'TEST_FAULT'; END IF; RETURN NEW; END; $$`,
+      sql`CREATE FUNCTION fail_paper_test_event() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.kind = 'RESERVATION_CREATED' AND NEW.account_id = TG_ARGV[0] THEN RAISE EXCEPTION 'TEST_FAULT'; END IF; RETURN NEW; END; $$`,
     );
     await database.db.execute(
-      sql`CREATE TRIGGER fail_paper_test_event BEFORE INSERT ON paper_events FOR EACH ROW EXECUTE FUNCTION fail_paper_test_event()`,
+      sql`CREATE TRIGGER fail_paper_test_event BEFORE INSERT ON paper_events FOR EACH ROW EXECUTE FUNCTION fail_paper_test_event(${sql.raw(`'${id}'`)})`,
     );
     try {
       await expect(database.paper.reserve(id, request.candidate.intentId, lease.token, evidence)).rejects.toThrow(
@@ -237,10 +237,10 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper DB 원장과 원자적 �
     const request = order(id, evidence);
     await database.paper.recordIntent(request);
     await database.db.execute(
-      sql`CREATE FUNCTION wait_paper_test_lease() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE expiry timestamptz; BEGIN SELECT lease_until INTO expiry FROM paper_accounts WHERE id = NEW.account_id; PERFORM pg_sleep(greatest(0, extract(epoch FROM expiry - clock_timestamp())) + 0.05); RETURN NEW; END; $$`,
+      sql`CREATE FUNCTION wait_paper_test_lease() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE expiry timestamptz; BEGIN IF NEW.account_id = TG_ARGV[0] THEN SELECT lease_until INTO expiry FROM paper_accounts WHERE id = NEW.account_id; PERFORM pg_sleep(greatest(0, extract(epoch FROM expiry - clock_timestamp())) + 0.05); END IF; RETURN NEW; END; $$`,
     );
     await database.db.execute(
-      sql`CREATE TRIGGER test_wait_paper_lease BEFORE INSERT ON paper_reservations FOR EACH ROW EXECUTE FUNCTION wait_paper_test_lease()`,
+      sql`CREATE TRIGGER test_wait_paper_lease BEFORE INSERT ON paper_reservations FOR EACH ROW EXECUTE FUNCTION wait_paper_test_lease(${sql.raw(`'${id}'`)})`,
     );
     try {
       await database.paper.renewLease(id, lease.token, 2000);

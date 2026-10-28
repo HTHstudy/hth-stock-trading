@@ -4,6 +4,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { z } from 'zod';
 import {
   paperEvidenceSchema,
+  paperFillRequestSchema,
   paperLedgerStateSchema,
   paperOrderCandidateSchema,
   paperRecordedOrderSchema,
@@ -11,9 +12,17 @@ import {
   paperRiskSnapshotSchema,
 } from '@hth/contracts';
 import type { PaperLedgerState, PaperRiskSnapshot } from '@hth/contracts';
-import { evaluatePaperRisk, isPaperRiskCurrent, prepareStrategyData } from '@hth/trading';
+import { evaluatePaperRisk, isPaperRiskCurrent, prepareStrategyData, settlePaperFill } from '@hth/trading';
 import type * as schema from './schema.js';
-import { paperAccounts, paperEvents, paperIntents, paperReservations, paperStrategies } from './schema.js';
+import {
+  paperAccounts,
+  paperEvents,
+  paperIntents,
+  paperReservations,
+  paperStrategies,
+  paperFills,
+  paperCostBasis,
+} from './schema.js';
 import { contentHash, normalizeDecimal } from './content-hash.js';
 
 type Database = NodePgDatabase<typeof schema>;
@@ -28,7 +37,7 @@ const versionSchema = z
   .max(Number.MAX_SAFE_INTEGER - 2);
 const reasonSchema = z.string().trim().min(1).max(200);
 const ttlSchema = z.number().int().min(1000).max(60_000);
-const openStates = ['INTENT_RECORDED', 'READY'] as const;
+const openStates = ['INTENT_RECORDED', 'READY', 'PARTIALLY_FILLED'] as const;
 
 function parse<Schema extends z.ZodType>(definition: Schema, input: unknown): z.output<Schema> {
   const result = definition.safeParse(input);
@@ -121,6 +130,8 @@ export function createPaperLedger(db: Database) {
         quantity: paperReservations.quantity,
         price: paperReservations.valuationPrice,
         costBps: paperReservations.costBps,
+        filledNotional: paperIntents.filledNotional,
+        paidCosts: paperIntents.paidCosts,
       })
       .from(paperReservations)
       .innerJoin(
@@ -144,6 +155,8 @@ export function createPaperLedger(db: Database) {
         remainingQuantity: normalizeDecimal(row.quantity),
         limitPrice: normalizeDecimal(row.price),
         costBps: normalizeDecimal(row.costBps),
+        filledNotional: normalizeDecimal(row.filledNotional),
+        paidCosts: normalizeDecimal(row.paidCosts),
       })),
     });
   }
@@ -443,7 +456,7 @@ export function createPaperLedger(db: Database) {
         }
         if (intent.state !== 'INTENT_RECORDED') {
           if (
-            intent.state === 'READY' &&
+            (intent.state === 'READY' || intent.state === 'PARTIALLY_FILLED') &&
             (account.stopped ||
               intent.recordedEpoch !== account.epoch ||
               !intent.decision?.validUntil ||
@@ -584,6 +597,184 @@ export function createPaperLedger(db: Database) {
       });
       if ('error' in result) throw new Error(result.error);
       return result;
+    },
+    async fill(id: string, intentId: string, token: string, request: unknown, value: unknown) {
+      const input = parse(paperFillRequestSchema, request);
+      const evidence = parse(paperEvidenceSchema, value);
+      parse(z.uuid(), token);
+      const requestHash = contentHash({ intentId, quantity: input.quantity, model: 'quote-proxy-v1' });
+      const result = await locked(id, async (transaction, account) => {
+        const intent = await findIntent(transaction, id, intentId);
+        const [previous] = await transaction
+          .select()
+          .from(paperFills)
+          .where(and(eq(paperFills.accountId, id), eq(paperFills.fillId, input.fillId)));
+        if (previous) {
+          if (previous.requestHash !== requestHash) {
+            await event(transaction, id, 'FILL_CONFLICT', {}, intentId);
+            return { error: 'PAPER_FILL_CONFLICT' } as const;
+          }
+          return { fill: previous, replayed: true, executionEnabled: false as const };
+        }
+        const reject = async (code: string) => {
+          await event(transaction, id, 'FILL_REJECTED', { code }, intentId);
+          return { error: code };
+        };
+        const now = await clock(transaction);
+        if (!leaseOwned(account, token, now)) return reject('PAPER_LEASE_NOT_OWNED');
+        if (intent.state !== 'READY' && intent.state !== 'PARTIALLY_FILLED') return reject('PAPER_FILL_STATE_INVALID');
+        if (
+          account.stopped ||
+          account.epoch !== intent.recordedEpoch ||
+          !intent.decision?.validUntil ||
+          now.getTime() >= Date.parse(intent.decision.validUntil)
+        ) {
+          await abortLocked(transaction, account, intent, 'STALE_RESERVATION');
+          return { error: 'PAPER_RESERVATION_STALE' };
+        }
+        const [strategy] = await transaction
+          .select()
+          .from(paperStrategies)
+          .where(and(eq(paperStrategies.accountId, id), eq(paperStrategies.strategyId, intent.candidate.strategyId)));
+        if (!strategy?.enabled || strategy.version !== intent.signal.strategyVersion || !account.limits)
+          return reject('PAPER_STRATEGY_DISABLED');
+        const state = await snapshot(transaction, account);
+        const prepared = prepareStrategyData({
+          ...evidence.marketData,
+          instrument: intent.candidate.instrument,
+          quoteTimestamp: evidence.quote.timestamp,
+          quoteObservedAt: evidence.quote.observedAt,
+          accountObservedAt: state.observedAt,
+          accountAvailable: state.reconciled,
+          asOf: now.toISOString(),
+        });
+        const quote = evidence.quote;
+        if (
+          !prepared.ready ||
+          !evidence.sourcesHealthy ||
+          evidence.hasUnknownOrders ||
+          !quote.timestamp ||
+          quote.instrument.market !== intent.candidate.instrument.market ||
+          quote.instrument.symbol !== intent.candidate.instrument.symbol ||
+          !intent.decision.checkedAt ||
+          Date.parse(quote.timestamp) < Date.parse(intent.decision.checkedAt) ||
+          Date.parse(quote.observedAt) < Date.parse(intent.decision.checkedAt) ||
+          state.positions.some(
+            (position) =>
+              position.instrument.market === intent.candidate.instrument.market &&
+              [position.markTimestamp, position.markObservedAt].some(
+                (instant) =>
+                  instant === null ||
+                  now.getTime() - Date.parse(instant) >= 120_000 ||
+                  Date.parse(instant) > now.getTime() + 5000,
+              ),
+          )
+        )
+          return reject('PAPER_FILL_DATA_NOT_READY');
+        const basisKey = {
+          accountId: id,
+          market: intent.candidate.instrument.market,
+          symbol: intent.candidate.instrument.symbol,
+          strategyId: intent.candidate.strategyId,
+        };
+        const [basis] = await transaction
+          .select()
+          .from(paperCostBasis)
+          .where(
+            and(
+              eq(paperCostBasis.accountId, id),
+              eq(paperCostBasis.market, basisKey.market),
+              eq(paperCostBasis.symbol, basisKey.symbol),
+              eq(paperCostBasis.strategyId, basisKey.strategyId),
+            ),
+          );
+        const currency = basisKey.market === 'KR' ? 'KRW' : 'USD';
+        let settled;
+        try {
+          settled = settlePaperFill({
+            snapshot: state,
+            candidate: intent.candidate,
+            quantity: input.quantity,
+            quote: { price: quote.price, timestamp: quote.timestamp, observedAt: quote.observedAt },
+            cumulative: { quantity: intent.filledQuantity, notional: intent.filledNotional, costs: intent.paidCosts },
+            basis: basis ?? null,
+            asOf: now.toISOString(),
+            maxDailyLoss: account.limits[currency].maxDailyLoss,
+          });
+        } catch (error) {
+          return reject(
+            error instanceof Error && /^PAPER_[A-Z_]+$/.test(error.message) ? error.message : 'PAPER_FILL_INVALID',
+          );
+        }
+        if (!settled) {
+          await event(transaction, id, 'LIMIT_NOT_REACHED', {}, intentId);
+          return { fill: null, replayed: false, executionEnabled: false as const };
+        }
+        const [fill] = await transaction
+          .insert(paperFills)
+          .values({
+            accountId: id,
+            intentId,
+            fillId: input.fillId,
+            requestHash,
+            quantity: settled.quantity,
+            price: settled.price,
+            notional: settled.notional,
+            costs: settled.costs,
+            realizedPnl: settled.realizedPnl,
+            quoteTimestamp: quote.timestamp,
+            quoteObservedAt: quote.observedAt,
+            createdAt: now.toISOString(),
+          })
+          .returning();
+        await transaction
+          .insert(paperCostBasis)
+          .values({ ...basisKey, ...settled.basis })
+          .onConflictDoUpdate({
+            target: [paperCostBasis.accountId, paperCostBasis.market, paperCostBasis.symbol, paperCostBasis.strategyId],
+            set: settled.basis,
+          });
+        await transaction
+          .update(paperIntents)
+          .set({
+            state: settled.remainingQuantity === '0' ? 'FILLED' : 'PARTIALLY_FILLED',
+            version: intent.version + 1,
+            filledQuantity: settled.filledQuantity,
+            filledNotional: settled.filledNotional,
+            paidCosts: settled.paidCosts,
+          })
+          .where(and(eq(paperIntents.accountId, id), eq(paperIntents.intentId, intentId)));
+        await transaction
+          .update(paperReservations)
+          .set({
+            active: settled.remainingQuantity !== '0',
+            quantity: settled.remainingQuantity,
+            cashAmount: settled.remainingCash,
+            sellQuantity: settled.remainingSell,
+          })
+          .where(and(eq(paperReservations.accountId, id), eq(paperReservations.intentId, intentId)));
+        await advance(transaction, account, { ledger: settled.ledger });
+        await event(transaction, id, 'PAPER_FILL_RECORDED', { fillId: input.fillId }, intentId);
+        const finalNow = await clock(transaction);
+        if (
+          !leaseOwned(account, token, finalNow) ||
+          finalNow.getTime() >= Date.parse(intent.decision.validUntil) ||
+          finalNow.getTime() >= Date.parse(prepared.validUntil!)
+        )
+          throw new Error('PAPER_FILL_EXPIRED');
+        return { fill: fill!, replayed: false, executionEnabled: false as const };
+      });
+      if ('error' in result) throw new Error(result.error);
+      return result;
+    },
+    async readFills(id: string, intentId: string) {
+      return locked(id, async (transaction) => {
+        await findIntent(transaction, id, intentId);
+        return transaction
+          .select()
+          .from(paperFills)
+          .where(and(eq(paperFills.accountId, id), eq(paperFills.intentId, intentId)));
+      });
     },
     async abort(id: string, intentId: string, reason: string) {
       const validatedReason = parse(reasonSchema, reason);

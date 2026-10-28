@@ -21,6 +21,7 @@ import type {
   PaperRiskLimits,
   PaperOrderCandidate,
   PaperSignal,
+  PaperIntentState,
 } from '@hth/contracts';
 import type { RiskDecision } from '@hth/trading';
 
@@ -168,7 +169,10 @@ export const paperIntents = pgTable(
     candidate: jsonb('candidate').$type<PaperOrderCandidate>().notNull(),
     signal: jsonb('signal').$type<PaperSignal>().notNull(),
     recordedEpoch: bigint('recorded_epoch', { mode: 'number' }).notNull(),
-    state: paperIntentState('state').notNull().default('INTENT_RECORDED'),
+    state: text('state').$type<PaperIntentState>().notNull().default('INTENT_RECORDED'),
+    filledQuantity: numeric('filled_quantity').notNull().default('0'),
+    filledNotional: numeric('filled_notional').notNull().default('0'),
+    paidCosts: numeric('paid_costs').notNull().default('0'),
     version: bigint('version', { mode: 'number' }).notNull().default(0),
     decision: jsonb('decision').$type<RiskDecision>(),
     codes: jsonb('codes').$type<string[]>().notNull().default([]),
@@ -177,6 +181,14 @@ export const paperIntents = pgTable(
   (table) => [
     primaryKey({ columns: [table.accountId, table.intentId] }),
     uniqueIndex('paper_intent_dedupe').on(table.accountId, table.dedupeKey),
+    check(
+      'paper_intent_state_check',
+      sql`${table.state} IN ('INTENT_RECORDED','READY','PARTIALLY_FILLED','FILLED','RISK_REJECTED','ABORTED')`,
+    ),
+    check(
+      'paper_intent_filled_amounts',
+      sql`${table.filledQuantity} >= 0 AND ${table.filledQuantity} = trunc(${table.filledQuantity}) AND ${table.filledQuantity} <= (${table.candidate}->>'quantity')::numeric AND ${table.filledNotional} >= 0 AND ${table.filledNotional} < 'Infinity'::numeric AND ${table.paidCosts} >= 0 AND ${table.paidCosts} < 'Infinity'::numeric`,
+    ),
     check(
       'paper_intent_hashes',
       sql`${table.requestHash} ~ '^[a-f0-9]{64}$' AND ${table.dedupeKey} ~ '^[a-f0-9]{64}$'`,
@@ -208,7 +220,7 @@ export const paperReservations = pgTable(
     }),
     check(
       'paper_reservation_amounts',
-      sql`${table.quantity} > 0 AND ${table.quantity} = trunc(${table.quantity}) AND ${table.quantity} < 'Infinity'::numeric AND ${table.cashAmount} >= 0 AND ${table.cashAmount} < 'Infinity'::numeric AND ${table.sellQuantity} >= 0 AND ${table.sellQuantity} < 'Infinity'::numeric AND ${table.costBps} >= 0 AND ${table.costBps} < 10000 AND ((${table.cashAmount} > 0 AND ${table.sellQuantity} = 0) OR (${table.cashAmount} = 0 AND ${table.sellQuantity} = ${table.quantity}))`,
+      sql`${table.quantity} >= 0 AND (NOT ${table.active} OR ${table.quantity} > 0) AND ${table.quantity} = trunc(${table.quantity}) AND ${table.quantity} < 'Infinity'::numeric AND ${table.cashAmount} >= 0 AND ${table.cashAmount} < 'Infinity'::numeric AND ${table.sellQuantity} >= 0 AND ${table.sellQuantity} < 'Infinity'::numeric AND ${table.costBps} >= 0 AND ${table.costBps} < 10000 AND ((${table.cashAmount} > 0 AND ${table.sellQuantity} = 0) OR (${table.cashAmount} = 0 AND ${table.sellQuantity} = ${table.quantity}))`,
     ),
   ],
 );
@@ -229,5 +241,56 @@ export const paperEvents = pgTable(
       columns: [table.accountId, table.intentId],
       foreignColumns: [paperIntents.accountId, paperIntents.intentId],
     }),
+  ],
+);
+
+export const paperFills = pgTable(
+  'paper_fills',
+  {
+    accountId: text('account_id').notNull(),
+    fillId: text('fill_id').notNull(),
+    intentId: text('intent_id').notNull(),
+    requestHash: text('request_hash').notNull(),
+    model: text('model').notNull().default('quote-proxy-v1'),
+    quantity: numeric('quantity').notNull(),
+    price: numeric('price').notNull(),
+    notional: numeric('notional').notNull(),
+    costs: numeric('costs').notNull(),
+    realizedPnl: numeric('realized_pnl').notNull(),
+    quoteTimestamp: timestamp('quote_timestamp', { withTimezone: true, mode: 'string' }).notNull(),
+    quoteObservedAt: timestamp('quote_observed_at', { withTimezone: true, mode: 'string' }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.accountId, table.fillId] }),
+    foreignKey({
+      columns: [table.accountId, table.intentId],
+      foreignColumns: [paperIntents.accountId, paperIntents.intentId],
+    }),
+    check(
+      'paper_fill_amounts',
+      sql`${table.quantity} > 0 AND ${table.quantity} = trunc(${table.quantity}) AND ${table.quantity} < 'Infinity'::numeric AND ${table.price} > 0 AND ${table.price} < 'Infinity'::numeric AND ${table.notional} = ${table.price} * ${table.quantity} AND ${table.costs} >= 0 AND ${table.costs} < 'Infinity'::numeric AND ${table.realizedPnl} > '-Infinity'::numeric AND ${table.realizedPnl} < 'Infinity'::numeric`,
+    ),
+    check('paper_fill_identity', sql`${table.requestHash} ~ '^[a-f0-9]{64}$' AND ${table.model} = 'quote-proxy-v1'`),
+  ],
+);
+export const paperCostBasis = pgTable(
+  'paper_cost_basis',
+  {
+    accountId: text('account_id')
+      .notNull()
+      .references(() => paperAccounts.id),
+    market: marketEnum('market').notNull(),
+    symbol: text('symbol').notNull(),
+    strategyId: text('strategy_id').notNull(),
+    quantity: numeric('quantity').notNull(),
+    amount: numeric('amount').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.accountId, table.market, table.symbol, table.strategyId] }),
+    check(
+      'paper_basis_amounts',
+      sql`${table.quantity} >= 0 AND ${table.quantity} = trunc(${table.quantity}) AND ${table.quantity} < 'Infinity'::numeric AND ${table.amount} >= 0 AND ${table.amount} < 'Infinity'::numeric AND (${table.quantity} > 0 OR ${table.amount} = 0)`,
+    ),
   ],
 );

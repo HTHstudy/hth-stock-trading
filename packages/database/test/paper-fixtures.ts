@@ -22,29 +22,46 @@ export const testLimits = {
   },
   maxPositions: 5,
 };
-export async function freshEvidence(database: Database, symbol = '005930'): Promise<PaperEvidence> {
+export async function freshEvidence(
+  database: Database,
+  symbol = '005930',
+  market: 'KR' | 'US' = 'KR',
+): Promise<PaperEvidence> {
   const result = await database.db.execute<{ milliseconds: string }>(
     sql`SELECT floor(extract(epoch FROM clock_timestamp()) * 1000)::text AS milliseconds`,
   );
   const now = new Date(Number(result.rows[0]!.milliseconds));
-  const date = marketTradingDate(now.getTime(), 'KR');
+  const date = marketTradingDate(now.getTime(), market);
   const end = Math.floor(now.getTime() / 60_000) * 60_000 - 60_000;
   const day = (offset: number) => {
     const tradingDate = new Date(Date.parse(`${date}T00:00:00Z`) + offset * 86_400_000).toISOString().slice(0, 10);
+    const previousDate = new Date(Date.parse(`${tradingDate}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+    const offsetAt = (value: string) =>
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        timeZoneName: 'longOffset',
+      })
+        .formatToParts(new Date(`${value}T12:00:00Z`))
+        .find((part) => part.type === 'timeZoneName')!
+        .value.replace('GMT', '');
     return {
-      market: 'KR' as const,
+      market,
       tradingDate,
       sessionsKnown: true,
       sessions: [
         {
           type: 'regular' as const,
-          startsAt: `${tradingDate}T00:00:00+09:00`,
-          endsAt: `${tradingDate}T23:59:59.999+09:00`,
+          startsAt:
+            market === 'KR' ? `${tradingDate}T00:00:00+09:00` : `${previousDate}T20:00:00${offsetAt(previousDate)}`,
+          endsAt:
+            market === 'KR'
+              ? `${tradingDate}T23:59:59.999+09:00`
+              : `${tradingDate}T19:59:59.999${offsetAt(tradingDate)}`,
         },
       ],
     };
   };
-  const instrument = { market: 'KR', symbol } as const;
+  const instrument = { market, symbol };
   return {
     sourcesHealthy: true,
     hasUnknownOrders: false,
@@ -57,13 +74,13 @@ export async function freshEvidence(database: Database, symbol = '005930'): Prom
           instrument,
           interval: '1m',
           timestamp: new Date(end).toISOString(),
-          tradingDate: marketTradingDate(end - 1, 'KR'),
+          tradingDate: marketTradingDate(end - 1, market),
           open: '1000',
           high: '1000',
           low: '1000',
           close: '1000',
           volume: '10',
-          currency: 'KRW',
+          currency: market === 'KR' ? 'KRW' : 'USD',
           adjusted: false,
           source: 'synthetic-ledger-v1',
           isClosed: false,
