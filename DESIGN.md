@@ -79,6 +79,8 @@ stateDiagram-v2
 | --------------------------------- | --------------------------------------------------- | ----------- |
 | instruments                       | market+symbol unique, currency, name                | 기본 스키마 |
 | candles                           | 복합 unique, OHLCV, 수집시각, adjusted, source      | 기본 스키마 |
+| candle_revisions                  | 정규화된 값 hash, 원본 가격 추가 이력, 변경 차단    | 구현        |
+| historical_datasets               | 관측·캘린더·종료 증거·선택 봉, content hash         | 구현        |
 | accounts / cash_snapshots         | broker 계좌 참조, mode·currency별 잔고·수집시각     | 설계        |
 | strategy_runs                     | 전략/버전/설정, 활성화, 실행 mode                   | 설계        |
 | signals                           | 전략·종목·봉·신호 unique                            | 설계        |

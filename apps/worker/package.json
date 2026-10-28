@@ -13,6 +13,8 @@
     "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
     "broker:check": "tsx --env-file-if-exists=../../.env src/readonly.ts",
     "broker:sync": "tsx --env-file-if-exists=../../.env src/readonly.ts --save",
+    "data:backfill": "tsx --env-file-if-exists=../../.env src/data-backfill.ts",
+    "data:export": "tsx --env-file-if-exists=../../.env src/data-export.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node --env-file-if-exists=../../.env dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"

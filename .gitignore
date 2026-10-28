@@ -8,6 +8,7 @@ coverage/
 *.log
 .DS_Store
 .vercel/
+.local-data/
 .aws/
 *.pem
 *.key
