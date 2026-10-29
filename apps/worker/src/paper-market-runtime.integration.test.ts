@@ -7,6 +7,8 @@ import { parsePaperMarketConfig } from './paper-market-config.js';
 import { runPaperMarket } from './paper-market-runtime.js';
 import type { PaperMarketDependencies } from './paper-market-runtime.js';
 import { createPaperWorker } from './paper-worker.js';
+import { paperSyntheticSource } from './paper-synthetic-source.js';
+import type { PaperEvidence } from '@hth/contracts';
 
 describe.skipIf(!process.env.TEST_DATABASE_URL)('실제 시세 Paper 명령의 DB 검증 (fixture broker)', () => {
   let database: ReturnType<typeof createDatabase>;
@@ -37,6 +39,13 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('실제 시세 Paper 명령의 D
         // The static fixture contains two symbols; project to requested set.
         return {
           ...broker,
+          getMarketCalendar: async () =>
+            (
+              (await paperSyntheticSource(
+                [{ market: 'KR', symbol: '005930' }],
+                new AbortController().signal,
+              )) as PaperEvidence[]
+            )[0]!.marketData.calendar!,
           getInstruments: async (requested) =>
             (
               await broker.getInstruments([

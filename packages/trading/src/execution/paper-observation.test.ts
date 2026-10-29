@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { paperLedgerStateSchema } from '@hth/contracts';
 import type { InstrumentId } from '@hth/contracts';
-import { observePaperLedger } from './paper-observation.js';
+import { observePaperLedger, reviewPaperTradingDay } from './paper-observation.js';
 
 function fixture(asOf = '2026-03-25T02:00:00Z') {
   const instrument: InstrumentId = { market: 'KR', symbol: '005930' };
@@ -70,6 +70,30 @@ it('장시간 중단 후 새 거래일과 잘못된 기존 날짜는 손실을 �
   );
   ledger.dailyPnl.KRW.tradingDate = '2000-01-01';
   expect(() => observePaperLedger(ledger, observation, '2026-03-25T14:59:59Z')).toThrow();
+});
+it('명시적 거래일 검토는 기존 손실과 중단 구간 평가 차이를 새 거래일로 이월한다', () => {
+  const { ledger, observation } = fixture('2026-03-25T14:59:59Z');
+  observation.quotes[0]!.timestamp = '2026-03-25T15:05:00Z';
+  observation.quotes[0]!.observedAt = '2026-03-25T15:05:00Z';
+  const result = reviewPaperTradingDay(ledger, observation, '2026-03-25T15:05:00Z');
+  expect(result.dailyPnl.KRW).toEqual({ tradingDate: '2026-03-26', netPnl: '-490' });
+  expect(result.cash).toEqual(ledger.cash);
+  expect(result.positions[0]!.manualQuantity).toBe('1');
+  ledger.dailyPnl.KRW.netPnl = '500';
+  expect(reviewPaperTradingDay(ledger, observation, '2026-03-25T15:05:00Z').dailyPnl.KRW.netPnl).toBe('10');
+});
+it('거래일 검토로 오염된 날짜나 오래된 가격을 승인하지 않는다', () => {
+  const { ledger, observation } = fixture('2026-03-25T14:59:59Z');
+  expect(() => reviewPaperTradingDay(ledger, observation, '2026-03-25T15:05:00Z')).toThrow('PAPER_OBSERVATION_STALE');
+  expect(() => reviewPaperTradingDay(ledger, observation, '2026-03-25T14:59:59Z')).toThrow(
+    'PAPER_TRADING_DAY_REVIEW_NOT_REQUIRED',
+  );
+  observation.quotes[0]!.timestamp = '2026-03-25T15:05:00Z';
+  observation.quotes[0]!.observedAt = '2026-03-25T15:05:00Z';
+  ledger.dailyPnl.KRW.tradingDate = '2000-01-01';
+  expect(() => reviewPaperTradingDay(ledger, observation, '2026-03-25T15:05:00Z')).toThrow(
+    'PAPER_TRADING_DAY_REVIEW_REQUIRED',
+  );
 });
 
 it.each([

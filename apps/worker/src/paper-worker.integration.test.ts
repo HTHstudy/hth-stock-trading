@@ -65,6 +65,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper 상시 worker', () => {
       ],
     };
     let bearish = false;
+    let closed = false;
+    let unknownCalendar = false;
     let failed = false;
     let stalled = false;
     const source: PaperSource = async (instruments, signal) => {
@@ -72,6 +74,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper 상시 worker', () => {
       if (stalled) return new Promise(() => {});
       const evidence = (await paperSyntheticSource(instruments, signal)) as PaperEvidence[];
       for (const entry of evidence) {
+        if (closed) entry.marketData.calendar!.today.sessions = [];
+        if (unknownCalendar) entry.marketData.calendar!.today.sessionsKnown = false;
         const prices = bearish ? ['1000', '1100', '900'] : ['1000', '900', '1100'];
         entry.marketData.candles.forEach((candle, index) =>
           Object.assign(candle, { open: prices[index], high: prices[index], low: prices[index], close: prices[index] }),
@@ -91,6 +95,15 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper 상시 worker', () => {
       source,
       worker: create(),
       create,
+      closeMarket: () => {
+        closed = true;
+      },
+      openMarket: () => {
+        closed = false;
+      },
+      unknownCalendar: () => {
+        unknownCalendar = true;
+      },
       bearish: () => {
         bearish = true;
       },
@@ -305,5 +318,34 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper 상시 worker', () => {
     expect(after.snapshot.cash).toEqual(before.snapshot.cash);
     expect(after.snapshot.positions).toEqual(before.snapshot.positions);
     expect((await database.paper.readDashboard(context.id)).orders).toHaveLength(0);
+  });
+  it('휴장 시 예약을 정리하고 손실/자산을 보존하며 개장해도 자동 재개하지 않는다', async () => {
+    const context = await fixture();
+    await context.worker.start();
+    await context.worker.step();
+    expect((await database.paper.readAccount(context.id)).snapshot.reservations).toHaveLength(1);
+    const before = await database.paper.readAccount(context.id);
+    context.closeMarket();
+    expect(await context.worker.step()).toMatchObject({ state: 'waiting', signals: 0, fills: 0 });
+    const parked = await database.paper.readAccount(context.id);
+    expect(parked.control).toMatchObject({ stopped: true, reason: 'MARKET_CLOSED' });
+    expect(parked.snapshot.reservations).toHaveLength(0);
+    expect(parked.snapshot.cash).toEqual(before.snapshot.cash);
+    expect(parked.snapshot.dailyPnl).toEqual(before.snapshot.dailyPnl);
+    expect(parked.snapshot.observedAt).toEqual(before.snapshot.observedAt);
+    expect(await context.worker.step()).toMatchObject({ state: 'waiting' });
+    expect((await database.paper.readAccount(context.id)).control.epoch).toBe(parked.control.epoch);
+    context.openMarket();
+    expect(await context.worker.step()).toMatchObject({ state: 'paused', signals: 0, fills: 0 });
+    expect((await database.paper.readAccount(context.id)).control.stopped).toBe(true);
+  });
+  it('휴장 중 resume 요청을 보류하며 미확인 캘린더는 대기로 위장하지 않는다', async () => {
+    const context = await fixture();
+    context.closeMarket();
+    await context.worker.start();
+    expect((await database.paper.readAccount(context.id)).control.stopped).toBe(true);
+    context.unknownCalendar();
+    await expect(context.worker.step()).rejects.toThrow('PAPER_SESSION_UNVERIFIED');
+    expect((await database.paper.readAccount(context.id)).leaseUntil).toBeNull();
   });
 });

@@ -27,6 +27,7 @@ import {
   prepareStrategyData,
   settlePaperFill,
   observePaperLedger,
+  reviewPaperTradingDay,
   paperPortfolios,
   paperPositionValue,
   marketTradingDate,
@@ -518,6 +519,67 @@ export function createPaperLedger(db: Database) {
         owned(account, token, epoch, await clock(transaction));
       });
     },
+    async parkForMarket(id: string, token: string, epoch: number) {
+      parse(z.uuid(), token);
+      parse(versionSchema, epoch);
+      return locked(id, async (transaction, account) => {
+        owned(account, token, epoch, await clock(transaction));
+        await drain(transaction, account, 'MARKET_CLOSED');
+        const updated = await advance(transaction, account, {
+          stopped: true,
+          epoch: account.epoch + 1,
+          reason: 'MARKET_CLOSED',
+        });
+        await event(transaction, id, 'PAPER_STOPPED', { reason: 'MARKET_CLOSED', epoch: updated.epoch });
+        owned(updated, token, updated.epoch, await clock(transaction));
+        return updated.epoch;
+      });
+    },
+    async reviewTradingDay(id: string, token: string, epoch: number, value: unknown) {
+      parse(z.uuid(), token);
+      parse(versionSchema, epoch);
+      const input = parse(
+        z
+          .object({
+            expectedVersion: versionSchema,
+            targetDates: z.object({ KRW: z.iso.date(), USD: z.iso.date() }).strict(),
+            acknowledgement: z.literal('CARRY_FORWARD_PAPER_LOSSES'),
+            observation: paperObservationSchema,
+          })
+          .strict(),
+        value,
+      );
+      return locked(id, async (transaction, account) => {
+        expected(account, input.expectedVersion);
+        const now = await clock(transaction);
+        owned(account, token, epoch, now);
+        assertSource(account, 'toss-readonly');
+        if (!account.stopped) throw new Error('PAPER_REVIEW_REQUIRES_STOP');
+        for (const market of ['KR', 'US'] as const) {
+          const currency = market === 'KR' ? 'KRW' : 'USD';
+          if (input.targetDates[currency] !== marketTradingDate(now.getTime(), market))
+            throw new Error('PAPER_REVIEW_EXPIRED');
+        }
+        const pending = await transaction
+          .select({ id: paperIntents.intentId })
+          .from(paperIntents)
+          .where(and(eq(paperIntents.accountId, id), inArray(paperIntents.state, [...openStates])))
+          .limit(1);
+        if (pending.length) throw new Error('PAPER_RECOVERY_PENDING');
+        const ledger = reviewPaperTradingDay(account.ledger, input.observation, now.toISOString());
+        const updated = await advance(transaction, account, {
+          ledger,
+          epoch: account.epoch + 1,
+          reason: 'DAILY_REVIEW_COMPLETED',
+        });
+        await event(transaction, id, 'DAILY_REVIEW_COMPLETED', {
+          before: account.ledger.dailyPnl,
+          after: ledger.dailyPnl,
+          policy: 'carry-negative-pnl-v1',
+        });
+        owned(updated, token, updated.epoch, await clock(transaction));
+      });
+    },
     async observe(
       id: string,
       token: string,
@@ -669,10 +731,16 @@ export function createPaperLedger(db: Database) {
         return { id: strategyId, version, enabled: input.enabled, revision, definition };
       });
     },
-    async acquireLease(id: string, ttlMs = 30_000, source: PaperDataSource = 'synthetic-only') {
+    async acquireLease(
+      id: string,
+      ttlMs = 30_000,
+      source: PaperDataSource = 'synthetic-only',
+      expectedVersion?: number,
+    ) {
       parse(ttlSchema, ttlMs);
       return locked(id, async (transaction, account) => {
         assertSource(account, source);
+        if (expectedVersion !== undefined) expected(account, expectedVersion);
         const now = await clock(transaction);
         if (account.leaseUntil && Date.parse(account.leaseUntil) > now.getTime()) throw new Error('PAPER_LEASE_BUSY');
         const token = randomUUID();

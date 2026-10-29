@@ -3,6 +3,12 @@ import { PaperMoney as Money } from './paper-money.js';
 import { marketDate, marketDataPolicy, observationBlocker } from '../market-data/policy.js';
 
 export function observePaperLedger(state: unknown, value: unknown, asOf: string) {
+  return observe(state, value, asOf, false);
+}
+export function reviewPaperTradingDay(state: unknown, value: unknown, asOf: string) {
+  return observe(state, value, asOf, true);
+}
+function observe(state: unknown, value: unknown, asOf: string, review: boolean) {
   const ledger = paperLedgerStateSchema.parse(state);
   const observation = paperObservationSchema.parse(value);
   const key = (instrument: { market: string; symbol: string }) => `${instrument.market}:${instrument.symbol}`;
@@ -22,15 +28,20 @@ export function observePaperLedger(state: unknown, value: unknown, asOf: string)
     return { ...position, markPrice: quote.price, markTimestamp: quote.timestamp, markObservedAt: quote.observedAt };
   });
   const dailyPnl = structuredClone(ledger.dailyPnl);
+  let changed = false;
   for (const market of ['KR', 'US'] as const) {
     const currency = market === 'KR' ? 'KRW' : 'USD';
     const day = marketDate(Date.parse(asOf), market);
     const previousDay = marketDate(Date.parse(ledger.observedAt), market);
     const previous = ledger.dailyPnl[currency];
     const rolling = previous.tradingDate !== day;
+    if (previous.tradingDate > day) throw new Error('PAPER_TRADING_DAY_REVIEW_INVALID');
+    changed ||= rolling;
     if (
       previous.tradingDate !== previousDay ||
-      (rolling && observationBlocker(ledger.observedAt, asOf, marketDataPolicy.accountMaxAgeMs, 'ACCOUNT_STALE'))
+      (!review &&
+        rolling &&
+        observationBlocker(ledger.observedAt, asOf, marketDataPolicy.accountMaxAgeMs, 'ACCOUNT_STALE'))
     )
       throw new Error('PAPER_TRADING_DAY_REVIEW_REQUIRED');
     const equity = (items: typeof positions) =>
@@ -42,10 +53,11 @@ export function observePaperLedger(state: unknown, value: unknown, asOf: string)
         );
     dailyPnl[currency] = {
       tradingDate: day,
-      netPnl: new Money(rolling ? '0' : previous.netPnl)
+      netPnl: new Money(rolling ? (review ? Money.min(0, previous.netPnl) : '0') : previous.netPnl)
         .plus(equity(positions).minus(equity(ledger.positions)))
         .toFixed(),
     };
   }
+  if (review && !changed) throw new Error('PAPER_TRADING_DAY_REVIEW_NOT_REQUIRED');
   return paperLedgerStateSchema.parse({ ...ledger, positions, dailyPnl, observedAt: asOf, reconciled: true });
 }

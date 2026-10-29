@@ -11,7 +11,7 @@ import {
 import type { InstrumentId } from '@hth/contracts';
 import { contentHash } from '@hth/database';
 import type { createDatabase } from '@hth/database';
-import { movingAverageCross, prepareStrategyData } from '@hth/trading';
+import { movingAverageCross, prepareStrategyData, paperSessionState } from '@hth/trading';
 
 const Money = Decimal.clone({ precision: 100 });
 const key = (instrument: InstrumentId) => `${instrument.market}:${instrument.symbol}`;
@@ -47,7 +47,7 @@ type StrategyConfig = z.infer<typeof paperWorkerConfigSchema>['strategies'][numb
 };
 type Ledger = ReturnType<typeof createDatabase>['paper'];
 export interface PaperWorkerStatus {
-  state: 'paused' | 'running';
+  state: 'paused' | 'running' | 'waiting';
   signals: number;
   fills: number;
   executionEnabled: false;
@@ -60,6 +60,7 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
   let token: string | null = null;
   let epoch = -1;
   let started = false;
+  let parked = false;
   let busy = false;
   let closing: Promise<void> | null = null;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
@@ -119,6 +120,14 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
         throw new Error('PAPER_SOURCE_MISMATCH');
       if (entries.some((entry) => !entry.sourcesHealthy || entry.hasUnknownOrders))
         throw new Error('PAPER_SOURCE_UNHEALTHY');
+      const checked = await view();
+      if (paperSessionState(entries, [...requested.values()], checked.asOf) === 'closed') {
+        if (!parked) {
+          epoch = await paper.parkForMarket(config.accountId, token!, epoch);
+          parked = true;
+        }
+        return { current: await view(), evidence: map, waiting: true };
+      }
       await paper.observe(
         config.accountId,
         token!,
@@ -131,7 +140,7 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
         config.source,
       );
       const refreshed = await view();
-      return { current: refreshed, evidence: map };
+      return { current: refreshed, evidence: map, waiting: false };
     } finally {
       clearTimeout(timeout);
       controller.signal.removeEventListener('abort', abort);
@@ -201,8 +210,8 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
       ];
     });
     if (config.resume && strategies.length === 0) throw new Error('PAPER_WORKER_NO_ENABLED_STRATEGIES');
-    const { current } = await frame();
-    if (config.resume) {
+    const { current, waiting } = await frame();
+    if (config.resume && !waiting && !parked) {
       await paper.resume(config.accountId, token, current.snapshot.version);
       epoch = current.control.epoch + 1;
     }
@@ -219,9 +228,9 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
     }
   }
   async function executeStep(): Promise<PaperWorkerStatus> {
-    const { current, evidence } = await frame();
+    const { current, evidence, waiting } = await frame();
     const status: PaperWorkerStatus = {
-      state: current.control.stopped ? 'paused' : 'running',
+      state: waiting ? 'waiting' : current.control.stopped ? 'paused' : 'running',
       signals: 0,
       fills: 0,
       executionEnabled: false,
