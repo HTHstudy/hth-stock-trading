@@ -6,10 +6,12 @@ import type { PaperDashboardSnapshot } from '@shared/api/paper';
 
 export function StrategyEditor({
   strategy,
+  source,
   onClose,
   onSaved,
 }: {
   strategy: PaperDashboardSnapshot['strategies'][number];
+  source: 'synthetic-only' | 'toss-readonly';
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -42,8 +44,10 @@ export function StrategyEditor({
     'mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm outline-none focus:border-teal-300 disabled:opacity-40';
   function submit() {
     const input = paperStrategyUpdateSchema.safeParse({ expectedRevision: revision, definition, enabled });
-    setInvalid(!input.success);
-    if (input.success && !conflict) save.mutate(input.data);
+    const supported =
+      source === 'toss-readonly' ? definition.parameters.slowPeriod < 200 : definition.instrument.market === 'KR';
+    setInvalid(!input.success || !supported);
+    if (input.success && supported && !conflict) save.mutate(input.data);
   }
   return (
     <form
@@ -79,9 +83,9 @@ export function StrategyEditor({
               })
             }
           >
-            <option value="KR">국내 · 합성 데모</option>
-            <option value="US" disabled>
-              미국 · 시세 연결 후 지원
+            <option value="KR">국내</option>
+            <option value="US" disabled={source !== 'toss-readonly'}>
+              {source === 'toss-readonly' ? '미국' : '미국 · 합성 데모 미지원'}
             </option>
           </select>
         </label>
@@ -117,7 +121,7 @@ export function StrategyEditor({
             className={inputClass}
             type="number"
             min={1}
-            max={1999}
+            max={source === 'toss-readonly' ? 198 : 1999}
             required
             value={definition.parameters.fastPeriod}
             onChange={(event) =>
@@ -134,7 +138,7 @@ export function StrategyEditor({
             className={inputClass}
             type="number"
             min={2}
-            max={2000}
+            max={source === 'toss-readonly' ? 199 : 2000}
             required
             value={definition.parameters.slowPeriod}
             onChange={(event) =>
@@ -169,6 +173,7 @@ export function StrategyEditor({
       {invalid && (
         <p role="alert" className="mt-4 text-xs text-rose-200">
           단기 기간은 장기보다 작고, 최대 체결 수량은 주문 수량 이하여야 합니다. 종목·정수 수량도 확인해 주세요.
+          {source === 'toss-readonly' && ' 실제 시세 Paper의 장기 기간은 최대 199입니다.'}
         </p>
       )}
       {conflict && (

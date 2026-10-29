@@ -7,7 +7,7 @@ import type { PaperDashboard } from './paper-dashboard.js';
 const disabled: PaperDashboardState = {
   status: 'disabled',
   mode: 'paper',
-  source: 'synthetic-only',
+  source: 'unverified',
   executionEnabled: false,
   snapshot: null,
 };
@@ -24,6 +24,25 @@ function fixture() {
 }
 const headers = { host: 'localhost:4000', 'x-hth-dashboard': '1' };
 describe('Paper 대시보드 접근·정지 경계', () => {
+  it('market 연결은 전용 DB와 market 계좌를 명시해야 하고 기본 dev 연결을 바꾸지 않는다', () => {
+    const market = {
+      PAPER_DASHBOARD_ENABLED: 'true',
+      OWNER_PASSWORD_HASH: testOwnerHash,
+      PAPER_DASHBOARD_KIND: 'market',
+      PAPER_MARKET_DATABASE_URL: 'postgresql://hth_test:x@127.0.0.1:55434/hth_readonly_test',
+      PAPER_MARKET_ACCOUNT_ID: 'paper-market-local',
+    };
+    expect(parseApiConfig(market).PAPER_DASHBOARD_KIND).toBe('market');
+    expect(parseApiConfig({}).PAPER_DASHBOARD_KIND).toBe('synthetic');
+    for (const override of [
+      { PAPER_MARKET_ACCOUNT_ID: 'paper-demo-local' },
+      { PAPER_MARKET_DATABASE_URL: undefined },
+      { PAPER_MARKET_DATABASE_URL: 'postgresql://hth:x@localhost/hth_trading' },
+      { PAPER_MARKET_DATABASE_URL: `${market.PAPER_MARKET_DATABASE_URL}?options=unsafe` },
+      { API_HOST: '0.0.0.0' },
+    ])
+      expect(() => parseApiConfig({ ...market, ...override })).toThrow();
+  });
   it('기본 비활성이고 조회가 실행이나 계좌 생성을 시작하지 않는다', async () => {
     const app = createApp();
     try {
@@ -158,6 +177,15 @@ describe('Paper 대시보드 접근·정지 경계', () => {
       const failed = await app.inject({ method: 'POST', url: '/v1/paper/strategies/demo-ma', headers, payload: input });
       expect(failed.statusCode).toBe(503);
       expect(failed.body).not.toContain('private-sql-data');
+      vi.mocked(service.updateStrategy).mockRejectedValueOnce(new Error('PAPER_STRATEGY_SOURCE_UNSUPPORTED'));
+      const unsupported = await app.inject({
+        method: 'POST',
+        url: '/v1/paper/strategies/demo-ma',
+        headers,
+        payload: input,
+      });
+      expect(unsupported.statusCode).toBe(422);
+      expect(unsupported.json()).toEqual({ error: { code: 'PAPER_STRATEGY_SOURCE_UNSUPPORTED' } });
     } finally {
       await app.close();
     }

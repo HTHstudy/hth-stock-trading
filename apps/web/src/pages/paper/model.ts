@@ -8,6 +8,7 @@ export const orderLabels: Record<string, string> = {
 };
 const eventLabels: Record<string, string> = {
   ACCOUNT_CREATED: '모의 계좌 생성',
+  SOURCE_REJECTED: '데이터 출처 불일치 차단',
   LIMITS_CHANGED: '한도 변경',
   STRATEGY_CHANGED: '전략 설정 변경',
   LEASE_ACQUIRED: '실행 소유권 획득',

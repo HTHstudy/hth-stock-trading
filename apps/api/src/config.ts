@@ -19,6 +19,12 @@ const configSchema = z
       .enum(['true', 'false'])
       .default('false')
       .transform((value) => value === 'true'),
+    PAPER_DASHBOARD_KIND: z.enum(['synthetic', 'market']).default('synthetic'),
+    PAPER_MARKET_DATABASE_URL: z.string().min(1).optional(),
+    PAPER_MARKET_ACCOUNT_ID: z
+      .string()
+      .regex(/^paper-market-[A-Za-z0-9._:-]{1,70}$/)
+      .optional(),
     PAPER_DEMO_DATABASE_URL: z.string().min(1).optional(),
     PAPER_DEMO_ACCOUNT_ID: z
       .string()
@@ -37,13 +43,21 @@ const configSchema = z
     ) {
       context.addIssue({ code: 'custom', message: 'Dashboard is available on a development loopback server only' });
     }
-    if (config.PAPER_DASHBOARD_ENABLED && (!config.PAPER_DEMO_DATABASE_URL || !config.PAPER_DEMO_ACCOUNT_ID))
-      context.addIssue({ code: 'custom', message: 'Paper demo DB and account configuration are required' });
-    if (config.PAPER_DASHBOARD_ENABLED && config.PAPER_DEMO_DATABASE_URL) {
+    if (config.PAPER_DASHBOARD_ENABLED) {
+      const market = config.PAPER_DASHBOARD_KIND === 'market';
+      const url = market ? config.PAPER_MARKET_DATABASE_URL : config.PAPER_DEMO_DATABASE_URL;
+      const account = market ? config.PAPER_MARKET_ACCOUNT_ID : config.PAPER_DEMO_ACCOUNT_ID;
       try {
-        testDatabaseUrl(config.PAPER_DEMO_DATABASE_URL);
+        if (!url || !account) throw new Error('MISSING_CONFIGURATION');
+        testDatabaseUrl(url);
+        const target = new URL(url);
+        if (!['postgres:', 'postgresql:'].includes(target.protocol) || target.search || target.hash)
+          throw new Error('UNSAFE_DATABASE');
       } catch {
-        context.addIssue({ code: 'custom', message: 'Paper dashboard requires the dedicated loopback test DB' });
+        context.addIssue({
+          code: 'custom',
+          message: 'Paper dashboard requires a dedicated loopback test DB and matching account configuration',
+        });
       }
     }
   });

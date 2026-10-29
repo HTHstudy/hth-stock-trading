@@ -25,6 +25,16 @@ export function PaperPage() {
     onSuccess: () => client.invalidateQueries({ queryKey }),
   });
   const snapshot = query.data?.status === 'ready' ? query.data.snapshot : null;
+  const source = snapshot?.source ?? 'unverified';
+  const sourceLabel = !snapshot
+    ? query.isPending
+      ? '출처 확인 중'
+      : '계좌 미연결'
+    : source === 'toss-readonly'
+      ? '실제 시세 PAPER'
+      : source === 'synthetic-only'
+        ? '합성 PAPER'
+        : '출처 미확인';
   const stale = query.isError || snapshot?.valuation.stale;
   const running = snapshot && !snapshot.control.stopped && snapshot.worker.state === 'active';
   return (
@@ -37,7 +47,7 @@ export function PaperPage() {
         </div>
         <div className="flex items-center gap-3">
           <span className="rounded-full border border-amber-300/20 bg-amber-300/5 px-3 py-1.5 text-[11px] font-semibold text-amber-200">
-            합성 PAPER
+            {sourceLabel}
           </span>
           <button
             className={`rounded-lg border border-slate-700 px-4 py-2.5 text-xs text-slate-300 disabled:opacity-40 ${buttonFocus}`}
@@ -59,8 +69,15 @@ export function PaperPage() {
         </div>
       </header>
       <p className="my-5 rounded-xl border border-amber-300/15 bg-amber-300/5 px-5 py-4 text-xs leading-6 text-amber-100">
-        합성 데이터로 검증하는 모의 거래입니다. 표시된 금액과 성과는 실제 투자 결과가 아닙니다. 긴급 정지는 모의 실행만
-        멈추며 보유 주식을 자동 매도하지 않습니다.
+        {!snapshot
+          ? '연결된 모의 계좌의 출처와 실행 상태를 조회합니다.'
+          : source === 'toss-readonly'
+            ? '토스 시세를 사용하는 모의 거래입니다. 현금·보유분·체결은 별도 모의 원장이며 실제 계좌와 연결되지 않습니다.'
+            : source === 'synthetic-only'
+              ? '합성 데이터로 검증하는 모의 거래입니다.'
+              : '데이터 출처를 확인하지 못했습니다. 출처가 확인되지 않은 계좌는 실행하거나 전략을 편집할 수 없습니다.'}{' '}
+        표시된 금액과 성과는 실제 투자 결과가 아닙니다. 긴급 정지는 모의 실행만 멈추며 보유 주식을 자동 매도하지
+        않습니다.
       </p>
       {saved && (
         <p
@@ -102,7 +119,7 @@ export function PaperPage() {
           <p className="text-xs font-medium tracking-[0.2em] text-slate-500">PAPER WORKSPACE</p>
           <h2 className="mt-4 text-lg font-semibold">아직 연결된 모의 계좌가 없습니다</h2>
           <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-slate-400">
-            로컬 Paper 데모를 연결하면 자산과 주문·체결 기록을 확인할 수 있습니다. 연결만으로 모의 거래가 시작되지는
+            로컬 Paper 계좌를 연결하면 자산과 주문·체결 기록을 확인할 수 있습니다. 연결만으로 모의 거래가 시작되지는
             않습니다.
           </p>
         </section>
@@ -264,11 +281,12 @@ export function PaperPage() {
                     )}
                     <button
                       type="button"
+                      disabled={source === 'unverified'}
                       onClick={() => {
                         setEditing(strategy.id);
                         setSaved(false);
                       }}
-                      className="mt-3 block rounded-md border border-slate-700 px-3 py-2 text-[11px] text-teal-200 hover:bg-slate-800"
+                      className="mt-3 block rounded-md border border-slate-700 px-3 py-2 text-[11px] text-teal-200 hover:bg-slate-800 disabled:opacity-40"
                     >
                       설정 · 활성 관리
                     </button>
@@ -282,11 +300,12 @@ export function PaperPage() {
               전략이 등록 활성 상태여도 실행 제어가 정지되어 있으면 거래하지 않습니다.
             </p>
             {snapshot.strategies
-              .filter((strategy) => strategy.id === editing)
+              .filter((strategy) => strategy.id === editing && source !== 'unverified')
               .map((strategy) => (
                 <StrategyEditor
                   key={strategy.id}
                   strategy={strategy}
+                  source={source === 'toss-readonly' ? 'toss-readonly' : 'synthetic-only'}
                   onClose={() => setEditing(null)}
                   onSaved={() => {
                     setSaved(true);

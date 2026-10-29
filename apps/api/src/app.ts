@@ -121,6 +121,13 @@ export function createApp(
     try {
       return paperStrategyAcknowledgementSchema.parse(await paper.updateStrategy(params.data.id, input.data));
     } catch (error) {
+      if (
+        error instanceof Error &&
+        ['PAPER_SOURCE_MISMATCH', 'PAPER_STRATEGY_SOURCE_UNSUPPORTED'].includes(error.message)
+      )
+        return reply
+          .code(error.message === 'PAPER_SOURCE_MISMATCH' ? 409 : 422)
+          .send({ error: { code: error.message } });
       const conflict = error instanceof Error && error.message === 'PAPER_STRATEGY_REVISION_CONFLICT';
       return reply
         .code(conflict ? 409 : 503)
@@ -157,7 +164,7 @@ export function createApp(
       return paperDashboardStateSchema.parse({
         status: 'disabled',
         mode: 'paper',
-        source: 'synthetic-only',
+        source: 'unverified',
         executionEnabled: false,
         snapshot: null,
       });

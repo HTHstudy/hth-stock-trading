@@ -29,8 +29,15 @@ async function main() {
       : undefined;
   const paper = config.PAPER_DASHBOARD_ENABLED
     ? createPaperDashboard(
-        createDatabase(testDatabaseUrl(config.PAPER_DEMO_DATABASE_URL!)),
-        config.PAPER_DEMO_ACCOUNT_ID!,
+        createDatabase(
+          testDatabaseUrl(
+            (config.PAPER_DASHBOARD_KIND === 'market'
+              ? config.PAPER_MARKET_DATABASE_URL
+              : config.PAPER_DEMO_DATABASE_URL)!,
+          ),
+        ),
+        (config.PAPER_DASHBOARD_KIND === 'market' ? config.PAPER_MARKET_ACCOUNT_ID : config.PAPER_DEMO_ACCOUNT_ID)!,
+        config.PAPER_DASHBOARD_KIND === 'market' ? 'toss-readonly' : 'synthetic-only',
       )
     : undefined;
   const app = createApp(
