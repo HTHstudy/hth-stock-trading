@@ -28,7 +28,7 @@ describe('소유자 인증과 서버 세션', () => {
         authenticated: false,
         expiresAt: null,
       });
-      for (const path of ['/v1/dashboard', '/v1/backtests', '/v1/paper'])
+      for (const path of ['/v1/dashboard', '/v1/backtests', '/v1/paper', '/v1/paper/strategies/demo-ma/history'])
         expect((await app.inject({ method: 'GET', url: path, headers })).statusCode).toBe(503);
       expect(() => parseApiConfig({ DASHBOARD_ENABLED: 'true' })).toThrow();
       expect(parseApiConfig({ DASHBOARD_ENABLED: 'true', OWNER_PASSWORD_HASH: testOwnerHash }).DASHBOARD_ENABLED).toBe(
@@ -41,7 +41,7 @@ describe('소유자 인증과 서버 세션', () => {
   it('로그인 전 조회·정지·설정 변경을 차단하고 cookie로만 소유자를 식별한다', async () => {
     const app = createApp('silent', undefined, undefined, undefined, undefined, createOwnerAuth(hash));
     try {
-      for (const path of ['/v1/dashboard', '/v1/backtests', '/v1/paper'])
+      for (const path of ['/v1/dashboard', '/v1/backtests', '/v1/paper', '/v1/paper/strategies/demo-ma/history'])
         expect((await app.inject({ method: 'GET', url: path, headers })).statusCode).toBe(401);
       for (const path of ['/v1/paper/stop', '/v1/paper/strategies/demo-ma'])
         expect((await app.inject({ method: 'POST', url: path, headers, payload: {} })).statusCode).toBe(401);

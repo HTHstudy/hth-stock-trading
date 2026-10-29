@@ -1,4 +1,6 @@
 import {
+  paperStrategyHistorySchema,
+  paperStrategyHistoryQuerySchema,
   watchlistStateSchema,
   watchlistUpdateSchema,
   observationListSchema,
@@ -118,6 +120,22 @@ export function createApp(
       authenticated: false,
       expiresAt: null,
     });
+  });
+  app.get('/v1/paper/strategies/:id/history', async (request, reply) => {
+    const params = z
+      .object({ id: z.string().regex(/^[A-Za-z0-9._:-]{1,100}$/) })
+      .strict()
+      .safeParse(request.params);
+    const query = paperStrategyHistoryQuerySchema.safeParse(request.query);
+    if (!params.success || !query.success) return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (!paper) return reply.code(503).send({ error: { code: 'PAPER_DASHBOARD_DISABLED' } });
+    try {
+      return paperStrategyHistorySchema.parse(await paper.strategyHistory(params.data.id, query.data));
+    } catch (error) {
+      if (error instanceof Error && error.message === 'PAPER_STRATEGY_NOT_FOUND')
+        return reply.code(404).send({ error: { code: 'PAPER_STRATEGY_NOT_FOUND' } });
+      return reply.code(503).send({ error: { code: 'PAPER_STRATEGY_HISTORY_UNAVAILABLE' } });
+    }
   });
   app.post('/v1/paper/strategies/:id', async (request, reply) => {
     const input = paperStrategyUpdateSchema.safeParse(request.body);

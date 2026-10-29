@@ -38,6 +38,14 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper API 출처와 편집 경�
       expect(response.body).not.toContain(id);
       await service.updateStrategy('ma-a', { expectedRevision: 1, enabled: true, definition });
       expect((await database.paper.readAccount(id)).control.stopped).toBe(true);
+      expect(await service.strategyHistory('ma-a', {})).toMatchObject({
+        source: 'toss-readonly',
+        strategy: { revision: 2 },
+        entries: [
+          { revision: 2, actor: 'owner' },
+          { revision: 1, actor: 'system' },
+        ],
+      });
       const invalid = { ...definition, parameters: { fastPeriod: 5, slowPeriod: 200 } };
       await expect(
         service.updateStrategy('ma-a', { expectedRevision: 2, enabled: true, definition: invalid }),
@@ -53,6 +61,9 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper API 출처와 편집 경�
       'PAPER_STRATEGY_SOURCE_UNSUPPORTED',
     );
     await expect(createPaperDashboard(database, id, 'toss-readonly').read()).rejects.toThrow('PAPER_SOURCE_MISMATCH');
+    await expect(createPaperDashboard(database, id, 'toss-readonly').strategyHistory('ma-a', {})).rejects.toThrow(
+      'PAPER_SOURCE_MISMATCH',
+    );
   });
   it('미확인 계좌는 조회/정지만 허용하고 출처를 추정하거나 편집하지 않는다', async () => {
     const { id } = await accountFixture(database, '15000', [], 'unverified');

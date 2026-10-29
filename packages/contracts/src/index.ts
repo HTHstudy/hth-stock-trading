@@ -1,5 +1,11 @@
 import { z } from 'zod';
 export {
+  paperStrategyHistoryQuerySchema,
+  paperStrategyHistoryEntrySchema,
+  paperStrategyHistorySchema,
+} from './paper-strategy-history.js';
+export type { PaperStrategyHistory } from './paper-strategy-history.js';
+export {
   watchlistInstrumentSchema,
   watchlistInstrumentsSchema,
   watchlistStateSchema,

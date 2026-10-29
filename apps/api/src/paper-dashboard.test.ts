@@ -18,12 +18,67 @@ function fixture() {
     updateStrategy: vi.fn(async () => {
       throw new Error('UNUSED_TEST_UPDATE');
     }),
+    strategyHistory: vi.fn(async () => {
+      throw new Error('UNUSED_HISTORY');
+    }),
     close: vi.fn(async () => {}),
   };
   return { service, app: createApp('silent', undefined, undefined, undefined, service) };
 }
 const headers = { host: 'localhost:4000', 'x-hth-dashboard': '1' };
 describe('Paper 대시보드 접근·정지 경계', () => {
+  it('전략 이력은 고정 계좌 서비스의 읽기 전용 요청이며 계좌/cursor 주입을 거부한다', async () => {
+    const { app, service } = fixture();
+    const history = {
+      mode: 'paper',
+      executionEnabled: false,
+      source: 'unverified',
+      strategy: { id: 'demo-ma', version: '1.0.0', enabled: false, revision: 0, definition: null },
+      beforeRevision: null,
+      entries: [],
+      nextBeforeRevision: null,
+    };
+    vi.mocked(service.strategyHistory).mockResolvedValue(history);
+    try {
+      const response = await app.inject({ method: 'GET', url: '/v1/paper/strategies/demo-ma/history', headers });
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['cache-control']).toBe('no-store, private');
+      expect(service.strategyHistory).toHaveBeenCalledWith('demo-ma', {});
+      for (const suffix of [
+        '?accountId=other',
+        '?beforeRevision=0',
+        '?beforeRevision=-1',
+        '?beforeRevision=NaN',
+        '?limit=999',
+      ])
+        expect(
+          (await app.inject({ method: 'GET', url: `/v1/paper/strategies/demo-ma/history${suffix}`, headers }))
+            .statusCode,
+        ).toBe(400);
+      expect(
+        (
+          await app.inject({
+            method: 'GET',
+            url: '/v1/paper/strategies/demo-ma/history',
+            headers: { ...headers, origin: 'https://evil.invalid' },
+          })
+        ).statusCode,
+      ).toBe(403);
+      expect(service.stop).not.toHaveBeenCalled();
+      expect(service.updateStrategy).not.toHaveBeenCalled();
+      expect(service.read).not.toHaveBeenCalled();
+      vi.mocked(service.strategyHistory).mockRejectedValueOnce(new Error('PAPER_STRATEGY_NOT_FOUND'));
+      expect((await app.inject({ method: 'GET', url: '/v1/paper/strategies/other/history', headers })).statusCode).toBe(
+        404,
+      );
+      vi.mocked(service.strategyHistory).mockResolvedValueOnce({ ...history, accountId: 'PRIVATE_ACCOUNT' });
+      const bad = await app.inject({ method: 'GET', url: '/v1/paper/strategies/demo-ma/history', headers });
+      expect(bad.statusCode).toBe(503);
+      expect(bad.body).not.toContain('PRIVATE_ACCOUNT');
+    } finally {
+      await app.close();
+    }
+  });
   it('market 연결은 전용 DB와 market 계좌를 명시해야 하고 기본 dev 연결을 바꾸지 않는다', () => {
     const market = {
       PAPER_DASHBOARD_ENABLED: 'true',

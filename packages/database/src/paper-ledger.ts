@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq, inArray, ne, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, lt, ne, or, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { z } from 'zod';
 import {
@@ -11,6 +11,8 @@ import {
   paperEventKindSchema,
   riskBlockerSchema,
   paperStrategyDefinitionSchema,
+  paperStrategyHistorySchema,
+  paperStrategyHistoryQuerySchema,
   paperStrategyUpdateSchema,
   paperObservationSchema,
   paperFillRequestSchema,
@@ -326,6 +328,86 @@ export function createPaperLedger(db: Database) {
           .from(paperStrategies)
           .where(eq(paperStrategies.accountId, id)),
       );
+    },
+    async readStrategyHistory(id: string, strategyId: string, query: unknown = {}) {
+      parse(accountIdSchema, strategyId);
+      const { beforeRevision } = parse(paperStrategyHistoryQuerySchema, query);
+      return consistent(id, async (transaction, account) => {
+        const [current] = await transaction
+          .select()
+          .from(paperStrategies)
+          .where(and(eq(paperStrategies.accountId, id), eq(paperStrategies.strategyId, strategyId)));
+        if (!current) throw new Error('PAPER_STRATEGY_NOT_FOUND');
+        const scope = and(eq(paperStrategyRevisions.accountId, id), eq(paperStrategyRevisions.strategyId, strategyId));
+        const rows = await transaction
+          .select()
+          .from(paperStrategyRevisions)
+          .where(
+            and(scope, beforeRevision === undefined ? undefined : lt(paperStrategyRevisions.revision, beforeRevision)),
+          )
+          .orderBy(desc(paperStrategyRevisions.revision))
+          .limit(21);
+        const expectedFirst = Math.min(
+          current.revision,
+          beforeRevision === undefined ? current.revision : beforeRevision - 1,
+        );
+        if (rows.length !== Math.min(21, expectedFirst)) throw new Error('PAPER_STRATEGY_HISTORY_INVALID');
+        for (let index = 0; index < rows.length; index++) {
+          const row = rows[index]!;
+          if (
+            row.revision !== expectedFirst - index ||
+            row.valueHash !==
+              contentHash({
+                revision: row.revision,
+                version: row.version,
+                enabled: row.enabled,
+                definition: row.definition,
+              })
+          )
+            throw new Error('PAPER_STRATEGY_HISTORY_INVALID');
+        }
+        if (current.revision > 0) {
+          const [latest] = await transaction
+            .select()
+            .from(paperStrategyRevisions)
+            .where(and(scope, eq(paperStrategyRevisions.revision, current.revision)));
+          if (
+            !latest ||
+            latest.valueHash !==
+              contentHash({
+                revision: current.revision,
+                version: current.version,
+                enabled: current.enabled,
+                definition: current.definition,
+              }) ||
+            current.definitionHash !== contentHash({ version: current.version, definition: current.definition })
+          )
+            throw new Error('PAPER_STRATEGY_HISTORY_INVALID');
+        }
+        const entries = rows.slice(0, 20).map(({ revision, version, enabled, definition, actor, createdAt }) => ({
+          revision,
+          version,
+          enabled,
+          definition,
+          actor,
+          createdAt: new Date(createdAt).toISOString(),
+        }));
+        return paperStrategyHistorySchema.parse({
+          mode: 'paper',
+          executionEnabled: false,
+          source: account.dataSource,
+          strategy: {
+            id: current.strategyId,
+            version: current.version,
+            enabled: current.enabled,
+            revision: current.revision,
+            definition: current.definition,
+          },
+          beforeRevision: beforeRevision ?? null,
+          entries,
+          nextBeforeRevision: rows.length > 20 ? entries.at(-1)!.revision : null,
+        });
+      });
     },
     async readDashboard(id: string) {
       return consistent(id, async (transaction, account) => {

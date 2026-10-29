@@ -2,6 +2,7 @@ import {
   paperDashboardStateSchema,
   paperStrategyAcknowledgementSchema,
   paperStrategyUpdateSchema,
+  paperStrategyHistorySchema,
 } from '@hth/contracts';
 import type { PaperDashboardState } from '@hth/contracts';
 import type { createDatabase } from '@hth/database';
@@ -10,6 +11,7 @@ export interface PaperDashboard {
   read(): Promise<PaperDashboardState>;
   stop(): Promise<void>;
   updateStrategy(id: string, input: unknown): Promise<unknown>;
+  strategyHistory(id: string, query: unknown): Promise<unknown>;
   close(): Promise<void>;
 }
 export function createPaperDashboard(
@@ -52,6 +54,12 @@ export function createPaperDashboard(
         stopped: true,
         strategy,
       });
+    },
+    async strategyHistory(id, query) {
+      const history = await database.paper.readStrategyHistory(accountId, id, query);
+      if (history.source !== 'unverified' && history.source !== expectedSource)
+        throw new Error('PAPER_SOURCE_MISMATCH');
+      return paperStrategyHistorySchema.parse(history);
     },
     close: () => database.close(),
   };
