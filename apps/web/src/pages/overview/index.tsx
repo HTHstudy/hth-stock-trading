@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DASHBOARD_API } from '@shared/api/dashboard';
 import { formatDecimal, formatMoney, formatTime, profitClass } from '@shared/lib/format';
 import { DataQualityPanel } from './data-quality';
+import { WatchlistEditor } from './watchlist-editor';
 
 const PriceChart = lazy(() => import('./price-chart').then((module) => ({ default: module.PriceChart })));
 
@@ -53,7 +54,9 @@ export function OverviewPage() {
             ? '연동 비활성'
             : state?.connection === 'unconfigured'
               ? '설정 필요'
-              : '연결 확인 중';
+              : state?.connection === 'connecting'
+                ? '시세 조회 대기'
+                : '연결 확인 중';
 
   return (
     <div className="min-h-screen bg-[#0b1120] text-slate-200">
@@ -206,6 +209,7 @@ export function OverviewPage() {
           </article>
           <article className="rounded-2xl border border-slate-800 bg-[#111a2b] p-5">
             <h2 className="text-sm font-semibold">관심 종목</h2>
+            <WatchlistEditor />
             <p className="mt-2 text-xs text-slate-500">종목을 선택하면 차트가 바뀝니다.</p>
             <div className="mt-5 space-y-2">
               {snapshot?.watchlist.map((instrument) => (
@@ -225,6 +229,9 @@ export function OverviewPage() {
                 </button>
               ))}
               {!snapshot && <p className="py-6 text-sm text-slate-500">시세 조회 대기 중</p>}
+              {snapshot && !snapshot.watchlist.length && (
+                <p className="py-6 text-sm text-slate-500">관심종목을 추가하면 시세와 차트를 조회할 수 있습니다.</p>
+              )}
             </div>
             <h3 className="mt-8 border-t border-slate-800 pt-5 text-xs font-medium text-slate-400">
               시장 정규장 · 한국 시간
