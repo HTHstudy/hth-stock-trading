@@ -6,6 +6,7 @@ import { PaperHistory } from './history';
 import type { HistoryTab } from './history';
 import { StrategyEditor } from './strategy-editor';
 import { StrategyHistory } from './strategy-history';
+import { EquityHistory } from './equity-history';
 
 const queryKey = ['paper-dashboard'] as const;
 const buttonFocus = 'focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal-300';
@@ -333,6 +334,7 @@ export function PaperPage() {
                 />
               ))}
           </section>
+          <EquityHistory source={source} />
           <section className="mt-6 overflow-hidden rounded-2xl border border-slate-800 bg-[#0d1424]">
             <div className="flex flex-wrap gap-1 px-3 pt-3" aria-label="원장 이력 선택">
               {(
