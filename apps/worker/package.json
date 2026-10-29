@@ -21,7 +21,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node --env-file-if-exists=../../.env dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "paper:market": "tsx --env-file-if-exists=../../.env src/paper-market-run.ts"
+    "paper:market": "tsx --env-file-if-exists=../../.env src/paper-market-run.ts",
+    "paper:day-review": "tsx --env-file-if-exists=../../.env src/paper-day-review-run.ts"
   },
   "dependencies": {
     "@hth/contracts": "workspace:*",
