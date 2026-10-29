@@ -20,7 +20,14 @@ export interface StrategyDataInput {
   readonly asOf: string;
 }
 
+export type MarketDataInput = Omit<StrategyDataInput, 'accountObservedAt' | 'accountAvailable'>;
 export function prepareStrategyData(input: StrategyDataInput) {
+  return assess(input, { observedAt: input.accountObservedAt, available: input.accountAvailable });
+}
+export function assessMarketData(input: MarketDataInput) {
+  return assess(input);
+}
+function assess(input: MarketDataInput, account?: { observedAt: string; available: boolean }) {
   const blockers = new Set<DataBlocker>();
   const now = Date.parse(input.asOf);
   if (!instantSchema.safeParse(input.asOf).success || !Number.isFinite(now))
@@ -40,7 +47,7 @@ export function prepareStrategyData(input: StrategyDataInput) {
   const assess = (reason: DataBlocker | null) => {
     if (reason) blockers.add(reason);
   };
-  if (!input.accountAvailable) blockers.add('ACCOUNT_UNAVAILABLE');
+  if (account && !account.available) blockers.add('ACCOUNT_UNAVAILABLE');
   if (
     input.calendar &&
     (input.calendar.previousBusinessDay.tradingDate >= input.calendar.today.tradingDate ||
@@ -49,7 +56,8 @@ export function prepareStrategyData(input: StrategyDataInput) {
   )
     blockers.add('INVALID_DATA');
   assess(observationBlocker(input.calendarObservedAt, input.asOf, marketDataPolicy.calendarMaxAgeMs, 'CALENDAR_STALE'));
-  assess(observationBlocker(input.accountObservedAt, input.asOf, marketDataPolicy.accountMaxAgeMs, 'ACCOUNT_STALE'));
+  if (account)
+    assess(observationBlocker(account.observedAt, input.asOf, marketDataPolicy.accountMaxAgeMs, 'ACCOUNT_STALE'));
   assess(observationBlocker(input.candlesObservedAt, input.asOf, marketDataPolicy.calendarMaxAgeMs, 'CANDLES_STALE'));
   assess(observationBlocker(input.quoteObservedAt, input.asOf, marketDataPolicy.quoteMaxAgeMs, 'QUOTE_STALE'));
   assess(
@@ -117,7 +125,7 @@ export function prepareStrategyData(input: StrategyDataInput) {
     ? null
     : new Date(
         Math.min(
-          Date.parse(input.accountObservedAt) + marketDataPolicy.accountMaxAgeMs,
+          account ? Date.parse(account.observedAt) + marketDataPolicy.accountMaxAgeMs : Infinity,
           Date.parse(input.quoteObservedAt) + marketDataPolicy.quoteMaxAgeMs,
           Date.parse(input.quoteTimestamp!) + marketDataPolicy.quoteMaxAgeMs,
           Date.parse(input.calendarObservedAt!) + marketDataPolicy.calendarMaxAgeMs,
