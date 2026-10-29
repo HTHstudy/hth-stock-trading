@@ -28,6 +28,19 @@ corepack pnpm market:observe --symbols=KR:005930,US:AAPL --samples=480 --interva
 
 기본은 samples=1, 관측 완료 후 간격 60초, 프레임 수집 대기 한도 10초다. 최대 5종목·1분봉·종목당 1페이지(최대 200봉)만 사용한다. CANDLE_INTERVAL=1d 또는 CANDLE_MAX_PAGES가 1이 아닌 설정은 무시하지 않고 거부한다. samples는 1–10,000, 간격은 10–3,600초다. --resume/실주문 모드는 없다. 컴퓨터와 터미널이 실행 중이어야 관측이 진행된다.
 
+### 정규장 1회 예약
+
+`--regular-only`는 실제 시세의 단일 시장만 허용한다. 시작 직전 같은 토큰 잠금 안에서 캘린더를 다시 조회하고, 현재 정규장에 남은 시간이 요청한 수집 예산(모든 프레임 timeout + 관측 사이 간격)보다 길어야 시작한다. 휴장·미확인 세션·다른 시장·남은 시간 부족은 `OBSERVATION_SESSION_UNAVAILABLE`로 종료한다. 횟수 완료를 데이터 정상 승인으로 해석하지 않는다.
+
+```bash
+# 토스 캘린더로 확인한 UTC 시각을 명시한다. 예시는 2026-10-29 미국 정규장이다.
+corepack pnpm market:observe --symbols=US:AAPL --samples=60 --interval-seconds=60 --regular-only --start-at=2026-10-29T13:35:00Z
+```
+
+`--start-at`은 `--regular-only`와 함께만 사용하며 최대 36시간 뒤까지 기다린다. 대기 중에는 DB 연결·토큰 발급·잠금·관측 파일을 만들지 않는다. 30초 이하 간격으로 시각과 취소를 확인하며 시작을 2분 넘게 놓치면 `OBSERVATION_START_MISSED`로 종료한다. 절전 해제 후 잘못된 세션을 대신 수집하지 않는다. SIGINT/SIGTERM은 대기를 취소한다. 반복 일정·자동 재시작·절전 해제 기능은 없다.
+
+백그라운드로 실행할 때도 PC와 DB가 관측 시간에 실행 중이어야 한다. 예약 대기는 로그의 `waiting`으로 확인하고, 시세 관측 화면에는 실제 시작 후 생성된 실행만 보인다. 실패 시 자동 재시도하지 않는다. 시작 시 같은 client의 다른 수집이 잠금을 보유하면 기존 `BROKER_LEASE_BUSY` 정책으로 종료한다. 실제 수집 동안에는 기존 timeout·취소·오류 중단 정책을 유지한다.
+
 ## 토큰과 수명
 
 실제 관측은 전체 실행 동안 같은 client hash/같은 DB의 기존 advisory lock을 보유한다. broker와 메모리 토큰은 한 실행에서 공유한다. API 새로고침·broker:check·Paper 실제 시세 CLI가 같은 client로 동시에 토큰을 발급하지 못하며 나중 요청은 BROKER_LEASE_BUSY로 실패할 수 있다. 웹의 메모리/DB 캐시 조회는 별개다. 다른 DB/외부 스크립트의 발급까지 이 잠금으로 막지는 못한다.
