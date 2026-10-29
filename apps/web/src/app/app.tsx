@@ -8,6 +8,10 @@ import { OwnerAccess } from './owner-access';
 const BacktestsPage = lazy(() => import('@pages/backtests').then((module) => ({ default: module.BacktestsPage })));
 const PaperPage = lazy(() => import('@pages/paper').then((module) => ({ default: module.PaperPage })));
 
+const ObservationsPage = lazy(() =>
+  import('@pages/observations').then((module) => ({ default: module.ObservationsPage })),
+);
+
 export function App() {
   const [hash, setHash] = useState(window.location.hash);
   useEffect(() => {
@@ -17,10 +21,12 @@ export function App() {
   }, []);
   const backtests = hash === PATHS.BACKTESTS;
   const paper = hash === PATHS.PAPER;
+  const observations = hash === PATHS.OBSERVATIONS;
   const navigation = [
-    { path: PATHS.HOME, label: '계좌 현황', active: !backtests && !paper },
+    { path: PATHS.HOME, label: '계좌 현황', active: !backtests && !paper && !observations },
     { path: PATHS.BACKTESTS, label: '백테스트', active: backtests },
     { path: PATHS.PAPER, label: 'Paper 모의매매', active: paper },
+    { path: PATHS.OBSERVATIONS, label: '시세 관측', active: observations },
   ];
   return (
     <Providers>
@@ -49,7 +55,10 @@ export function App() {
             Paper는 별도 모의 원장으로 운영합니다.
           </p>
         </aside>
-        <nav aria-label="모바일 주 메뉴" className="flex gap-3 border-b border-slate-800 px-5 py-3 text-xs xl:hidden">
+        <nav
+          aria-label="모바일 주 메뉴"
+          className="flex gap-3 overflow-x-auto whitespace-nowrap border-b border-slate-800 px-5 py-3 text-xs xl:hidden"
+        >
           {navigation.map((item) => (
             <a
               key={item.path}
@@ -62,7 +71,15 @@ export function App() {
           ))}
         </nav>
         <Suspense fallback={<p className="p-10 text-sm text-slate-400 xl:ml-56">화면을 불러오고 있습니다…</p>}>
-          {paper ? <PaperPage /> : backtests ? <BacktestsPage /> : <OverviewPage />}
+          {observations ? (
+            <ObservationsPage />
+          ) : paper ? (
+            <PaperPage />
+          ) : backtests ? (
+            <BacktestsPage />
+          ) : (
+            <OverviewPage />
+          )}
         </Suspense>
       </OwnerAccess>
     </Providers>
