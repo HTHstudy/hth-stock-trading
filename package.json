@@ -30,7 +30,8 @@
     "db:generate": "corepack pnpm --filter @hth/database db:generate",
     "db:migrate": "corepack pnpm --filter @hth/database db:migrate",
     "infra:up": "docker compose -f infra/docker-compose.yml up -d db",
-    "infra:down": "docker compose -f infra/docker-compose.yml down"
+    "infra:down": "docker compose -f infra/docker-compose.yml down",
+    "paper:market": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:market"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

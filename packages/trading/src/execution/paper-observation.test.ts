@@ -1,9 +1,10 @@
 import { expect, it } from 'vitest';
 import { paperLedgerStateSchema } from '@hth/contracts';
+import type { InstrumentId } from '@hth/contracts';
 import { observePaperLedger } from './paper-observation.js';
 
 function fixture(asOf = '2026-03-25T02:00:00Z') {
-  const instrument = { market: 'KR' as const, symbol: '005930' };
+  const instrument: InstrumentId = { market: 'KR', symbol: '005930' };
   const ledger = paperLedgerStateSchema.parse({
     observedAt: asOf,
     reconciled: false,
@@ -69,4 +70,28 @@ it('장시간 중단 후 새 거래일과 잘못된 기존 날짜는 손실을 �
   );
   ledger.dailyPnl.KRW.tradingDate = '2000-01-01';
   expect(() => observePaperLedger(ledger, observation, '2026-03-25T14:59:59Z')).toThrow();
+});
+
+it.each([
+  ['2026-03-25T23:59:59Z', '2026-03-26T00:00:01Z', '2026-03-26', '2026-03-25', '2026-03-26'],
+  ['2026-01-25T00:59:59Z', '2026-01-25T01:00:01Z', '2026-01-25', '2026-01-24', '2026-01-25'],
+])('미국 뉴욕 20시 경계를 DST에 맞춰 처리한다: %s', (before, after, krDate, previousDate, nextDate) => {
+  const { ledger, observation } = fixture(before);
+  ledger.dailyPnl.KRW.tradingDate = krDate;
+  ledger.dailyPnl.USD = { tradingDate: previousDate, netPnl: '-50' };
+  ledger.positions[0]!.instrument = { market: 'US', symbol: 'AAPL' };
+  observation.quotes[0] = {
+    ...observation.quotes[0]!,
+    instrument: { market: 'US', symbol: 'AAPL' },
+    timestamp: after,
+    observedAt: after,
+  };
+  const result = observePaperLedger(ledger, observation, after);
+  expect(result.dailyPnl.USD).toEqual({ tradingDate: nextDate, netPnl: '10' });
+  expect(result.dailyPnl.KRW.netPnl).toBe('-500');
+  expect(ledger.dailyPnl.USD.netPnl).toBe('-50');
+  const later = new Date(Date.parse(after) + 300000).toISOString();
+  observation.quotes[0]!.timestamp = later;
+  observation.quotes[0]!.observedAt = later;
+  expect(() => observePaperLedger(ledger, observation, later)).toThrow('PAPER_TRADING_DAY_REVIEW_REQUIRED');
 });
