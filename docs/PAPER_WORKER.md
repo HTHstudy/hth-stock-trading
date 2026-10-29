@@ -65,4 +65,4 @@ corepack pnpm paper:demo --account=paper-demo-local --stop
 
 순수 관측 테스트와 전용 임시 DB의 worker 통합 테스트로 기본 정지, 매수/부분 체결/매도, 재시작 손실 보존, 경합, 긴급 정지, source timeout, 중복 tick 차단, 취소, lease 인수, heartbeat 갱신/실패와 종료를 검사한다. 기존 시장 데이터·백테스트·리스크·원장 테스트도 함께 실행한다. 실제 증권사 API는 호출하지 않는다.
 
-Paper 전용 조회 API와 실행 상태·의도/체결·실패 이력·긴급 정지 화면을 localhost/테스트 DB 범위로 구현했다. 소유자 인증과 전략 설정 관리도 추가했다. 이후 실제 시세를 읽는 source, KR/US 세션·휴장/일일 기준 정책과 장애 복구를 검증하고 Docker 운영에 연결한다. 실제 broker 주문은 별도 단계다.
+Paper 전용 조회 API와 실행 상태·의도/체결·실패 이력·긴급 정지 화면을 localhost/테스트 DB 범위로 구현했다. 소유자 인증과 전략 설정 관리도 추가했다. [실제 시세용 source](PAPER_MARKET_SOURCE.md)는 주입형 구현과 fixture 검증을 추가했으며 실행 명령에는 아직 연결하지 않았다. 이후 전용 실행 명령과 KR/US 세션·휴장/일일 기준 정책·장애 복구를 검증하고 Docker 운영에 연결한다. 실제 broker 주문은 별도 단계다.
