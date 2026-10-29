@@ -17,4 +17,9 @@ export type { PaperCostBasis, PaperFillInput } from './execution/paper-fill.js';
 export { observePaperLedger } from './execution/paper-observation.js';
 export { reviewPaperTradingDay } from './execution/paper-observation.js';
 export { paperSessionState } from './market-data/paper-session.js';
-export { paperPortfolios, paperPositionValue } from './execution/paper-portfolio.js';
+export {
+  paperPortfolios,
+  paperPositionValue,
+  paperEquityValues,
+  paperEquityChange,
+} from './execution/paper-portfolio.js';

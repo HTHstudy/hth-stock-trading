@@ -14,6 +14,14 @@ const disabled: PaperDashboardState = {
 function fixture() {
   const service: PaperDashboard = {
     read: vi.fn(async () => disabled),
+    equityHistory: vi.fn(async () => ({
+      mode: 'paper',
+      executionEnabled: false,
+      source: 'unverified',
+      baseline: null,
+      points: [],
+      limited: false,
+    })),
     stop: vi.fn(async () => {}),
     updateStrategy: vi.fn(async () => {
       throw new Error('UNUSED_TEST_UPDATE');
@@ -27,6 +35,25 @@ function fixture() {
 }
 const headers = { host: 'localhost:4000', 'x-hth-dashboard': '1' };
 describe('Paper 대시보드 접근·정지 경계', () => {
+  it('자산 이력은 인증된 고정 계좌 조회이며 임의 계좌와 비공개 응답을 거부한다', async () => {
+    const { app, service } = fixture();
+    try {
+      const result = await app.inject({ method: 'GET', url: '/v1/paper/equity', headers });
+      expect(result.statusCode).toBe(200);
+      expect(result.headers['cache-control']).toBe('no-store, private');
+      expect((await app.inject({ method: 'GET', url: '/v1/paper/equity?accountId=other', headers })).statusCode).toBe(
+        400,
+      );
+      vi.mocked(service.equityHistory).mockResolvedValueOnce({ accountId: 'PRIVATE' });
+      const invalid = await app.inject({ method: 'GET', url: '/v1/paper/equity', headers });
+      expect(invalid.statusCode).toBe(503);
+      expect(invalid.body).not.toContain('PRIVATE');
+      expect(service.stop).not.toHaveBeenCalled();
+      expect(service.updateStrategy).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
   it('전략 이력은 고정 계좌 서비스의 읽기 전용 요청이며 계좌/cursor 주입을 거부한다', async () => {
     const { app, service } = fixture();
     const history = {

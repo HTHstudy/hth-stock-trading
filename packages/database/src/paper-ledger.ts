@@ -5,6 +5,8 @@ import { z } from 'zod';
 import {
   paperEvidenceSchema,
   paperDataSourceSchema,
+  paperEquityPointSchema,
+  paperEquityHistorySchema,
   paperExecutionSourceSchema,
   paperDashboardSnapshotSchema,
   paperReasonSchema,
@@ -31,6 +33,8 @@ import {
   observePaperLedger,
   reviewPaperTradingDay,
   paperPortfolios,
+  paperEquityValues,
+  paperEquityChange,
   paperPositionValue,
   marketTradingDate,
   movingAverageCross,
@@ -113,6 +117,37 @@ function checkLimits(value: unknown) {
         throw new Error('PAPER_LIMITS_INVALID');
     }
   return limits;
+}
+
+function valuationStale(ledger: PaperLedgerState, now: Date) {
+  return (
+    ledger.positions.some((position) =>
+      [position.markTimestamp, position.markObservedAt].some(
+        (instant) =>
+          instant === null ||
+          now.getTime() - Date.parse(instant) >= 120_000 ||
+          Date.parse(instant) > now.getTime() + 5000,
+      ),
+    ) ||
+    ledger.dailyPnl.KRW.tradingDate !== marketTradingDate(now.getTime(), 'KR') ||
+    ledger.dailyPnl.USD.tradingDate !== marketTradingDate(now.getTime(), 'US') ||
+    !ledger.reconciled ||
+    now.getTime() - Date.parse(ledger.observedAt) >= 60_000 ||
+    Date.parse(ledger.observedAt) > now.getTime() + 5000
+  );
+}
+function equityDetails(account: Account, now: Date) {
+  const equityPoint = paperEquityPointSchema.parse({
+    formatVersion: 'paper-equity-v1',
+    version: account.version,
+    source: account.dataSource,
+    recordedAt: now.toISOString(),
+    observedAt: account.ledger.observedAt,
+    reconciled: account.ledger.reconciled,
+    stale: valuationStale(account.ledger, now),
+    values: paperEquityValues(account.ledger),
+  });
+  return { equityPoint, equityHash: contentHash(equityPoint) };
 }
 
 export function createPaperLedger(db: Database) {
@@ -329,6 +364,56 @@ export function createPaperLedger(db: Database) {
           .where(eq(paperStrategies.accountId, id)),
       );
     },
+    async readEquityHistory(id: string) {
+      return consistent(id, async (transaction, account) => {
+        const scope = and(
+          eq(paperEvents.accountId, id),
+          inArray(paperEvents.kind, ['ACCOUNT_OBSERVED', 'PAPER_FILL_RECORDED', 'ACCOUNT_RECONCILED']),
+          sql`${paperEvents.details} ? 'equityPoint'`,
+        );
+        const version = sql`(${paperEvents.details}->'equityPoint'->>'version')::bigint`;
+        const [first] = await transaction
+          .select({ details: paperEvents.details })
+          .from(paperEvents)
+          .where(scope)
+          .orderBy(version)
+          .limit(1);
+        const rows = await transaction
+          .select({ details: paperEvents.details })
+          .from(paperEvents)
+          .where(scope)
+          .orderBy(sql`${version} DESC`)
+          .limit(501);
+        const verify = (details: Record<string, unknown>) => {
+          const point = paperEquityPointSchema.parse(details.equityPoint);
+          if (
+            point.source !== account.dataSource ||
+            point.version > account.version ||
+            contentHash(point) !== details.equityHash
+          )
+            throw new Error('PAPER_EQUITY_HISTORY_INVALID');
+          return point;
+        };
+        const baseline = first ? verify(first.details) : null;
+        const checked = rows.map((row) => verify(row.details));
+        return paperEquityHistorySchema.parse({
+          mode: 'paper',
+          executionEnabled: false,
+          source: account.dataSource,
+          baseline,
+          points: checked
+            .slice(0, 500)
+            .reverse()
+            .map((point) => ({
+              point,
+              changePercent: point.values.map((item, index) =>
+                paperEquityChange(item.equity, baseline!.values[index]!.equity),
+              ),
+            })),
+          limited: rows.length > 500,
+        });
+      });
+    },
     async readStrategyHistory(id: string, strategyId: string, query: unknown = {}) {
       parse(accountIdSchema, strategyId);
       const { beforeRevision } = parse(paperStrategyHistoryQuerySchema, query);
@@ -521,20 +606,7 @@ export function createPaperLedger(db: Database) {
           },
           valuation: {
             observedAt: state.observedAt,
-            stale:
-              state.positions.some((position) =>
-                [position.markTimestamp, position.markObservedAt].some(
-                  (instant) =>
-                    instant === null ||
-                    now.getTime() - Date.parse(instant) >= 120_000 ||
-                    Date.parse(instant) > now.getTime() + 5000,
-                ),
-              ) ||
-              state.dailyPnl.KRW.tradingDate !== marketTradingDate(now.getTime(), 'KR') ||
-              state.dailyPnl.USD.tradingDate !== marketTradingDate(now.getTime(), 'US') ||
-              !state.reconciled ||
-              now.getTime() - Date.parse(state.observedAt) >= 60_000 ||
-              Date.parse(state.observedAt) > now.getTime() + 5000,
+            stale: valuationStale(state, now),
             reconciled: state.reconciled,
           },
           portfolios: paperPortfolios(state),
@@ -679,7 +751,7 @@ export function createPaperLedger(db: Database) {
         owned(account, token, epoch, now);
         const ledger = observePaperLedger(account.ledger, observation, now.toISOString());
         const updated = await advance(transaction, account, { ledger });
-        await event(transaction, id, 'ACCOUNT_OBSERVED');
+        await event(transaction, id, 'ACCOUNT_OBSERVED', equityDetails(updated, now));
         const finalNow = await clock(transaction);
         owned(account, token, epoch, finalNow);
         if (finalNow.getTime() - now.getTime() >= 5000) throw new Error('PAPER_OBSERVATION_STALE');
@@ -902,7 +974,7 @@ export function createPaperLedger(db: Database) {
           })),
         };
         const updated = await advance(transaction, account, { ledger });
-        await event(transaction, id, 'ACCOUNT_RECONCILED');
+        await event(transaction, id, 'ACCOUNT_RECONCILED', equityDetails(updated, now));
         return updated.version;
       });
     },
@@ -1347,8 +1419,14 @@ export function createPaperLedger(db: Database) {
             sellQuantity: settled.remainingSell,
           })
           .where(and(eq(paperReservations.accountId, id), eq(paperReservations.intentId, intentId)));
-        await advance(transaction, account, { ledger: settled.ledger });
-        await event(transaction, id, 'PAPER_FILL_RECORDED', { fillId: input.fillId }, intentId);
+        const updated = await advance(transaction, account, { ledger: settled.ledger });
+        await event(
+          transaction,
+          id,
+          'PAPER_FILL_RECORDED',
+          { fillId: input.fillId, ...equityDetails(updated, now) },
+          intentId,
+        );
         const finalNow = await clock(transaction);
         if (
           !leaseOwned(account, token, finalNow) ||

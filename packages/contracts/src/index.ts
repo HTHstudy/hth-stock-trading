@@ -1,4 +1,6 @@
 import { z } from 'zod';
+export { paperEquityPointSchema, paperEquityHistorySchema } from './paper-equity.js';
+export type { PaperEquityPoint, PaperEquityHistory } from './paper-equity.js';
 export {
   paperStrategyHistoryQuerySchema,
   paperStrategyHistoryEntrySchema,
