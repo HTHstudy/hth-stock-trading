@@ -1,12 +1,12 @@
-# 로컬 합성 Paper 대시보드
+# 로컬 Paper 대시보드
 
 ## 현재 범위
 
-웹의 `#paper` / **Paper 모의매매** 메뉴는 별도 모의 원장을 조회한다. 실행 제어·worker 소유권과 만료·평가 시각, KRW/USD별 자산·현금·예약/가용 현금·보유 평가액·일일 평가손익, 수동/전략별 보유 수량, 전략 등록 상태와 최근 주문·체결·운영 이벤트/실패 이력을 제공한다. 합성 데이터임을 항상 표시한다. 실제 계좌 현황/백테스트와 별도 페이지다.
+웹의 `#paper` / **Paper 모의매매** 메뉴는 별도 모의 원장을 조회한다. 실행 제어·worker 소유권과 만료·평가 시각, KRW/USD별 자산·현금·예약/가용 현금·보유 평가액·일일 평가손익, 수동/전략별 보유 수량, 전략 등록 상태와 최근 주문·체결·운영 이벤트/실패 이력을 제공한다. DB에 저장된 출처를 합성/실제 시세/미확인으로 구분한다. 실제 시세여도 자산·체결·성과는 별도 모의 원장이다. 실제 계좌 현황/백테스트와 별도 페이지다.
 
 계좌·현금·원가를 만들거나 전략/worker를 시작하는 조회 동작은 없다. 설정되지 않으면 **아직 연결된 모의 계좌가 없습니다**를 표시하고 가짜 잔고를 넣지 않는다. API 장애 시 마지막 수신값과 오류를 구분하고, 만료된 평가·lease를 정상 실행으로 표시하지 않는다. 프론트엔드는 금액을 표시만 하며 계산은 서버의 100자리 decimal.js 정밀도를 사용한다. 새 외부 라이브러리는 추가하지 않았다.
 
-현재 연결은 localhost의 hth_test/hth_readonly_test 전용 DB와 `paper-demo-*` 계좌로 제한한다. [소유자 인증](OWNER_AUTH.md)과 [전략 파라미터/활성 편집](STRATEGY_SETTINGS.md)을 추가했다. 실제 시세 source·일반 Paper 계좌 관리·인터넷 배포·실제 주문은 후속이다. 재개 버튼은 제공하지 않는다. 등록 활성 상태와 실행 중 상태를 구분한다.
+현재 연결은 localhost의 hth_test/hth_readonly_test 전용 DB로 제한한다. 기본 `PAPER_DASHBOARD_KIND=synthetic`은 `PAPER_DEMO_DATABASE_URL`/`PAPER_DEMO_ACCOUNT_ID`(`paper-demo-*`)를, `market`은 `PAPER_MARKET_DATABASE_URL`/`PAPER_MARKET_ACCOUNT_ID`(`paper-market-*`)를 선택한다. 한 번에 서버가 정한 한 계좌만 연결한다. [소유자 인증](OWNER_AUTH.md)과 [전략 파라미터/활성 편집](STRATEGY_SETTINGS.md)을 추가했다. 실제 시세 CLI 계좌 조회도 지원하며 일반 계좌 선택/생성 UI·인터넷 배포·실제 주문은 후속이다. 재개 버튼은 제공하지 않는다. 등록 활성 상태와 실행 중 상태를 구분한다.
 
 ## API와 공개 데이터
 
@@ -60,4 +60,22 @@ corepack pnpm dev
 
 가짜 서비스 API 테스트로 기본 비활성·외부 접근/CSRF 차단·설정 검증·입력 주입 거부·정지 응답·원본 오류 제거를 확인한다. 전용 임시 DB 테스트로 부분 체결 후 현금/예약/손익 일치·내부 정보 제거·계좌 범위·50개 제한·stale/만료 표시·조회 무변경·writer 행 잠금을 기다리지 않는 snapshot 조회를 검증한다. 기존 worker/리스크/체결/백테스트 테스트도 함께 실행한다. 브라우저에서 합성 데이터 표시와 정지 → worker lease 해제·보유분 유지도 확인했다.
 
-소유자 인증·전략 설정의 영속 revision 관리와 활성 제어도 구현했다. 다음은 실제 시세 source의 Paper 연결과 운영 검증이다. 이후 실제 시세를 읽는 source를 Paper에 연결하고 KR/US 세션·휴장·일일 기준 정책을 검증한다. 실제 broker 주문은 별도 단계다.
+소유자 인증·전략 설정의 영속 revision 관리와 활성 제어도 구현했다. 실제 시세 source의 CLI와 계좌 출처/화면 연결도 추가했다. 다음은 휴장 대기·일일 기준 검토 절차와 장시간 실데이터 관측 검증이다. 실제 broker 주문은 별도 단계다.
+
+## 실제 시세 계좌 연결과 기존 계좌 업그레이드
+
+먼저 [실제 시세 Paper CLI](PAPER_MARKET_SOURCE.md)에서 별도 모의 계좌를 생성한다. API 서버에서 다음을 명시하고 재시작하면 같은 `#paper` 화면이 해당 DB의 출처와 데이터를 표시한다. 웹에 증권사 키나 DB URL을 넘기지 않는다.
+
+```bash
+export PAPER_DASHBOARD_ENABLED=true
+export PAPER_DASHBOARD_KIND=market
+export PAPER_MARKET_DATABASE_URL='postgresql://hth_test:local_test_only@127.0.0.1:55434/hth_readonly_test'
+export PAPER_MARKET_ACCOUNT_ID=paper-market-local
+corepack pnpm dev
+```
+
+DB 출처가 서버 설정과 반대이면 조회를 차단한다. DTO 상위/스냅샷 출처도 일치해야 한다. 실제 시세 계좌에서는 KR/US 편집과 장기 기간 최대 199를 허용한다. 합성 계좌는 KR만 허용한다. 출처 위반 편집은 서버에서도 거부한다. 브라우저로 source나 계좌를 바꾸거나 worker를 시작하지 않는다.
+
+마이그레이션 `0006_complete_molecule_man.sql`은 과거 계좌를 출처 미확인·정지/새 epoch로 전환하고 정지 이력을 남긴다. 현금·보유분·원가·손실·체결 이력을 덮어쓰지 않는다. ID 이름이나 기존 시세 태그만으로 출처를 소급 추정하지 않는다. 미확인 계좌는 조회/긴급 정지는 가능하지만 편집·lease 획득·새 의도/체결은 거부한다. 이 계좌는 출처를 수정해 재사용하지 않고 이력으로 보존한다. 새 출처가 명시된 별도 계좌를 만들어 검증하며 기존 자산을 자동 이관하지 않는다. 남아 있는 예약은 자동으로 해소된 것으로 표시하지 않는다.
+
+API는 마이그레이션을 실행하지 않는다. 변경을 반영하기 전 전용 테스트 DB에서 `paper:demo --prepare` 또는 `paper:market --prepare` 절차를 사용한다. 일반 사용자 DB를 대상으로 이 CLI를 실행하지 않는다. 새 source 필드가 없는 DB는 조회 실패로 표시하며 합성으로 fallback하지 않는다.
