@@ -6,38 +6,71 @@ import { createObservationFiles } from './market-observation-files.js';
 import { runMarketObservation, observationFailureCode } from './market-observation.js';
 import { createPaperMarketSource } from './paper-market-source.js';
 import { createPaperSyntheticSource } from './paper-synthetic-source.js';
+import { requireObservationSession, waitForObservationStart } from './market-observation-start.js';
 
 async function main() {
   const config = parseMarketObservationConfig(process.argv.slice(2), process.env);
   const { source, instruments, samples, intervalMs, timeoutMs } = config;
   const settings = { source, instruments, samples, intervalMs, timeoutMs };
-  const files = await createObservationFiles(config.outputDirectory, settings);
   const shutdown = new AbortController();
   const stop = () => shutdown.abort();
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);
   let database: ReturnType<typeof createDatabase> | null = null;
+  let files: Awaited<ReturnType<typeof createObservationFiles>> | null = null;
   try {
-    database = config.broker ? createDatabase(config.broker.DATABASE_URL) : null;
-    const collect = (leaseSignal: AbortSignal) =>
-      runMarketObservation(
-        settings,
-        {
-          createSource: (signal) =>
-            config.broker
-              ? createPaperMarketSource(
-                  createTossReadonlyBroker({
-                    clientId: config.broker.TOSS_CLIENT_ID,
-                    clientSecret: config.broker.TOSS_CLIENT_SECRET,
-                    signal,
-                  }),
-                  1,
-                )
-              : createPaperSyntheticSource(21),
-          record: files.record,
-        },
-        AbortSignal.any([shutdown.signal, leaseSignal]),
+    if (config.startAt) {
+      console.info(
+        JSON.stringify({
+          service: 'market-observation',
+          state: 'waiting',
+          startsAt: config.startAt,
+          executionEnabled: false,
+        }),
       );
+      try {
+        await waitForObservationStart(config.startAt, shutdown.signal);
+      } catch (error) {
+        if (!shutdown.signal.aborted) throw error;
+        console.info(JSON.stringify({ service: 'market-observation', state: 'cancelled', executionEnabled: false }));
+        return;
+      }
+    }
+    files = await createObservationFiles(config.outputDirectory, settings);
+    const output = files;
+    database = config.broker ? createDatabase(config.broker.DATABASE_URL) : null;
+    const collect = async (leaseSignal: AbortSignal) => {
+      const lifetime = new AbortController();
+      const signal = AbortSignal.any([shutdown.signal, leaseSignal, lifetime.signal]);
+      try {
+        const broker = config.broker
+          ? createTossReadonlyBroker({
+              clientId: config.broker.TOSS_CLIENT_ID,
+              clientSecret: config.broker.TOSS_CLIENT_SECRET,
+              signal,
+            })
+          : null;
+        if (config.regularMarket && broker) {
+          const calendar = await broker.getMarketCalendar(config.regularMarket);
+          if (config.startAt && Date.now() - Date.parse(config.startAt) > 120_000)
+            throw new Error('OBSERVATION_START_MISSED');
+          requireObservationSession(calendar, config.regularMarket, settings, Date.now());
+        }
+        return await runMarketObservation(
+          settings,
+          {
+            createSource: (readLifetime) => {
+              readLifetime.addEventListener('abort', () => lifetime.abort(), { once: true });
+              return broker ? createPaperMarketSource(broker, 1) : createPaperSyntheticSource(21);
+            },
+            record: output.record,
+          },
+          signal,
+        );
+      } finally {
+        lifetime.abort();
+      }
+    };
     const summary =
       database && config.broker
         ? await database.withBrokerLease(
@@ -59,12 +92,12 @@ async function main() {
     );
     if (summary.status === 'failed') process.exitCode = 1;
   } catch (error) {
-    await files.fail(error);
+    await files?.fail(error);
     throw error;
   } finally {
     process.removeListener('SIGINT', stop);
     process.removeListener('SIGTERM', stop);
-    await files.close();
+    await files?.close();
     await database?.close();
   }
 }

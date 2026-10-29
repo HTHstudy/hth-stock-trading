@@ -114,6 +114,8 @@ export const observationFailureSchema = observationManifestSchema.safeExtend({
         'BROKER_LEASE_BUSY',
         'BROKER_LEASE_LOST',
         'MARKET_OBSERVATION_CONFIGURATION_INVALID',
+        'OBSERVATION_START_MISSED',
+        'OBSERVATION_SESSION_UNAVAILABLE',
       ]),
     })
     .strict(),

@@ -36,7 +36,13 @@ const configSchema = z
 export function observationFailureCode(error: unknown): string {
   if (error instanceof BrokerError && errorSchema.safeParse(error.code).success) return error.code;
   return error instanceof Error &&
-    ['BROKER_LEASE_BUSY', 'BROKER_LEASE_LOST', 'MARKET_OBSERVATION_CONFIGURATION_INVALID'].includes(error.message)
+    [
+      'BROKER_LEASE_BUSY',
+      'BROKER_LEASE_LOST',
+      'MARKET_OBSERVATION_CONFIGURATION_INVALID',
+      'OBSERVATION_START_MISSED',
+      'OBSERVATION_SESSION_UNAVAILABLE',
+    ].includes(error.message)
     ? error.message
     : 'OBSERVATION_FAILED';
 }
