@@ -1,7 +1,8 @@
 import type { Candle, InstrumentId, MarketCalendar, Money } from '@hth/contracts';
 import { marketDataQualitySchema } from '@hth/contracts';
 import { marketDataPolicy, prepareStrategyData } from '@hth/trading';
-import type { BrokerInstrument, CandleQuery, Holding, ReadonlyBroker } from '@hth/broker';
+import type { BrokerInstrument, Holding, ReadonlyBroker } from '@hth/broker';
+import { collectCandles } from './collect-candles.js';
 
 export async function collectReadonlySnapshot(
   broker: ReadonlyBroker,
@@ -24,30 +25,11 @@ export async function collectReadonlySnapshot(
   const batches: { instrument: BrokerInstrument; candles: Candle[]; observedAt: string }[] = [];
   for (const instrument of instruments) {
     const observedAt = new Date(now()).toISOString();
-    const candles = new Map<string, Candle>();
-    const cursors = new Set<number>();
-    let before: string | undefined;
-    for (let page = 0; page < maxPages; page += 1) {
-      const query: CandleQuery = {
-        instrument: instrument.id,
-        interval,
-        count: 200,
-        adjusted: false,
-        ...(before ? { before } : {}),
-      };
-      const result = await broker.getCandles(query);
-      for (const candle of result.candles) candles.set(candle.timestamp, candle);
-      if (!result.nextBefore || result.candles.length === 0) break;
-      const cursor = Date.parse(result.nextBefore);
-      if (!Number.isFinite(cursor) || cursors.has(cursor) || (before && cursor >= Date.parse(before)))
-        throw new Error('CANDLE_CURSOR_NOT_ADVANCING');
-      cursors.add(cursor);
-      before = result.nextBefore;
-    }
+    const candles = await collectCandles(broker, instrument.id, interval, maxPages);
     batches.push({
       instrument,
       observedAt,
-      candles: [...candles.values()].sort((left, right) => Date.parse(left.timestamp) - Date.parse(right.timestamp)),
+      candles,
     });
   }
   const accountObservedAt = new Date(now()).toISOString();
