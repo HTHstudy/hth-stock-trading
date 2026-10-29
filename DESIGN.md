@@ -131,3 +131,5 @@ API 서버는 synthetic/market 종류와 한 테스트 DB/계좌를 선택한다
 운영 전 데이터 검증은 [읽기 전용 시세 관측](docs/MARKET_OBSERVATION.md)으로 수행한다. `assessMarketData`는 계좌를 가정하지 않는 시장 품질 검사이며 기존 `prepareStrategyData`의 계좌/신선도 검사는 유지한다. 관측 루프는 주문·원장 변경 없이 제한된 메타데이터를 journal에 저장하고 종목별 상태/지연과 실행 오류를 요약한다. 완료 상태를 매매 승인으로 사용하지 않는다.
 
 관측 리포트 API/화면은 고정 루트의 UUID 실행만 읽고, strict 계약·journal 해시·순서·종목 집합과 재집계 결과를 검증한다. 완료·실패·미완료를 분리하고 조회로 수집이나 매매를 시작하지 않는다. 파일/스캔 상한과 소유자/로컬 접근 경계는 [관측 문서](docs/MARKET_OBSERVATION.md)를 따른다.
+
+대시보드 관심종목은 전략·보유분·수집 CLI와 분리한 서버 설정이다. 키/업무 DB 없이 편집할 수 있도록 `.local-data/settings`에 잠금·revision CAS·원자적 교체로 저장한다. 저장 확인 시 전체 조회 snapshot과 진행 중 요청을 무효화하고 명시적 새로고침으로만 반영한다. 빈 목록을 보존하고 늦은 응답을 폐기한다. [상세 범위와 복구](docs/WATCHLIST.md)를 따른다.

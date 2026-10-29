@@ -128,3 +128,5 @@ Paper 리스크 검증 기반도 구현했습니다. `corepack pnpm risk:demo`�
 시세 수집 상태만 점검하려면 `corepack pnpm market:observe --demo` 또는 실제 설정 후 `corepack pnpm market:observe`를 사용합니다. 주문·Paper 재개 없이 journal과 운영 리포트를 저장합니다. [실행/파일/범위](docs/MARKET_OBSERVATION.md)
 
 저장된 운영 리포트는 로그인 후 `http://127.0.0.1:5173/#observations`의 **시세 관측** 메뉴에서 확인합니다. 파일 형식·해시·집계를 검증하며 조회로 관측이나 매매를 시작하지 않습니다. [조회 범위와 제한](docs/MARKET_OBSERVATION.md)
+
+계좌 현황의 **관심종목 관리**에서 조회할 종목을 직접 저장할 수 있습니다. 저장 후 상단 새로고침으로 반영하며 매매 전략/관측 CLI 종목과는 별개입니다. 빈 목록도 유지합니다. [저장·충돌·범위](docs/WATCHLIST.md)
