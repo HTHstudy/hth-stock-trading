@@ -126,3 +126,5 @@ Paper 리스크 검증 기반도 구현했습니다. `corepack pnpm risk:demo`�
 휴장 대기와 장시간 중단 후 손실 기준 검토는 [Paper 세션·검토 절차](docs/PAPER_SESSIONS_REVIEW.md)를 따릅니다. 개장이나 검토 승인으로 자동 재개하지 않습니다.
 
 시세 수집 상태만 점검하려면 `corepack pnpm market:observe --demo` 또는 실제 설정 후 `corepack pnpm market:observe`를 사용합니다. 주문·Paper 재개 없이 journal과 운영 리포트를 저장합니다. [실행/파일/범위](docs/MARKET_OBSERVATION.md)
+
+저장된 운영 리포트는 로그인 후 `http://127.0.0.1:5173/#observations`의 **시세 관측** 메뉴에서 확인합니다. 파일 형식·해시·집계를 검증하며 조회로 관측이나 매매를 시작하지 않습니다. [조회 범위와 제한](docs/MARKET_OBSERVATION.md)
