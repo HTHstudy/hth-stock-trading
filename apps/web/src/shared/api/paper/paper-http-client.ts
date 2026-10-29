@@ -20,13 +20,15 @@ export async function paperRequest(
   notifyUnauthorized(response.status);
   if (!response.ok)
     throw new Error(
-      response.status === 409
-        ? 'PAPER_STRATEGY_REVISION_CONFLICT'
-        : path.startsWith('/strategies/')
-          ? 'PAPER_STRATEGY_UPDATE_UNCONFIRMED'
-          : method === 'POST'
-            ? 'PAPER_STOP_UNCONFIRMED'
-            : 'PAPER_UNAVAILABLE',
+      method === 'GET' && path.startsWith('/strategies/')
+        ? 'PAPER_STRATEGY_HISTORY_UNAVAILABLE'
+        : response.status === 409
+          ? 'PAPER_STRATEGY_REVISION_CONFLICT'
+          : path.startsWith('/strategies/')
+            ? 'PAPER_STRATEGY_UPDATE_UNCONFIRMED'
+            : method === 'POST'
+              ? 'PAPER_STOP_UNCONFIRMED'
+              : 'PAPER_UNAVAILABLE',
     );
   return response.json();
 }

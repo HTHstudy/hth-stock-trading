@@ -5,12 +5,14 @@ import { formatDecimal, formatMoney, formatTime, profitClass } from '@shared/lib
 import { PaperHistory } from './history';
 import type { HistoryTab } from './history';
 import { StrategyEditor } from './strategy-editor';
+import { StrategyHistory } from './strategy-history';
 
 const queryKey = ['paper-dashboard'] as const;
 const buttonFocus = 'focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal-300';
 export function PaperPage() {
   const [tab, setTab] = useState<HistoryTab>('orders');
   const [editing, setEditing] = useState<string | null>(null);
+  const [history, setHistory] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const client = useQueryClient();
   const query = useQuery({
@@ -290,6 +292,13 @@ export function PaperPage() {
                     >
                       설정 · 활성 관리
                     </button>
+                    <button
+                      type="button"
+                      className="mt-2 block rounded-md border border-slate-700 px-3 py-2 text-[11px] text-slate-300 hover:bg-slate-800"
+                      onClick={() => setHistory(history === strategy.id ? null : strategy.id)}
+                    >
+                      변경 이력
+                    </button>
                   </div>
                 ))
               ) : (
@@ -311,6 +320,16 @@ export function PaperPage() {
                     setSaved(true);
                     setEditing(null);
                   }}
+                />
+              ))}
+            {snapshot.strategies
+              .filter((strategy) => strategy.id === history)
+              .map((strategy) => (
+                <StrategyHistory
+                  key={strategy.id}
+                  id={strategy.id}
+                  revision={strategy.revision}
+                  onClose={() => setHistory(null)}
                 />
               ))}
           </section>
