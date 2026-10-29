@@ -32,7 +32,8 @@
     "infra:up": "docker compose -f infra/docker-compose.yml up -d db",
     "infra:down": "docker compose -f infra/docker-compose.yml down",
     "paper:market": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:market",
-    "paper:day-review": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:day-review"
+    "paper:day-review": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:day-review",
+    "market:observe": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker market:observe"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

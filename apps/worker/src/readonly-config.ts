@@ -34,3 +34,9 @@ export function parseReadonlyConfig(environment: Record<string, string | undefin
   if (!parsed.success) throw new Error('READONLY_CONFIGURATION_INVALID');
   return parsed.data;
 }
+
+export function parseReadonlySymbols(value: string | undefined) {
+  const parsed = symbols.safeParse(value);
+  if (!parsed.success) throw new Error('READONLY_SYMBOLS_INVALID');
+  return parsed.data;
+}
