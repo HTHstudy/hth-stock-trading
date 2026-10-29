@@ -1,4 +1,6 @@
 import {
+  observationListSchema,
+  observationReportSchema,
   dashboardStateSchema,
   processHealthSchema,
   paperDashboardStateSchema,
@@ -14,6 +16,7 @@ import type { DashboardService } from './dashboard-service.js';
 import type { BacktestReports } from './backtest-reports.js';
 import type { PaperDashboard } from './paper-dashboard.js';
 import type { OwnerAuth } from './owner-auth.js';
+import type { ObservationReports } from './observation-reports.js';
 
 export function createApp(
   logLevel = 'silent',
@@ -22,6 +25,7 @@ export function createApp(
   reports?: BacktestReports,
   paper?: PaperDashboard,
   owner?: OwnerAuth,
+  observations?: ObservationReports,
 ) {
   const app = Fastify({
     logger: {
@@ -49,7 +53,9 @@ export function createApp(
   );
 
   app.addHook('onRequest', async (request, reply) => {
-    const privateRoute = ['/v1/dashboard', '/v1/backtests', '/v1/paper'].some((path) => request.url.startsWith(path));
+    const privateRoute = ['/v1/dashboard', '/v1/backtests', '/v1/paper', '/v1/observations'].some((path) =>
+      request.url.startsWith(path),
+    );
     if (!privateRoute && !request.url.startsWith('/v1/auth')) return;
     reply.header('Cache-Control', 'no-store, private');
     reply.header('X-Content-Type-Options', 'nosniff');
@@ -135,6 +141,27 @@ export function createApp(
     }
   });
 
+  app.get('/v1/observations', async (request, reply) => {
+    if (!z.object({}).strict().safeParse(request.query).success)
+      return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (!observations) return reply.code(503).send({ error: { code: 'OBSERVATIONS_UNAVAILABLE' } });
+    try {
+      return observationListSchema.parse(await observations.list());
+    } catch {
+      return reply.code(503).send({ error: { code: 'OBSERVATIONS_UNAVAILABLE' } });
+    }
+  });
+  app.get('/v1/observations/:id', async (request, reply) => {
+    const params = z.object({ id: z.uuid() }).strict().safeParse(request.params);
+    if (!params.success || !z.object({}).strict().safeParse(request.query).success)
+      return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (!observations) return reply.code(503).send({ error: { code: 'OBSERVATIONS_UNAVAILABLE' } });
+    try {
+      return observationReportSchema.parse(await observations.get(params.data.id));
+    } catch {
+      return reply.code(404).send({ error: { code: 'OBSERVATION_NOT_FOUND' } });
+    }
+  });
   app.get('/v1/dashboard', () =>
     dashboardStateSchema.parse(
       dashboard?.read() ?? {

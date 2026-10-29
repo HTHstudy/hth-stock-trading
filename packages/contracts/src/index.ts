@@ -1,4 +1,16 @@
 import { z } from 'zod';
+export {
+  observationErrorSchema,
+  observationRecordSchema,
+  observationSummarySchema,
+  observationManifestSchema,
+  observationArtifactSchema,
+  observationFailureSchema,
+  observationListItemSchema,
+  observationReportSchema,
+  observationListSchema,
+} from './observation.js';
+export type { ObservationRecord, ObservationReport, ObservationList } from './observation.js';
 export { paperDataSourceSchema, paperExecutionSourceSchema } from './paper-source.js';
 export type { PaperDataSource } from './paper-source.js';
 export { ownerLoginSchema, ownerSessionSchema } from './owner.js';

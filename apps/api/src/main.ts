@@ -4,6 +4,7 @@ import { createDatabase } from '@hth/database';
 import { testDatabaseUrl } from '@hth/database/testing';
 import { createPaperDashboard } from './paper-dashboard.js';
 import { fileURLToPath } from 'node:url';
+import { createObservationReports } from './observation-reports.js';
 import { createBacktestReports } from './backtest-reports.js';
 import { parseApiConfig } from './config.js';
 import { createDashboardService, loadDashboardFromWorker } from './dashboard-service.js';
@@ -27,6 +28,10 @@ async function main() {
     config.NODE_ENV !== 'production' && ['127.0.0.1', 'localhost', '::1'].includes(config.API_HOST)
       ? createBacktestReports(fileURLToPath(new URL('../../../.local-data', import.meta.url)))
       : undefined;
+  const observations =
+    config.NODE_ENV !== 'production' && ['127.0.0.1', 'localhost', '::1'].includes(config.API_HOST)
+      ? createObservationReports(fileURLToPath(new URL('../../../.local-data/observations', import.meta.url)))
+      : undefined;
   const paper = config.PAPER_DASHBOARD_ENABLED
     ? createPaperDashboard(
         createDatabase(
@@ -47,6 +52,7 @@ async function main() {
     reports,
     paper,
     createOwnerAuth(config.OWNER_PASSWORD_HASH),
+    observations,
   );
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {

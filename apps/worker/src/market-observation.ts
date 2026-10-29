@@ -2,54 +2,17 @@ import { performance } from 'node:perf_hooks';
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
 import { BrokerError } from '@hth/broker';
-import { dataBlockerSchema, paperEvidenceSchema, paperOrderCandidateSchema } from '@hth/contracts';
-import type { InstrumentId, PaperEvidence } from '@hth/contracts';
+import {
+  observationErrorSchema as errorSchema,
+  observationRecordSchema,
+  paperEvidenceSchema,
+  paperOrderCandidateSchema,
+} from '@hth/contracts';
+import type { InstrumentId, PaperEvidence, ObservationRecord } from '@hth/contracts';
 import { assessMarketData, paperSessionState } from '@hth/trading';
 import type { PaperSource } from './paper-worker.js';
 
-const errorSchema = z.enum([
-  'INVALID_INPUT',
-  'INVALID_RESPONSE',
-  'UNSUPPORTED_MARKET',
-  'AUTHENTICATION_FAILED',
-  'PERMISSION_DENIED',
-  'RATE_LIMITED',
-  'UPSTREAM_REJECTED',
-  'UPSTREAM_UNAVAILABLE',
-  'NETWORK_ERROR',
-  'TIMEOUT',
-  'CANCELLED',
-  'OBSERVATION_TIMEOUT',
-  'OBSERVATION_FAILED',
-]);
-export const observationRecordSchema = z
-  .object({
-    index: z.number().int().positive(),
-    startedAt: z.iso.datetime({ offset: true }),
-    finishedAt: z.iso.datetime({ offset: true }),
-    durationMs: z.number().finite().nonnegative(),
-    error: errorSchema.nullable(),
-    instruments: z
-      .array(
-        z
-          .object({
-            instrument: paperOrderCandidateSchema.shape.instrument,
-            state: z.enum(['healthy', 'closed', 'blocked']),
-            blockers: z.array(dataBlockerSchema),
-            quoteTimestamp: z.iso.datetime({ offset: true }).nullable(),
-            quoteAgeMs: z.number().finite().nullable(),
-            quoteRegressed: z.boolean(),
-            latestCandleAt: z.iso.datetime({ offset: true }).nullable(),
-            closedCandles: z.number().int().nonnegative(),
-            pendingCandles: z.number().int().nonnegative(),
-            blockedCandles: z.number().int().nonnegative(),
-          })
-          .strict(),
-      )
-      .max(5),
-  })
-  .strict();
-export type ObservationRecord = z.infer<typeof observationRecordSchema>;
+export { observationRecordSchema } from '@hth/contracts';
 export interface ObservationConfig {
   source: 'synthetic-only' | 'toss-readonly';
   instruments: readonly InstrumentId[];
