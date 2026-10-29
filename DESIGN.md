@@ -83,6 +83,8 @@ Paper 대시보드는 `docs/PAPER_DASHBOARD.md`의 localhost·테스트 DB 경�
 
 소유자 인증은 `docs/OWNER_AUTH.md`의 단일 서버 cookie 세션을 따른다. 전략 변경은 `docs/STRATEGY_SETTINGS.md`의 per-strategy revision CAS와 불변 이력을 사용하며 계좌 정지/epoch를 함께 커밋한다. 저장 정의와 신호의 revision/hash를 예약·체결에서 검사한다. 비활성/재활성으로 동일 봉 중복 키를 바꾸지 않는다.
 
+전략 이력은 서버 고정 계좌의 읽기 전용 snapshot에서 현재 조건과 함께 조회한다. 리비전 cursor로 최대 20개씩 읽고 내용 hash·연속성·현재 조건과 최신 이력의 연결을 검증한다. 화면 비교는 미등록 값을 보존하며 복원·재개를 수행하지 않는다. [조회 정책](docs/STRATEGY_HISTORY.md)을 따른다.
+
 ## 5. DB 스키마 계획
 
 | 테이블                                   | 주요 데이터와 제약                                  | 현재 상태   |
