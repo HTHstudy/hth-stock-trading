@@ -172,6 +172,115 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper 상시 worker', () => {
     expect(await context.worker.step()).toMatchObject({ state: 'running' });
     await context.worker.close();
   });
+  it('부분 체결 후 통신 장애·기본 재시작·명시적 재개에도 같은 봉 주문을 다시 만들지 않는다', async () => {
+    const context = await fixture();
+    const evidence = (await context.source(
+      [{ market: 'KR', symbol: '005930' }],
+      new AbortController().signal,
+    )) as PaperEvidence[];
+    let failed = false;
+    const feed: PaperSource = async (instruments, signal) => {
+      if (failed) throw new Error('FAULT_INJECTION');
+      const fresh = (await context.source(instruments, signal)) as PaperEvidence[];
+      for (let index = 0; index < fresh.length; index++)
+        fresh[index]!.marketData.candles = structuredClone(evidence[index]!.marketData.candles);
+      return fresh;
+    };
+    const worker = context.create(context.config, feed);
+    await worker.start();
+    await worker.step();
+    await worker.step();
+    const before = await database.paper.readAccount(context.id);
+    failed = true;
+    await expect(worker.step()).rejects.toThrow('FAULT_INJECTION');
+    const stopped = await database.paper.readAccount(context.id);
+    expect(stopped.control.stopped).toBe(true);
+    expect(stopped.leaseUntil).toBeNull();
+    expect(stopped.snapshot.reservations).toHaveLength(0);
+    expect(stopped.snapshot.cash).toEqual(before.snapshot.cash);
+    expect(stopped.snapshot.positions).toEqual(before.snapshot.positions);
+    expect(stopped.snapshot.dailyPnl).toEqual(before.snapshot.dailyPnl);
+    failed = false;
+    const paused = context.create({ ...context.config, resume: false }, feed);
+    await paused.start();
+    expect(await paused.step()).toMatchObject({ state: 'paused', signals: 0, fills: 0 });
+    await paused.close();
+    const resumed = context.create(context.config, feed);
+    await resumed.start();
+    expect(await resumed.step()).toMatchObject({ state: 'running', signals: 0, fills: 0 });
+    const dashboard = await database.paper.readDashboard(context.id);
+    expect(dashboard.orders).toHaveLength(1);
+    expect(dashboard.orders[0]).toMatchObject({ state: 'ABORTED', filledQuantity: '1' });
+    expect(dashboard.fills).toHaveLength(1);
+    await resumed.close();
+  });
+  it('부분 체결 후 오래된 시세가 오면 잔여 체결을 막고 이미 체결한 자산을 보존한다', async () => {
+    const context = await fixture();
+    let stale = false;
+    const worker = context.create(context.config, async (instruments, signal) => {
+      const entries = (await context.source(instruments, signal)) as PaperEvidence[];
+      if (stale) for (const entry of entries) entry.quote.timestamp = new Date(Date.now() - 180000).toISOString();
+      return entries;
+    });
+    await worker.start();
+    await worker.step();
+    await worker.step();
+    const before = await database.paper.readAccount(context.id);
+    stale = true;
+    await expect(worker.step()).rejects.toThrow();
+    const after = await database.paper.readAccount(context.id);
+    expect(after.control.stopped).toBe(true);
+    expect(after.leaseUntil).toBeNull();
+    expect(after.snapshot.reservations).toHaveLength(0);
+    expect(after.snapshot.cash).toEqual(before.snapshot.cash);
+    expect(after.snapshot.positions).toEqual(before.snapshot.positions);
+    expect(after.snapshot.dailyPnl).toEqual(before.snapshot.dailyPnl);
+    const dashboard = await database.paper.readDashboard(context.id);
+    expect(dashboard.orders).toHaveLength(1);
+    expect(dashboard.fills).toHaveLength(1);
+    expect(dashboard.orders[0]).toMatchObject({ state: 'ABORTED', filledQuantity: '1' });
+  });
+  it('수집 중 긴급 정지 후 늦게 도착한 정상 응답도 주문·체결을 추가하지 못한다', async () => {
+    const context = await fixture();
+    let delayed = false;
+    let deliver!: () => void;
+    let entered!: () => void;
+    const waiting = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const worker = context.create(context.config, async (instruments, signal) => {
+      const entries = await context.source(instruments, signal);
+      if (delayed) {
+        entered();
+        await new Promise<void>((resolve) => {
+          deliver = resolve;
+        });
+      }
+      return entries;
+    });
+    await worker.start();
+    await worker.step();
+    const before = await database.paper.readAccount(context.id);
+    delayed = true;
+    const pending = worker.step();
+    const rejected = expect(pending).rejects.toThrow('PAPER_CONTROL_CHANGED');
+    await waiting;
+    try {
+      await database.paper.stop(context.id, 'EMERGENCY_IN_FLIGHT');
+    } finally {
+      deliver();
+    }
+    await rejected;
+    const after = await database.paper.readAccount(context.id);
+    expect(after.control).toMatchObject({ stopped: true, reason: 'EMERGENCY_IN_FLIGHT' });
+    expect(after.leaseUntil).toBeNull();
+    expect(after.snapshot.reservations).toHaveLength(0);
+    expect(after.snapshot.cash).toEqual(before.snapshot.cash);
+    expect(after.snapshot.positions).toEqual(before.snapshot.positions);
+    const dashboard = await database.paper.readDashboard(context.id);
+    expect(dashboard.orders).toHaveLength(1);
+    expect(dashboard.fills).toHaveLength(0);
+  });
   it('긴급 정지 후에는 체결을 추가하지 않고 잔량만 중단한다', async () => {
     const context = await fixture();
     await context.worker.start();
