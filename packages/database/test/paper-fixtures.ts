@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
-import type { PaperEvidence, PaperLedgerState, PaperOrderCandidate, PaperSignal } from '@hth/contracts';
+import type {
+  PaperDataSource,
+  PaperEvidence,
+  PaperLedgerState,
+  PaperOrderCandidate,
+  PaperSignal,
+} from '@hth/contracts';
 import { marketTradingDate } from '@hth/trading';
 import type { createDatabase } from '../src/index.js';
 
@@ -100,6 +106,7 @@ export async function accountFixture(
   database: Database,
   cash = '15000',
   positions: PaperLedgerState['positions'] = [],
+  source: PaperDataSource = 'synthetic-only',
 ) {
   const id = `paper-${randomUUID()}`;
   const evidence = await freshEvidence(database);
@@ -114,7 +121,7 @@ export async function accountFixture(
       USD: { tradingDate: marketTradingDate(Date.parse(observedAt), 'US'), netPnl: '0' },
     },
   };
-  await database.paper.createAccount(id, ledger);
+  await database.paper.createAccount(id, ledger, source);
   let version = await database.paper.configureLimits(id, 0, testLimits);
   version = await database.paper.configureStrategy(id, version, { id: 'ma-a', version: '1.0.0', enabled: true });
   await database.paper.configureStrategy(id, version, { id: 'ma-b', version: '1.0.0', enabled: true });

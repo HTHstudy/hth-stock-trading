@@ -4,6 +4,8 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { z } from 'zod';
 import {
   paperEvidenceSchema,
+  paperDataSourceSchema,
+  paperExecutionSourceSchema,
   paperDashboardSnapshotSchema,
   paperReasonSchema,
   paperEventKindSchema,
@@ -18,7 +20,7 @@ import {
   paperRiskLimitsSchema,
   paperRiskSnapshotSchema,
 } from '@hth/contracts';
-import type { PaperLedgerState, PaperRiskSnapshot, PaperStrategyDefinition } from '@hth/contracts';
+import type { PaperDataSource, PaperLedgerState, PaperRiskSnapshot, PaperStrategyDefinition } from '@hth/contracts';
 import {
   evaluatePaperRisk,
   isPaperRiskCurrent,
@@ -47,6 +49,19 @@ type Database = NodePgDatabase<typeof schema>;
 type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
 type Account = typeof paperAccounts.$inferSelect;
 type Intent = typeof paperIntents.$inferSelect;
+function assertSource(account: Account, source: PaperDataSource) {
+  if (source === 'unverified' || account.dataSource !== source) throw new Error('PAPER_SOURCE_MISMATCH');
+}
+function assertCandleSource(account: Account, sources: readonly string[]) {
+  if (
+    !sources.length ||
+    account.dataSource === 'unverified' ||
+    sources.some((source) =>
+      account.dataSource === 'toss-readonly' ? source !== 'toss' : !source.startsWith('synthetic-'),
+    )
+  )
+    throw new Error('PAPER_SOURCE_MISMATCH');
+}
 const accountIdSchema = paperOrderCandidateSchema.shape.accountId;
 const versionSchema = z
   .number()
@@ -253,7 +268,8 @@ export function createPaperLedger(db: Database) {
     for (const intent of intents) await event(transaction, account.id, 'INTENT_ABORTED', { reason }, intent.intentId);
   }
   return {
-    async createAccount(id: string, value: unknown) {
+    async createAccount(id: string, value: unknown, source: PaperDataSource = 'unverified') {
+      const dataSource = parse(paperDataSourceSchema, source);
       parse(accountIdSchema, id);
       const state = parse(paperLedgerStateSchema, value);
       if (
@@ -273,16 +289,21 @@ export function createPaperLedger(db: Database) {
         db.transaction(async (transaction) => {
           const [created] = await transaction
             .insert(paperAccounts)
-            .values({ id, ledger })
+            .values({ id, ledger, dataSource })
             .onConflictDoNothing()
             .returning();
-          if (created) await event(transaction, id, 'ACCOUNT_CREATED');
+          if (created) await event(transaction, id, 'ACCOUNT_CREATED', { source: dataSource });
+          else {
+            const [existing] = await transaction.select().from(paperAccounts).where(eq(paperAccounts.id, id));
+            if (existing?.dataSource !== dataSource) throw new Error('PAPER_SOURCE_MISMATCH');
+          }
           return { created: Boolean(created), executionEnabled: false as const };
         }),
       );
     },
     async readAccount(id: string) {
       return locked(id, async (transaction, account) => ({
+        source: account.dataSource,
         asOf: (await clock(transaction)).toISOString(),
         control: { mode: 'paper' as const, stopped: account.stopped, epoch: account.epoch, reason: account.reason },
         limits: account.limits,
@@ -378,6 +399,9 @@ export function createPaperLedger(db: Database) {
           'WORKER_FINISHED',
           'WORKER_STEP_FAILED',
           'WORKER_FAILED',
+          'PAPER_SOURCE_MISMATCH',
+          'PAPER_MARKET_EMERGENCY_STOP',
+          'SOURCE_UNVERIFIED',
           'PAPER_LEASE_NOT_OWNED',
           'PAPER_FILL_STATE_INVALID',
           'PAPER_RESERVATION_STALE',
@@ -400,6 +424,7 @@ export function createPaperLedger(db: Database) {
             .slice(0, 100);
         const reason = paperReasonSchema.safeParse(account.reason);
         return paperDashboardSnapshotSchema.parse({
+          source: account.dataSource,
           asOf: now.toISOString(),
           control: { stopped: account.stopped, epoch: account.epoch, reason: reason.success ? reason.data : 'OTHER' },
           worker: {
@@ -493,11 +518,19 @@ export function createPaperLedger(db: Database) {
         owned(account, token, epoch, await clock(transaction));
       });
     },
-    async observe(id: string, token: string, epoch: number, value: unknown) {
+    async observe(
+      id: string,
+      token: string,
+      epoch: number,
+      value: unknown,
+      source: PaperDataSource = 'synthetic-only',
+    ) {
+      parse(paperExecutionSourceSchema, source);
       const observation = parse(paperObservationSchema, value);
       parse(z.uuid(), token);
       parse(versionSchema, epoch);
       return locked(id, async (transaction, account) => {
+        assertSource(account, source);
         const now = await clock(transaction);
         owned(account, token, epoch, now);
         const ledger = observePaperLedger(account.ledger, observation, now.toISOString());
@@ -636,9 +669,10 @@ export function createPaperLedger(db: Database) {
         return { id: strategyId, version, enabled: input.enabled, revision, definition };
       });
     },
-    async acquireLease(id: string, ttlMs = 30_000) {
+    async acquireLease(id: string, ttlMs = 30_000, source: PaperDataSource = 'synthetic-only') {
       parse(ttlSchema, ttlMs);
       return locked(id, async (transaction, account) => {
+        assertSource(account, source);
         const now = await clock(transaction);
         if (account.leaseUntil && Date.parse(account.leaseUntil) > now.getTime()) throw new Error('PAPER_LEASE_BUSY');
         const token = randomUUID();
@@ -779,6 +813,12 @@ export function createPaperLedger(db: Database) {
       });
       const requestHash = contentHash({ candidate: economics, signal });
       const result = await locked(candidate.accountId, async (transaction, account) => {
+        try {
+          assertCandleSource(account, [signal.source]);
+        } catch {
+          await event(transaction, account.id, 'SOURCE_REJECTED', { code: 'PAPER_SOURCE_MISMATCH' });
+          return { error: 'PAPER_SOURCE_MISMATCH' } as const;
+        }
         const rows = await transaction
           .select()
           .from(paperIntents)
@@ -818,6 +858,15 @@ export function createPaperLedger(db: Database) {
       const evidence = parse(paperEvidenceSchema, value);
       parse(z.uuid(), token);
       const result = await locked(id, async (transaction, account) => {
+        try {
+          assertCandleSource(
+            account,
+            evidence.marketData.candles.map((candle) => candle.source),
+          );
+        } catch {
+          await event(transaction, account.id, 'SOURCE_REJECTED', { code: 'PAPER_SOURCE_MISMATCH' });
+          return { error: 'PAPER_SOURCE_MISMATCH' } as const;
+        }
         const intent = await findIntent(transaction, id, intentId);
         const now = await clock(transaction);
         if (!leaseOwned(account, token, now)) {
@@ -983,6 +1032,15 @@ export function createPaperLedger(db: Database) {
       parse(z.uuid(), token);
       const requestHash = contentHash({ intentId, quantity: input.quantity, model: 'quote-proxy-v1' });
       const result = await locked(id, async (transaction, account) => {
+        try {
+          assertCandleSource(
+            account,
+            evidence.marketData.candles.map((candle) => candle.source),
+          );
+        } catch {
+          await event(transaction, account.id, 'SOURCE_REJECTED', { code: 'PAPER_SOURCE_MISMATCH' });
+          return { error: 'PAPER_SOURCE_MISMATCH' } as const;
+        }
         const intent = await findIntent(transaction, id, intentId);
         const [previous] = await transaction
           .select()

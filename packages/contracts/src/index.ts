@@ -1,4 +1,6 @@
 import { z } from 'zod';
+export { paperDataSourceSchema, paperExecutionSourceSchema } from './paper-source.js';
+export type { PaperDataSource } from './paper-source.js';
 export { ownerLoginSchema, ownerSessionSchema } from './owner.js';
 export type { OwnerSession } from './owner.js';
 export {

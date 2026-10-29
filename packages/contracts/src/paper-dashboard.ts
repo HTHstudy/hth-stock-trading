@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { paperIntentStateSchema } from './paper-ledger.js';
 import { paperOrderCandidateSchema } from './risk.js';
 import { paperStrategyViewSchema } from './paper-strategy.js';
+import { paperDataSourceSchema } from './paper-source.js';
 
 const decimal = z
   .string()
@@ -22,10 +23,13 @@ export const paperReasonSchema = z.enum([
   'WORKER_START_FAILED',
   'DEMO_EMERGENCY_STOP',
   'DASHBOARD_EMERGENCY_STOP',
+  'PAPER_MARKET_EMERGENCY_STOP',
+  'SOURCE_UNVERIFIED',
   'OTHER',
 ]);
 export const paperEventKindSchema = z.enum([
   'ACCOUNT_CREATED',
+  'SOURCE_REJECTED',
   'LIMITS_CHANGED',
   'STRATEGY_CHANGED',
   'LEASE_ACQUIRED',
@@ -50,6 +54,7 @@ export const paperEventKindSchema = z.enum([
 const instrument = paperOrderCandidateSchema.shape.instrument;
 export const paperDashboardSnapshotSchema = z
   .object({
+    source: paperDataSourceSchema,
     asOf: instant,
     control: z
       .object({ stopped: z.boolean(), epoch: z.number().int().nonnegative(), reason: paperReasonSchema })
@@ -148,11 +153,15 @@ export const paperDashboardSnapshotSchema = z
       .strict(),
   })
   .strict();
-const context = { mode: z.literal('paper'), source: z.literal('synthetic-only'), executionEnabled: z.literal(false) };
-export const paperDashboardStateSchema = z.discriminatedUnion('status', [
-  z.object({ ...context, status: z.literal('disabled'), snapshot: z.null() }).strict(),
-  z.object({ ...context, status: z.literal('ready'), snapshot: paperDashboardSnapshotSchema }).strict(),
-]);
+const context = { mode: z.literal('paper'), source: paperDataSourceSchema, executionEnabled: z.literal(false) };
+export const paperDashboardStateSchema = z
+  .discriminatedUnion('status', [
+    z.object({ ...context, status: z.literal('disabled'), snapshot: z.null() }).strict(),
+    z.object({ ...context, status: z.literal('ready'), snapshot: paperDashboardSnapshotSchema }).strict(),
+  ])
+  .refine((value) => value.status !== 'ready' || value.source === value.snapshot.source, {
+    message: 'Paper source mismatch',
+  });
 export const paperStopAcknowledgementSchema = z
   .object({ mode: z.literal('paper'), executionEnabled: z.literal(false), stopped: z.literal(true) })
   .strict();

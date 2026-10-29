@@ -98,6 +98,7 @@ it('초기화와 별도의 명시적 resume만 실행에 전달한다', async ()
   expect(initialized.dependencies.paper.createAccount).toHaveBeenCalledWith(
     initialized.config.accountId,
     expect.objectContaining({ positions: [], cash: { KRW: '1000000', USD: '1000' } }),
+    'toss-readonly',
   );
   const resumed = fixture(['--resume']);
   await resumed.execute();

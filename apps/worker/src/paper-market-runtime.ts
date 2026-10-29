@@ -52,16 +52,20 @@ export async function runPaperMarket(
       combined.throwIfAborted();
       if (config.initialize) {
         const now = new Date((dependencies.now ?? Date.now)()).toISOString();
-        const created = await paper.createAccount(config.accountId, {
-          cash: { KRW: '1000000', USD: '1000' },
-          positions: [],
-          observedAt: now,
-          reconciled: false,
-          dailyPnl: {
-            KRW: { tradingDate: marketTradingDate(Date.parse(now), 'KR'), netPnl: '0' },
-            USD: { tradingDate: marketTradingDate(Date.parse(now), 'US'), netPnl: '0' },
+        const created = await paper.createAccount(
+          config.accountId,
+          {
+            cash: { KRW: '1000000', USD: '1000' },
+            positions: [],
+            observedAt: now,
+            reconciled: false,
+            dailyPnl: {
+              KRW: { tradingDate: marketTradingDate(Date.parse(now), 'KR'), netPnl: '0' },
+              USD: { tradingDate: marketTradingDate(Date.parse(now), 'US'), netPnl: '0' },
+            },
           },
-        });
+          'toss-readonly',
+        );
         if (!created.created) throw new Error('PAPER_MARKET_ACCOUNT_EXISTS');
         const version = await paper.configureLimits(config.accountId, 0, {
           KRW: {
@@ -129,6 +133,7 @@ export async function runPaperMarket(
       const worker = dependencies.createWorker(
         {
           accountId: config.accountId,
+          source: 'toss-readonly',
           resume: config.resume,
           intervalMs: 10_000,
           sourceTimeoutMs: 10_000,

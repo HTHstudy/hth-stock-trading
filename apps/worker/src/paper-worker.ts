@@ -3,6 +3,7 @@ import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 import {
   movingAverageConfigSchema,
+  paperExecutionSourceSchema,
   paperEvidenceSchema,
   paperOrderCandidateSchema,
   paperStrategyDefinitionSchema,
@@ -17,6 +18,7 @@ const key = (instrument: InstrumentId) => `${instrument.market}:${instrument.sym
 export const paperWorkerConfigSchema = z
   .object({
     accountId: paperOrderCandidateSchema.shape.accountId,
+    source: paperExecutionSourceSchema.default('synthetic-only'),
     resume: z.boolean().default(false),
     intervalMs: z.number().int().min(100).max(10_000).default(1000),
     sourceTimeoutMs: z.number().int().min(100).max(10_000).default(5000),
@@ -107,13 +109,27 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
         [...requested.keys()].some((id) => !map.has(id))
       )
         throw new Error('PAPER_SOURCE_INSTRUMENT_MISMATCH');
+      if (
+        entries.some((entry) =>
+          entry.marketData.candles.some((candle) =>
+            config.source === 'toss-readonly' ? candle.source !== 'toss' : !candle.source.startsWith('synthetic-'),
+          ),
+        )
+      )
+        throw new Error('PAPER_SOURCE_MISMATCH');
       if (entries.some((entry) => !entry.sourcesHealthy || entry.hasUnknownOrders))
         throw new Error('PAPER_SOURCE_UNHEALTHY');
-      await paper.observe(config.accountId, token!, epoch, {
-        quotes: current.snapshot.positions.map((position) => map.get(key(position.instrument))!.quote),
-        sourcesHealthy: true,
-        hasUnknownOrders: false,
-      });
+      await paper.observe(
+        config.accountId,
+        token!,
+        epoch,
+        {
+          quotes: current.snapshot.positions.map((position) => map.get(key(position.instrument))!.quote),
+          sourcesHealthy: true,
+          hasUnknownOrders: false,
+        },
+        config.source,
+      );
       const refreshed = await view();
       return { current: refreshed, evidence: map };
     } finally {
@@ -143,7 +159,7 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
   }
   async function initialize() {
     assertActive();
-    const lease = await paper.acquireLease(config.accountId, 30_000);
+    const lease = await paper.acquireLease(config.accountId, 30_000, config.source);
     token = lease.token;
     epoch = lease.epoch;
     assertActive();

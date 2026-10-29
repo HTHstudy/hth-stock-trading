@@ -53,6 +53,7 @@ async function main() {
 main().catch((error: unknown) => {
   const known = new Set([
     'PAPER_MARKET_CONFIGURATION_INVALID',
+    'PAPER_SOURCE_MISMATCH',
     'BROKER_LEASE_BUSY',
     'BROKER_LEASE_LOST',
     'PAPER_MARKET_ACCOUNT_EXISTS',

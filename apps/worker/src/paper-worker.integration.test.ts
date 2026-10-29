@@ -22,16 +22,20 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper 상시 worker', () => {
   async function fixture(resume = true) {
     const id = `worker-${randomUUID()}`;
     const now = new Date().toISOString();
-    await database.paper.createAccount(id, {
-      observedAt: now,
-      reconciled: false,
-      cash: { KRW: '15000', USD: '1000' },
-      positions: [],
-      dailyPnl: {
-        KRW: { tradingDate: marketTradingDate(Date.parse(now), 'KR'), netPnl: '0' },
-        USD: { tradingDate: marketTradingDate(Date.parse(now), 'US'), netPnl: '0' },
+    await database.paper.createAccount(
+      id,
+      {
+        observedAt: now,
+        reconciled: false,
+        cash: { KRW: '15000', USD: '1000' },
+        positions: [],
+        dailyPnl: {
+          KRW: { tradingDate: marketTradingDate(Date.parse(now), 'KR'), netPnl: '0' },
+          USD: { tradingDate: marketTradingDate(Date.parse(now), 'US'), netPnl: '0' },
+        },
       },
-    });
+      'synthetic-only',
+    );
     const currency = {
       maxOrderAmount: '100000',
       maxInstrumentAmount: '200000',
@@ -281,5 +285,25 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper 상시 worker', () => {
     const signal = AbortSignal.abort();
     await cancelled.run(signal);
     expect((await database.paper.readAccount(context.id)).leaseUntil).toBeNull();
+  });
+  it('계좌와 다른 출처의 봉은 관측·의도 기록 전에 거부하고 정지한다', async () => {
+    const context = await fixture();
+    const before = await database.paper.readAccount(context.id);
+    const worker = context.create(context.config, async (instruments, signal) => {
+      const evidence = (await context.source(instruments, signal)) as PaperEvidence[];
+      evidence.forEach((entry) =>
+        entry.marketData.candles.forEach((candle) => {
+          candle.source = 'toss';
+        }),
+      );
+      return evidence;
+    });
+    await expect(worker.start()).rejects.toThrow('PAPER_SOURCE_MISMATCH');
+    const after = await database.paper.readAccount(context.id);
+    expect(after.control.stopped).toBe(true);
+    expect(after.leaseUntil).toBeNull();
+    expect(after.snapshot.cash).toEqual(before.snapshot.cash);
+    expect(after.snapshot.positions).toEqual(before.snapshot.positions);
+    expect((await database.paper.readDashboard(context.id)).orders).toHaveLength(0);
   });
 });

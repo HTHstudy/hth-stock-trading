@@ -25,7 +25,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper DB 원장과 원자적 �
       control: { stopped: true },
       snapshot: { reconciled: false },
     });
-    await database.paper.createAccount(id, { ...ledger, cash: { KRW: '999999', USD: '999999' } });
+    await database.paper.createAccount(id, { ...ledger, cash: { KRW: '999999', USD: '999999' } }, 'synthetic-only');
     expect((await database.paper.readAccount(id)).snapshot.cash.KRW).toBe('15000');
     await expect(
       database.paper.createAccount(`invalid-${randomUUID()}`, {

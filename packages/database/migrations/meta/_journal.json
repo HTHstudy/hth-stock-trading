@@ -43,6 +43,13 @@
       "when": 1793179105885,
       "tag": "0005_happy_machine_man",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793238772082,
+      "tag": "0006_complete_molecule_man",
+      "breakpoints": true
     }
   ]
 }

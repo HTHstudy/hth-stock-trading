@@ -24,6 +24,7 @@ import type {
   PaperSignal,
   PaperIntentState,
   PaperStrategyDefinition,
+  PaperDataSource,
 } from '@hth/contracts';
 import type { RiskDecision } from '@hth/trading';
 
@@ -129,6 +130,7 @@ export const paperAccounts = pgTable(
   {
     id: text('id').primaryKey(),
     mode: text('mode').notNull().default('paper'),
+    dataSource: text('data_source').$type<PaperDataSource>().notNull().default('unverified'),
     version: bigint('version', { mode: 'number' }).notNull().default(0),
     stopped: boolean('stopped').notNull().default(true),
     epoch: bigint('epoch', { mode: 'number' }).notNull().default(0),
@@ -140,6 +142,7 @@ export const paperAccounts = pgTable(
   },
   (table) => [
     check('paper_account_mode', sql`${table.mode} = 'paper'`),
+    check('paper_account_source', sql`${table.dataSource} IN ('unverified', 'synthetic-only', 'toss-readonly')`),
     check(
       'paper_account_versions',
       sql`${table.version} >= 0 AND ${table.version} < 9007199254740991 AND ${table.epoch} >= 0 AND ${table.epoch} < 9007199254740991`,

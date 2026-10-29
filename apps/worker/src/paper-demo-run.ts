@@ -50,16 +50,20 @@ async function main() {
       return;
     }
     const now = new Date().toISOString();
-    const created = await database.paper.createAccount(id, {
-      cash: { KRW: '15000', USD: '1000' },
-      positions: [],
-      observedAt: now,
-      reconciled: false,
-      dailyPnl: {
-        KRW: { tradingDate: marketTradingDate(Date.parse(now), 'KR'), netPnl: '0' },
-        USD: { tradingDate: marketTradingDate(Date.parse(now), 'US'), netPnl: '0' },
+    const created = await database.paper.createAccount(
+      id,
+      {
+        cash: { KRW: '15000', USD: '1000' },
+        positions: [],
+        observedAt: now,
+        reconciled: false,
+        dailyPnl: {
+          KRW: { tradingDate: marketTradingDate(Date.parse(now), 'KR'), netPnl: '0' },
+          USD: { tradingDate: marketTradingDate(Date.parse(now), 'US'), netPnl: '0' },
+        },
       },
-    });
+      'synthetic-only',
+    );
     if (created.created) {
       const limits = {
         KRW: {
