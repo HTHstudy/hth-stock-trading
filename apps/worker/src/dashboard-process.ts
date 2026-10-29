@@ -1,15 +1,19 @@
 import { createHash } from 'node:crypto';
-import { dashboardErrorSchema } from '@hth/contracts';
+import { dashboardErrorSchema, watchlistInstrumentsSchema } from '@hth/contracts';
 import { BrokerError } from '@hth/broker';
 import { createTossReadonlyBroker } from '@hth/broker/toss';
 import { createDatabase } from '@hth/database';
-import { parseReadonlyConfig } from './readonly-config.js';
+import { parseReadonlyConnectionConfig, parseReadonlySymbols } from './readonly-config.js';
 import { collectReadonlySnapshot } from './readonly-snapshot.js';
 import { createDashboardSnapshot } from './dashboard-model.js';
 
 async function main() {
   if (!process.send) throw new Error('WORKER_ERROR');
-  const config = parseReadonlyConfig(process.env);
+  const config = parseReadonlyConnectionConfig(process.env);
+  const instruments =
+    process.env.DASHBOARD_WATCHLIST_JSON === undefined
+      ? parseReadonlySymbols(process.env.READONLY_SYMBOLS)
+      : watchlistInstrumentsSchema.parse(JSON.parse(process.env.DASHBOARD_WATCHLIST_JSON));
   const database = createDatabase(config.DATABASE_URL);
   const controller = new AbortController();
   const cancel = () => controller.abort();
@@ -24,7 +28,7 @@ async function main() {
         clientSecret: config.TOSS_CLIENT_SECRET,
         signal,
       });
-      const source = await collectReadonlySnapshot(broker, config.READONLY_SYMBOLS, config.CANDLE_INTERVAL, 1);
+      const source = await collectReadonlySnapshot(broker, instruments, config.CANDLE_INTERVAL, 1);
       signal.throwIfAborted();
       return createDashboardSnapshot(source, new Date().toISOString());
     });

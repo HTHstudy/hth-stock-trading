@@ -11,5 +11,5 @@ export function createAuthenticatedTestApp(...args: Parameters<typeof createApp>
     logout: () => '',
     close: () => {},
   };
-  return createApp(args[0], args[1], args[2], args[3], args[4], owner, args[6]);
+  return createApp(args[0], args[1], args[2], args[3], args[4], owner, args[6], args[7]);
 }

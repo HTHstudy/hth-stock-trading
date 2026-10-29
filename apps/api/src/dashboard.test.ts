@@ -102,4 +102,25 @@ describe('대시보드 API 접근 경계', () => {
     }
     expect(load).not.toHaveBeenCalled();
   });
+  it('설정 변경은 캐시/진행 중 조회를 무효화하고 늦은 응답을 폐기한다', async () => {
+    let complete!: (value: typeof snapshot) => void;
+    const load = vi.fn(
+      () =>
+        new Promise<typeof snapshot>((resolve) => {
+          complete = resolve;
+        }),
+    );
+    const service = createDashboardService({ enabled: true, configured: true, load });
+    service.refresh();
+    service.invalidate();
+    expect(load.mock.calls).toHaveLength(1);
+    expect(service.read().snapshot).toBeNull();
+    complete(snapshot);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(service.read().snapshot).toBeNull();
+    expect(service.read().refreshing).toBe(false);
+    expect(service.read().canRefresh).toBe(false);
+    service.close();
+  });
 });

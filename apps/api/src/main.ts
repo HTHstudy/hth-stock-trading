@@ -1,3 +1,4 @@
+import { createWatchlistStore, environmentWatchlist } from './watchlist-store.js';
 import { createApp } from './app.js';
 import { createOwnerAuth } from './owner-auth.js';
 import { createDatabase } from '@hth/database';
@@ -11,12 +12,20 @@ import { createDashboardService, loadDashboardFromWorker } from './dashboard-ser
 
 async function main() {
   const config = parseApiConfig(process.env);
+  const watchlist =
+    config.NODE_ENV !== 'production' && ['127.0.0.1', 'localhost', '::1'].includes(config.API_HOST)
+      ? createWatchlistStore(
+          fileURLToPath(new URL('../../../.local-data/settings', import.meta.url)),
+          environmentWatchlist(process.env.READONLY_SYMBOLS),
+        )
+      : undefined;
   const dashboard = createDashboardService({
     enabled: config.DASHBOARD_ENABLED,
     configured: Boolean(
       process.env.TOSS_CLIENT_ID?.trim() && process.env.TOSS_CLIENT_SECRET?.trim() && process.env.DATABASE_URL?.trim(),
     ),
-    load: loadDashboardFromWorker,
+    load: async (signal) =>
+      loadDashboardFromWorker(signal, watchlist ? (await watchlist.read()).instruments : undefined),
   });
   const origins = [
     'http://localhost:5173',
@@ -53,6 +62,7 @@ async function main() {
     paper,
     createOwnerAuth(config.OWNER_PASSWORD_HASH),
     observations,
+    watchlist,
   );
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {

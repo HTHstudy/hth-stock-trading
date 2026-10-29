@@ -1,12 +1,13 @@
 import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dashboardWorkerMessageSchema } from '@hth/contracts';
-import type { DashboardErrorCode, DashboardSnapshot, DashboardState } from '@hth/contracts';
+import type { DashboardErrorCode, DashboardSnapshot, DashboardState, InstrumentId } from '@hth/contracts';
 
 export interface DashboardService {
   read(): DashboardState;
   refresh(): void;
   close(): void;
+  invalidate(): void;
 }
 
 export function createDashboardService(options: {
@@ -50,16 +51,22 @@ export function createDashboardService(options: {
       void options
         .load(active.signal)
         .then((result) => {
-          if (!closed) snapshot = result;
+          if (!closed && controller === active) snapshot = result;
         })
         .catch((reason: unknown) => {
-          if (closed) return;
+          if (closed || controller !== active) return;
           const parsed = dashboardWorkerMessageSchema.safeParse(reason);
           error = parsed.success && parsed.data.type === 'error' ? parsed.data.code : 'WORKER_ERROR';
         })
         .finally(() => {
           if (controller === active) controller = null;
         });
+    },
+    invalidate() {
+      controller?.abort();
+      controller = null;
+      snapshot = null;
+      error = null;
     },
     close() {
       closed = true;
@@ -69,12 +76,22 @@ export function createDashboardService(options: {
   return service;
 }
 
-export function loadDashboardFromWorker(signal: AbortSignal): Promise<DashboardSnapshot> {
+export function loadDashboardFromWorker(
+  signal: AbortSignal,
+  instruments?: readonly InstrumentId[],
+): Promise<DashboardSnapshot> {
   return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject({ type: 'error', code: 'CANCELLED' });
+      return;
+    }
     const child = fork(fileURLToPath(import.meta.resolve('@hth/worker/dashboard-process')), [], {
       execArgv: [],
       stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
-      env: process.env,
+      env: {
+        ...process.env,
+        ...(instruments === undefined ? {} : { DASHBOARD_WATCHLIST_JSON: JSON.stringify(instruments) }),
+      },
     });
     let settled = false;
     const finish = (result: DashboardSnapshot | null, code: DashboardErrorCode = 'WORKER_ERROR') => {

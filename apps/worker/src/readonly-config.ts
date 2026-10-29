@@ -40,3 +40,9 @@ export function parseReadonlySymbols(value: string | undefined) {
   if (!parsed.success) throw new Error('READONLY_SYMBOLS_INVALID');
   return parsed.data;
 }
+
+export function parseReadonlyConnectionConfig(environment: Record<string, string | undefined>) {
+  const parsed = configSchema.omit({ READONLY_SYMBOLS: true }).safeParse(environment);
+  if (!parsed.success) throw new Error('READONLY_CONFIGURATION_INVALID');
+  return parsed.data;
+}

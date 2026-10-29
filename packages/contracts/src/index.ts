@@ -1,5 +1,12 @@
 import { z } from 'zod';
 export {
+  watchlistInstrumentSchema,
+  watchlistInstrumentsSchema,
+  watchlistStateSchema,
+  watchlistUpdateSchema,
+} from './watchlist.js';
+export type { WatchlistState } from './watchlist.js';
+export {
   observationErrorSchema,
   observationRecordSchema,
   observationSummarySchema,

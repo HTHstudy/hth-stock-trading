@@ -12,9 +12,9 @@ export async function collectReadonlySnapshot(
   now: () => number = Date.now,
 ) {
   if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 5) throw new Error('INVALID_PAGE_LIMIT');
-  const instruments = await broker.getInstruments(requests);
+  const instruments = requests.length ? await broker.getInstruments(requests) : [];
   const quotesObservedAt = new Date(now()).toISOString();
-  const quotes = await broker.getQuotes(requests);
+  const quotes = requests.length ? await broker.getQuotes(requests) : [];
   const calendars: MarketCalendar[] = [];
   const calendarsObservedAt = new Map<string, string>();
   for (const market of [...new Set(requests.map((request) => request.market))]) {

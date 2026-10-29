@@ -1,4 +1,6 @@
 import {
+  watchlistStateSchema,
+  watchlistUpdateSchema,
   observationListSchema,
   observationReportSchema,
   dashboardStateSchema,
@@ -16,6 +18,7 @@ import type { DashboardService } from './dashboard-service.js';
 import type { BacktestReports } from './backtest-reports.js';
 import type { PaperDashboard } from './paper-dashboard.js';
 import type { OwnerAuth } from './owner-auth.js';
+import type { WatchlistStore } from './watchlist-store.js';
 import type { ObservationReports } from './observation-reports.js';
 
 export function createApp(
@@ -26,6 +29,7 @@ export function createApp(
   paper?: PaperDashboard,
   owner?: OwnerAuth,
   observations?: ObservationReports,
+  watchlist?: WatchlistStore,
 ) {
   const app = Fastify({
     logger: {
@@ -53,8 +57,8 @@ export function createApp(
   );
 
   app.addHook('onRequest', async (request, reply) => {
-    const privateRoute = ['/v1/dashboard', '/v1/backtests', '/v1/paper', '/v1/observations'].some((path) =>
-      request.url.startsWith(path),
+    const privateRoute = ['/v1/dashboard', '/v1/backtests', '/v1/paper', '/v1/observations', '/v1/watchlist'].some(
+      (path) => request.url.startsWith(path),
     );
     if (!privateRoute && !request.url.startsWith('/v1/auth')) return;
     reply.header('Cache-Control', 'no-store, private');
@@ -141,6 +145,38 @@ export function createApp(
     }
   });
 
+  app.get('/v1/watchlist', async (request, reply) => {
+    if (!z.object({}).strict().safeParse(request.query).success)
+      return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (!watchlist) return reply.code(503).send({ error: { code: 'WATCHLIST_UNAVAILABLE' } });
+    try {
+      return watchlistStateSchema.parse(await watchlist.read());
+    } catch {
+      return reply.code(503).send({ error: { code: 'WATCHLIST_UNAVAILABLE' } });
+    }
+  });
+  app.post('/v1/watchlist', { bodyLimit: 8192 }, async (request, reply) => {
+    const input = watchlistUpdateSchema.safeParse(request.body);
+    if (!input.success || !z.object({}).strict().safeParse(request.query).success)
+      return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (!watchlist) return reply.code(503).send({ error: { code: 'WATCHLIST_UNAVAILABLE' } });
+    try {
+      const result = watchlistStateSchema.parse(await watchlist.save(input.data));
+      dashboard?.invalidate();
+      return result;
+    } catch (error) {
+      if (error instanceof Error && error.message === 'WATCHLIST_REVISION_CONFLICT')
+        return reply.code(409).send({ error: { code: 'WATCHLIST_REVISION_CONFLICT' } });
+      return reply.code(503).send({
+        error: {
+          code:
+            error instanceof Error && error.message === 'WATCHLIST_BUSY'
+              ? 'WATCHLIST_BUSY'
+              : 'WATCHLIST_SAVE_UNCONFIRMED',
+        },
+      });
+    }
+  });
   app.get('/v1/observations', async (request, reply) => {
     if (!z.object({}).strict().safeParse(request.query).success)
       return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });

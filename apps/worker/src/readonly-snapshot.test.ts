@@ -9,6 +9,18 @@ const instruments = [
 ] as const;
 
 describe('읽기 전용 snapshot', () => {
+  it('빈 관심목록에는 기본 종목을 조회하지 않고 계좌 조회만 유지한다', async () => {
+    const { broker } = createHarness();
+    const instruments = vi.spyOn(broker, 'getInstruments');
+    const quotes = vi.spyOn(broker, 'getQuotes');
+    const candles = vi.spyOn(broker, 'getCandles');
+    const snapshot = await collectReadonlySnapshot(broker, [], '1m', 1);
+    expect(instruments).not.toHaveBeenCalled();
+    expect(quotes).not.toHaveBeenCalled();
+    expect(candles).not.toHaveBeenCalled();
+    expect(snapshot.batches).toEqual([]);
+    expect(snapshot.holdings).toHaveLength(2);
+  });
   it('조회 시각을 주입해 봉 종료와 종목별 차단 사유를 함께 기록한다', async () => {
     const { broker } = createHarness();
     vi.spyOn(broker, 'getQuotes').mockResolvedValue(
