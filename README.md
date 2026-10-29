@@ -123,7 +123,7 @@ Paper 리스크 검증 기반도 구현했습니다. `corepack pnpm risk:demo`�
 2. 날짜별 캘린더·백필·revision·동결 데이터셋을 구현했습니다. 생성한 마이그레이션을 검토한 뒤 사용자 DB 적용과 데이터셋 저장을 진행합니다.
 3. 백테스트 엔진·CLI·로컬 결과 조회와 비교 화면까지 구현했습니다. [백테스트 실행과 모델 가정](docs/BACKTESTING.md)을 확인하고 실제 동결 입력과 여러 기간으로 검증합니다.
 4. [Paper 주문 원장·원자적 예약](docs/PAPER_LEDGER.md)을 구현하고 임시 DB에서 검증했습니다. [모의 체결·부분 체결·잔고/소유권·원가 반영](docs/PAPER_FILLS.md)도 구현했습니다. [상시 worker의 복구·관측 갱신·실행 루프](docs/PAPER_WORKER.md)와 테스트 DB 전용 `corepack pnpm paper:demo`도 추가했습니다. 기본 정지이며 `--resume`으로만 모의 거래를 시작합니다. [Paper 조회·긴급 정지 화면](docs/PAPER_DASHBOARD.md)도 추가했습니다. 기본 비활성이며 별도 모의 계좌를 연결한 후 `http://127.0.0.1:5173/#paper`에서 확인합니다. 소유자 인증과 전략 설정·활성 관리도 구현했습니다. DB 출처 영속화와 합성/실제 시세/미확인 표시를 지원합니다. [실제 시세 Paper CLI](docs/PAPER_MARKET_SOURCE.md)도 기본 정지·전용 모의 DB·토큰 잠금 공유 방식으로 추가했습니다. [휴장 대기·일일 기준 검토 CLI](docs/PAPER_SESSIONS_REVIEW.md)를 추가했습니다. [읽기 전용 시세 관측/리포트 CLI](docs/MARKET_OBSERVATION.md)를 추가했습니다. 다음은 여러 시장 세션의 실데이터 관측 결과 축적과 검토입니다. 사용자 DB에는 새 마이그레이션을 적용하지 않았습니다.
-5. 외부 배포용 HTTPS/프록시/세션 운영 경계와 설정 이력 비교 UI를 보완합니다. 실거래는 별도 승인 범위에서 진행합니다.
+5. 전략 설정 이력 조회·비교 UI는 구현했습니다. [실제 시세 운영 검증 목록](docs/OPERATIONAL_VALIDATION.md)에 따라 반복 관측·시장별 정규장·경계·프로세스 수명을 확인합니다. 외부 배포용 HTTPS/프록시/세션 운영 경계와 실거래는 후속 범위입니다.
 
 휴장 대기와 장시간 중단 후 손실 기준 검토는 [Paper 세션·검토 절차](docs/PAPER_SESSIONS_REVIEW.md)를 따릅니다. 개장이나 검토 승인으로 자동 재개하지 않습니다.
 
