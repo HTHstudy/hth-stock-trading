@@ -9,8 +9,16 @@ const configSchema = z
     TRADING_MODE: paperModeSchema,
     API_HOST: z.string().min(1).default('127.0.0.1'),
     API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
+    LOCAL_CONTAINER_MODE: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
+    LOCAL_WEB_PORT: z.coerce.number().int().min(1).max(65535).default(5173),
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
-    OWNER_PASSWORD_HASH: z.string().regex(ownerHashPattern).optional(),
+    OWNER_PASSWORD_HASH: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().regex(ownerHashPattern).optional(),
+    ),
     DASHBOARD_ENABLED: z
       .enum(['true', 'false'])
       .default('false')
@@ -32,6 +40,11 @@ const configSchema = z
       .optional(),
   })
   .superRefine((config, context) => {
+    if (config.LOCAL_CONTAINER_MODE && (config.NODE_ENV !== 'production' || config.API_HOST !== '127.0.0.1'))
+      context.addIssue({
+        code: 'custom',
+        message: 'Local container mode requires production artifacts on IPv4 loopback',
+      });
     if ((config.DASHBOARD_ENABLED || config.PAPER_DASHBOARD_ENABLED) && !config.OWNER_PASSWORD_HASH)
       context.addIssue({
         code: 'custom',
@@ -39,7 +52,8 @@ const configSchema = z
       });
     if (
       (config.DASHBOARD_ENABLED || config.PAPER_DASHBOARD_ENABLED) &&
-      (config.NODE_ENV === 'production' || !['127.0.0.1', 'localhost', '::1'].includes(config.API_HOST))
+      ((config.NODE_ENV === 'production' && !config.LOCAL_CONTAINER_MODE) ||
+        !['127.0.0.1', 'localhost', '::1'].includes(config.API_HOST))
     ) {
       context.addIssue({ code: 'custom', message: 'Dashboard is available on a development loopback server only' });
     }

@@ -12,13 +12,15 @@ import { createDashboardService, loadDashboardFromWorker } from './dashboard-ser
 
 async function main() {
   const config = parseApiConfig(process.env);
-  const watchlist =
-    config.NODE_ENV !== 'production' && ['127.0.0.1', 'localhost', '::1'].includes(config.API_HOST)
-      ? createWatchlistStore(
-          fileURLToPath(new URL('../../../.local-data/settings', import.meta.url)),
-          environmentWatchlist(process.env.READONLY_SYMBOLS),
-        )
-      : undefined;
+  const localAccess =
+    (config.NODE_ENV !== 'production' || config.LOCAL_CONTAINER_MODE) &&
+    ['127.0.0.1', 'localhost', '::1'].includes(config.API_HOST);
+  const watchlist = localAccess
+    ? createWatchlistStore(
+        fileURLToPath(new URL('../../../.local-data/settings', import.meta.url)),
+        environmentWatchlist(process.env.READONLY_SYMBOLS),
+      )
+    : undefined;
   const dashboard = createDashboardService({
     enabled: config.DASHBOARD_ENABLED,
     configured: Boolean(
@@ -32,18 +34,18 @@ async function main() {
     'http://127.0.0.1:5173',
     `http://localhost:${config.API_PORT}`,
     `http://127.0.0.1:${config.API_PORT}`,
+    `http://localhost:${config.LOCAL_WEB_PORT}`,
+    `http://127.0.0.1:${config.LOCAL_WEB_PORT}`,
   ];
-  const reports =
-    config.NODE_ENV !== 'production' && ['127.0.0.1', 'localhost', '::1'].includes(config.API_HOST)
-      ? createBacktestReports(fileURLToPath(new URL('../../../.local-data', import.meta.url)))
-      : undefined;
-  const observations =
-    config.NODE_ENV !== 'production' && ['127.0.0.1', 'localhost', '::1'].includes(config.API_HOST)
-      ? createObservationReports(
-          fileURLToPath(new URL('../../../.local-data/observations', import.meta.url)),
-          fileURLToPath(new URL('../../../.local-data/scheduled-observations', import.meta.url)),
-        )
-      : undefined;
+  const reports = localAccess
+    ? createBacktestReports(fileURLToPath(new URL('../../../.local-data', import.meta.url)))
+    : undefined;
+  const observations = localAccess
+    ? createObservationReports(
+        fileURLToPath(new URL('../../../.local-data/observations', import.meta.url)),
+        fileURLToPath(new URL('../../../.local-data/scheduled-observations', import.meta.url)),
+      )
+    : undefined;
   const paper = config.PAPER_DASHBOARD_ENABLED
     ? createPaperDashboard(
         createDatabase(
