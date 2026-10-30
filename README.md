@@ -11,6 +11,8 @@
 
 설계: [PRD](PRD.md), [아키텍처](ARCHITECTURE.md), [상세 설계](DESIGN.md), [토스 공식 API 조사](docs/TOSS_API.md), [개발 지침](AGENTS.md).
 
+시장 관측을 기다리는 동안 `corepack pnpm paper:rehearse`로 국내·미국 합성 검증 조건을 확인할 수 있습니다. 실행·격리 DB 준비·26개 통과 기준은 [Paper 통합 리허설](docs/PAPER_REHEARSAL.md)을 따릅니다. 기본은 미리보기이며 기존 계좌를 재개하지 않습니다.
+
 ## 로컬 실행
 
 Node.js 24와 Corepack이 필요합니다. pnpm은 packageManager에 고정합니다. 전역 pnpm이 없다면 모든 명령을 `corepack pnpm`으로 실행할 수 있습니다.
