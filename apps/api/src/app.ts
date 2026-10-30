@@ -2,6 +2,7 @@ import {
   paperStrategyHistorySchema,
   paperEquityHistorySchema,
   observationJobsSchema,
+  paperDiagnosticsSchema,
   paperStrategyHistoryQuerySchema,
   watchlistStateSchema,
   watchlistUpdateSchema,
@@ -122,6 +123,16 @@ export function createApp(
       authenticated: false,
       expiresAt: null,
     });
+  });
+  app.get('/v1/paper/diagnostics', async (request, reply) => {
+    if (!z.object({}).strict().safeParse(request.query).success)
+      return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (!paper) return reply.code(503).send({ error: { code: 'PAPER_DASHBOARD_DISABLED' } });
+    try {
+      return paperDiagnosticsSchema.parse(await paper.diagnostics());
+    } catch {
+      return reply.code(503).send({ error: { code: 'PAPER_DIAGNOSTICS_UNAVAILABLE' } });
+    }
   });
   app.get('/v1/paper/equity', async (request, reply) => {
     if (!z.object({}).strict().safeParse(request.query).success)

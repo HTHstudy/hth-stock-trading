@@ -7,8 +7,9 @@ import {
   paperEvidenceSchema,
   paperOrderCandidateSchema,
   paperStrategyDefinitionSchema,
+  paperDiagnosticCodeSchema,
 } from '@hth/contracts';
-import type { InstrumentId } from '@hth/contracts';
+import type { InstrumentId, PaperDiagnosticReport } from '@hth/contracts';
 import { contentHash } from '@hth/database';
 import type { createDatabase } from '@hth/database';
 import { movingAverageCross, prepareStrategyData, paperSessionState } from '@hth/trading';
@@ -68,6 +69,46 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
   let heartbeatFailed = false;
   let pendingStart: Promise<void> | undefined;
   let pendingStep: Promise<void> | undefined;
+  let failureStage: PaperDiagnosticReport['stage'] = 'source';
+  let diagnosedFailure = false;
+  let lastDiagnostic: { fingerprint: string; savedAt: number } | null = null;
+  const diagnostic = (
+    strategy: StrategyConfig,
+    evaluatedAt: string,
+    stage: PaperDiagnosticReport['stage'],
+    codes: PaperDiagnosticReport['codes'],
+    detail: Partial<PaperDiagnosticReport> = {},
+  ): PaperDiagnosticReport => ({
+    strategyId: strategy.id,
+    strategyVersion: movingAverageCross.version,
+    strategyRevision: strategy.revision ?? 0,
+    instrument: strategy.instrument,
+    evaluatedAt,
+    stage,
+    action: null,
+    codes,
+    closedCandles: null,
+    barAt: null,
+    orderState: null,
+    ...detail,
+  });
+  async function publish(reports: PaperDiagnosticReport[]) {
+    if (!reports.length) return;
+    const fingerprint = contentHash({
+      epoch,
+      source: config.source,
+      reports: reports.map((report) => ({ ...report, evaluatedAt: null })),
+    });
+    const now = Date.now();
+    if (
+      lastDiagnostic?.fingerprint === fingerprint &&
+      now >= lastDiagnostic.savedAt &&
+      now - lastDiagnostic.savedAt < 30000
+    )
+      return;
+    await paper.recordDiagnostics(config.accountId, token!, epoch, config.source, reports);
+    lastDiagnostic = { fingerprint, savedAt: now };
+  }
   const assertActive = () => {
     if (heartbeatFailed) throw new Error('PAPER_WORKER_HEARTBEAT_FAILED');
     if (controller.signal.aborted) throw new Error('PAPER_WORKER_STOPPED');
@@ -193,7 +234,7 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
       const stored = storedStrategies.find((strategy) => strategy.id === configured.id);
       if (!stored || stored.version !== movingAverageCross.version) throw new Error('PAPER_WORKER_STRATEGY_MISMATCH');
       if (!stored.enabled) return [];
-      if (!stored.definition) return [configured];
+      if (!stored.definition) return [{ ...configured, revision: stored.revision }];
       const definition = paperStrategyDefinitionSchema.parse(stored.definition);
       if (stored.definitionHash !== contentHash({ version: stored.version, definition }))
         throw new Error('PAPER_WORKER_STRATEGY_MISMATCH');
@@ -228,6 +269,8 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
     }
   }
   async function executeStep(): Promise<PaperWorkerStatus> {
+    failureStage = 'source';
+    diagnosedFailure = false;
     const { current, evidence, waiting } = await frame();
     const status: PaperWorkerStatus = {
       state: waiting ? 'waiting' : current.control.stopped ? 'paused' : 'running',
@@ -235,7 +278,15 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
       fills: 0,
       executionEnabled: false,
     };
-    if (current.control.stopped) return status;
+    if (current.control.stopped) {
+      await publish(
+        strategies.map((strategy) =>
+          diagnostic(strategy, current.asOf, 'control', [waiting ? 'MARKET_CLOSED' : 'ACCOUNT_PAUSED']),
+        ),
+      );
+      return status;
+    }
+    failureStage = 'data';
     const prepared = new Map<string, ReturnType<typeof prepareStrategyData>>();
     for (const strategy of strategies) {
       const entry = evidence.get(key(strategy.instrument))!;
@@ -248,10 +299,19 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
         accountAvailable: current.snapshot.reconciled,
         asOf: current.asOf,
       });
-      if (!data.ready && data.blockers.some((blocker) => blocker !== 'MARKET_CLOSED'))
+      if (!data.ready && data.blockers.some((blocker) => blocker !== 'MARKET_CLOSED')) {
+        await publish([
+          diagnostic(strategy, current.asOf, 'data', data.blockers, {
+            closedCandles: data.candles.length,
+            barAt: data.candles.at(-1)?.timestamp ?? null,
+          }),
+        ]);
+        diagnosedFailure = true;
         throw new Error('PAPER_WORKER_DATA_NOT_READY');
+      }
       prepared.set(strategy.id, data);
     }
+    failureStage = 'fill';
     for (const intent of await paper.readOpenIntents(config.accountId)) {
       assertActive();
       const strategy = strategies.find(
@@ -281,6 +341,8 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
       );
       if (result.fill && !result.replayed) status.fills++;
     }
+    failureStage = 'strategy';
+    const reports: PaperDiagnosticReport[] = [];
     for (const strategy of strategies) {
       assertActive();
       const data = prepared.get(strategy.id)!;
@@ -301,12 +363,21 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
         },
         strategy.parameters,
       );
+      const base = diagnostic(strategy, account.asOf, 'strategy', [paperDiagnosticCodeSchema.parse(signal.reason)], {
+        action: signal.action,
+        closedCandles: data.candles.length,
+        barAt: latest.timestamp,
+      });
       if (
         signal.action === 'HOLD' ||
         (signal.action === 'BUY' && new Money(owned).gt(0)) ||
         (signal.action === 'SELL' && new Money(owned).isZero())
-      )
+      ) {
+        if (signal.action === 'BUY') base.codes.push('ALREADY_OWNED');
+        if (signal.action === 'SELL') base.codes.push('NO_OWNED_QUANTITY');
+        reports.push(base);
         continue;
+      }
       const provenance = {
         strategyVersion: movingAverageCross.version,
         barTimestamp: latest.timestamp,
@@ -316,7 +387,13 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
       };
       const intentId = `order:${contentHash({ strategyId: strategy.id, instrument: strategy.instrument, side: signal.action, ...provenance })}`;
       try {
-        await paper.readIntent(config.accountId, intentId);
+        const previous = await paper.readIntent(config.accountId, intentId);
+        reports.push({
+          ...base,
+          stage: 'reservation',
+          codes: [...base.codes, 'DUPLICATE_SIGNAL'],
+          orderState: previous.state,
+        });
         continue;
       } catch (error) {
         if (!(error instanceof Error && error.message === 'PAPER_INTENT_NOT_FOUND')) throw error;
@@ -334,6 +411,7 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
         quantity: signal.action === 'BUY' ? strategy.quantity : Money.min(owned, strategy.quantity).toFixed(),
         limitPrice: (signal.action === 'BUY' ? price.ceil() : price.floor()).mul(unit).toFixed(),
       };
+      failureStage = 'reservation';
       await paper.recordIntent({
         candidate,
         signal: {
@@ -344,9 +422,25 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
         },
       });
       assertActive();
-      await paper.reserve(config.accountId, intentId, token!, evidence.get(key(strategy.instrument))!);
+      const reservation = await paper.reserve(
+        config.accountId,
+        intentId,
+        token!,
+        evidence.get(key(strategy.instrument))!,
+      );
+      reports.push({
+        ...base,
+        stage: 'reservation',
+        codes:
+          reservation.intent.state === 'RISK_REJECTED'
+            ? [...base.codes, ...reservation.intent.codes.map((code) => paperDiagnosticCodeSchema.parse(code))]
+            : [...base.codes, 'ORDER_RESERVED'],
+        orderState: reservation.intent.state,
+      });
+      failureStage = 'strategy';
       status.signals++;
     }
+    await publish(reports);
     return status;
   }
   async function step(): Promise<PaperWorkerStatus> {
@@ -360,6 +454,26 @@ export function createPaperWorker(paper: Ledger, value: unknown, source: PaperSo
     try {
       return await task;
     } catch (error) {
+      if (!diagnosedFailure) {
+        try {
+          const current = await paper.readAccount(config.accountId);
+          const code = heartbeatFailed
+            ? 'HEARTBEAT_FAILED'
+            : controller.signal.aborted
+              ? 'EXECUTION_CANCELLED'
+              : failureStage === 'source'
+                ? 'SOURCE_UNAVAILABLE'
+                : 'WORKER_ERROR';
+          await publish(
+            strategies.map((strategy) =>
+              diagnostic(strategy, current.asOf, controller.signal.aborted ? 'control' : failureStage, [code]),
+            ),
+          );
+        } catch {
+          // Lost ownership or diagnostic storage failure must not replace the
+          // original error or permit another trading step.
+        }
+      }
       await close('WORKER_STEP_FAILED');
       throw error;
     } finally {

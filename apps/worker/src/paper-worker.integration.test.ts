@@ -119,14 +119,52 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper 상시 worker', () => {
     const context = await fixture(false);
     await context.worker.start();
     expect(await context.worker.step()).toMatchObject({ state: 'paused', signals: 0, fills: 0 });
+    expect((await database.paper.readDiagnostics(context.id)).items[0]!.latest?.report).toMatchObject({
+      stage: 'control',
+      action: null,
+      codes: ['ACCOUNT_PAUSED'],
+      closedCandles: null,
+    });
     expect(await database.paper.readOpenIntents(context.id)).toHaveLength(0);
     await context.worker.close();
+  });
+  it('같은 정지 진단을 매 tick 중복 저장하지 않는다', async () => {
+    const context = await fixture(false);
+    const save = vi.spyOn(database.paper, 'recordDiagnostics');
+    await context.worker.start();
+    await context.worker.step();
+    await context.worker.step();
+    expect(save).toHaveBeenCalledTimes(1);
+    await context.worker.close();
+  });
+  it('진단 저장이 실패하면 예약을 중단하고 다음 거래로 진행하지 않는다', async () => {
+    const context = await fixture();
+    await context.worker.start();
+    vi.spyOn(database.paper, 'recordDiagnostics').mockRejectedValueOnce(new Error('DIAGNOSTIC_STORAGE_FAILURE'));
+    await expect(context.worker.step()).rejects.toThrow('DIAGNOSTIC_STORAGE_FAILURE');
+    const current = await database.paper.readAccount(context.id);
+    expect(current.control.stopped).toBe(true);
+    expect(current.leaseUntil).toBeNull();
+    expect(current.snapshot.reservations).toHaveLength(0);
+    const dashboard = await database.paper.readDashboard(context.id);
+    expect(dashboard.orders).toHaveLength(1);
+    expect(dashboard.orders[0]!.state).toBe('ABORTED');
+    expect(dashboard.fills).toHaveLength(0);
   });
   it('전략 → 의도 → 예약 → 다음 관측의 부분 체결 → 매도까지 연결한다', async () => {
     const context = await fixture();
     await context.worker.start();
     expect(await context.worker.step()).toMatchObject({ signals: 1, fills: 0 });
+    expect((await database.paper.readDiagnostics(context.id)).items[0]!.latest?.report).toMatchObject({
+      action: 'BUY',
+      stage: 'reservation',
+      codes: ['BULLISH_CROSS', 'ORDER_RESERVED'],
+      orderState: 'READY',
+    });
     expect(await context.worker.step()).toMatchObject({ signals: 0, fills: 1 });
+    expect((await database.paper.readDiagnostics(context.id)).items[0]!.latest?.report.codes).toContain(
+      'ALREADY_OWNED',
+    );
     expect(await context.worker.step()).toMatchObject({ signals: 0, fills: 1 });
     expect((await database.paper.readAccount(context.id)).snapshot).toMatchObject({
       cash: { KRW: '12797' },
@@ -299,11 +337,91 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper 상시 worker', () => {
     await context.worker.step();
     context.fail();
     await expect(context.worker.step()).rejects.toThrow('RAW_SOURCE_ERROR_DO_NOT_LOG');
+    const diagnostic = await database.paper.readDiagnostics(context.id);
+    expect(diagnostic.items[0]!.latest?.report).toMatchObject({
+      stage: 'source',
+      action: null,
+      codes: ['SOURCE_UNAVAILABLE'],
+    });
+    expect(JSON.stringify(diagnostic)).not.toContain('RAW_SOURCE_ERROR_DO_NOT_LOG');
     expect(await database.paper.readAccount(context.id)).toMatchObject({
       control: { stopped: true },
       leaseUntil: null,
       snapshot: { positions: [], reservations: [] },
     });
+  });
+  it('필요한 봉 수가 부족하면 HOLD/WARMUP을 기록하며 주문하지 않는다', async () => {
+    const context = await fixture();
+    const worker = context.create({
+      ...context.config,
+      strategies: context.config.strategies.map((s) => ({ ...s, parameters: { fastPeriod: 1, slowPeriod: 3 } })),
+    });
+    await worker.start();
+    expect(await worker.step()).toMatchObject({ signals: 0, fills: 0 });
+    expect((await database.paper.readDiagnostics(context.id)).items[0]!.latest?.report).toMatchObject({
+      action: 'HOLD',
+      codes: ['WARMUP'],
+      closedCandles: 3,
+    });
+    expect((await database.paper.readDashboard(context.id)).orders).toHaveLength(0);
+    await worker.close();
+  });
+  it('신선도가 만료된 입력의 구체적 차단 사유를 기록하고 중단한다', async () => {
+    const context = await fixture();
+    let stale = false;
+    const worker = context.create(context.config, async (instruments, signal) => {
+      const evidence = (await context.source(instruments, signal)) as PaperEvidence[];
+      if (stale)
+        evidence.forEach((entry) => {
+          entry.quote.timestamp = new Date(Date.now() - 180000).toISOString();
+        });
+      return evidence;
+    });
+    await worker.start();
+    stale = true;
+    await expect(worker.step()).rejects.toThrow('PAPER_WORKER_DATA_NOT_READY');
+    expect((await database.paper.readDiagnostics(context.id)).items[0]!.latest?.report).toMatchObject({
+      action: null,
+      stage: 'data',
+      codes: expect.arrayContaining(['QUOTE_STALE']),
+    });
+    expect((await database.paper.readAccount(context.id)).control.stopped).toBe(true);
+  });
+  it('실제 리스크 거부 결과와 같은 봉의 중복 신호 차단을 각각 기록한다', async () => {
+    const rejected = await fixture();
+    const tooLarge = rejected.create({
+      ...rejected.config,
+      strategies: rejected.config.strategies.map((s) => ({ ...s, quantity: '999' })),
+    });
+    await tooLarge.start();
+    await tooLarge.step();
+    expect((await database.paper.readDiagnostics(rejected.id)).items[0]!.latest?.report).toMatchObject({
+      action: 'BUY',
+      stage: 'reservation',
+      orderState: 'RISK_REJECTED',
+      codes: expect.arrayContaining(['ORDER_AMOUNT_LIMIT']),
+    });
+    await tooLarge.close();
+    const context = await fixture();
+    let move = false;
+    const worker = context.create(context.config, async (instruments, signal) => {
+      const entries = (await context.source(instruments, signal)) as PaperEvidence[];
+      if (move)
+        entries.forEach((entry) => {
+          entry.quote.price = '1101';
+        });
+      return entries;
+    });
+    await worker.start();
+    await worker.step();
+    move = true;
+    await worker.step();
+    expect((await database.paper.readDiagnostics(context.id)).items[0]!.latest?.report).toMatchObject({
+      codes: expect.arrayContaining(['DUPLICATE_SIGNAL']),
+      orderState: 'READY',
+    });
+    expect((await database.paper.readDashboard(context.id)).orders).toHaveLength(1);
+    await worker.close();
   });
   it('동시에 tick을 실행하지 않으며 응답 없는 수집도 종료 시 취소한다', async () => {
     const context = await fixture();

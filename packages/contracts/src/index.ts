@@ -1,4 +1,11 @@
 import { z } from 'zod';
+export {
+  paperDiagnosticCodeSchema,
+  paperDiagnosticReportSchema,
+  paperDiagnosticBatchSchema,
+  paperDiagnosticsSchema,
+} from './paper-diagnostics.js';
+export type { PaperDiagnosticReport, PaperDiagnostics } from './paper-diagnostics.js';
 export { observationJobSchema, observationJobsSchema } from './observation-jobs.js';
 export type { ObservationJobs } from './observation-jobs.js';
 export { paperEquityPointSchema, paperEquityHistorySchema } from './paper-equity.js';

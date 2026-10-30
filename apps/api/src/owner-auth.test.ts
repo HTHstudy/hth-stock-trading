@@ -34,6 +34,7 @@ describe('소유자 인증과 서버 세션', () => {
         '/v1/paper',
         '/v1/paper/strategies/demo-ma/history',
         '/v1/paper/equity',
+        '/v1/paper/diagnostics',
         '/v1/observations/jobs',
       ])
         expect((await app.inject({ method: 'GET', url: path, headers })).statusCode).toBe(503);
@@ -54,6 +55,7 @@ describe('소유자 인증과 서버 세션', () => {
         '/v1/paper',
         '/v1/paper/strategies/demo-ma/history',
         '/v1/paper/equity',
+        '/v1/paper/diagnostics',
         '/v1/observations/jobs',
       ])
         expect((await app.inject({ method: 'GET', url: path, headers })).statusCode).toBe(401);

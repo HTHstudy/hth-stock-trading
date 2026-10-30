@@ -5,6 +5,9 @@ import { z } from 'zod';
 import {
   paperEvidenceSchema,
   paperDataSourceSchema,
+  paperDiagnosticBatchSchema,
+  paperDiagnosticReportSchema,
+  paperDiagnosticsSchema,
   paperEquityPointSchema,
   paperEquityHistorySchema,
   paperExecutionSourceSchema,
@@ -364,6 +367,107 @@ export function createPaperLedger(db: Database) {
           .where(eq(paperStrategies.accountId, id)),
       );
     },
+    async recordDiagnostics(id: string, token: string, epoch: number, source: PaperDataSource, value: unknown) {
+      const reports = parse(z.array(paperDiagnosticReportSchema).min(1).max(100), value);
+      parse(z.uuid(), token);
+      parse(versionSchema, epoch);
+      parse(paperExecutionSourceSchema, source);
+      return locked(id, async (transaction, account) => {
+        assertSource(account, source);
+        const now = await clock(transaction);
+        owned(account, token, epoch, now);
+        const stored = await transaction.select().from(paperStrategies).where(eq(paperStrategies.accountId, id));
+        for (const report of reports) {
+          const strategy = stored.find((item) => item.strategyId === report.strategyId);
+          if (
+            !strategy ||
+            strategy.version !== report.strategyVersion ||
+            strategy.revision !== report.strategyRevision ||
+            (strategy.definition &&
+              (strategy.definition.instrument.market !== report.instrument.market ||
+                strategy.definition.instrument.symbol !== report.instrument.symbol)) ||
+            now.getTime() - Date.parse(report.evaluatedAt) >= 60000 ||
+            Date.parse(report.evaluatedAt) > now.getTime() + 5000
+          )
+            throw new Error('PAPER_DIAGNOSTIC_MISMATCH');
+        }
+        const batch = paperDiagnosticBatchSchema.parse({
+          formatVersion: 'paper-diagnostics-v1',
+          recordedAt: now.toISOString(),
+          source,
+          epoch,
+          accountVersion: account.version,
+          reports,
+        });
+        await event(transaction, id, 'STRATEGY_DIAGNOSED', { batch, batchHash: contentHash(batch) });
+        owned(account, token, epoch, await clock(transaction));
+      });
+    },
+    async readDiagnostics(id: string) {
+      return consistent(id, async (transaction, account) => {
+        const now = await clock(transaction);
+        const stored = await transaction
+          .select()
+          .from(paperStrategies)
+          .where(eq(paperStrategies.accountId, id))
+          .orderBy(paperStrategies.strategyId)
+          .limit(101);
+        const rows = await transaction
+          .select({ details: paperEvents.details })
+          .from(paperEvents)
+          .where(and(eq(paperEvents.accountId, id), eq(paperEvents.kind, 'STRATEGY_DIAGNOSED')))
+          .orderBy(desc(paperEvents.createdAt), desc(paperEvents.id))
+          .limit(21);
+        const latest = new Map<string, { report: z.infer<typeof paperDiagnosticReportSchema>; recordedAt: string }>();
+        for (const row of rows.slice(0, 20)) {
+          const batch = paperDiagnosticBatchSchema.parse(row.details.batch);
+          if (
+            contentHash(batch) !== row.details.batchHash ||
+            batch.source !== account.dataSource ||
+            batch.accountVersion > account.version ||
+            batch.epoch > account.epoch
+          )
+            throw new Error('PAPER_DIAGNOSTICS_INVALID');
+          for (const report of batch.reports)
+            if (!latest.has(report.strategyId)) latest.set(report.strategyId, { report, recordedAt: batch.recordedAt });
+        }
+        return paperDiagnosticsSchema.parse({
+          mode: 'paper',
+          executionEnabled: false,
+          source: account.dataSource,
+          asOf: now.toISOString(),
+          stopped: account.stopped,
+          workerState:
+            account.leaseUntil === null
+              ? 'absent'
+              : Date.parse(account.leaseUntil) > now.getTime()
+                ? 'active'
+                : 'expired',
+          limited: stored.length > 100 || rows.length > 20,
+          items: stored.slice(0, 100).map((strategy) => {
+            const record = latest.get(strategy.strategyId) ?? null;
+            return {
+              strategy: {
+                id: strategy.strategyId,
+                version: strategy.version,
+                enabled: strategy.enabled,
+                revision: strategy.revision,
+                definition: strategy.definition,
+              },
+              latest: record,
+              configurationCurrent: record
+                ? record.report.strategyVersion === strategy.version &&
+                  record.report.strategyRevision === strategy.revision
+                : null,
+              stale: record
+                ? now.getTime() - Date.parse(record.recordedAt) >= 60000 ||
+                  Date.parse(record.recordedAt) > now.getTime() + 5000
+                : null,
+            };
+          }),
+        });
+      });
+    },
     async readEquityHistory(id: string) {
       return consistent(id, async (transaction, account) => {
         const scope = and(
@@ -543,7 +647,13 @@ export function createPaperLedger(db: Database) {
             createdAt: paperEvents.createdAt,
           })
           .from(paperEvents)
-          .where(and(eq(paperEvents.accountId, id), ne(paperEvents.kind, 'ACCOUNT_OBSERVED')))
+          .where(
+            and(
+              eq(paperEvents.accountId, id),
+              ne(paperEvents.kind, 'ACCOUNT_OBSERVED'),
+              ne(paperEvents.kind, 'STRATEGY_DIAGNOSED'),
+            ),
+          )
           .orderBy(sql`${paperEvents.createdAt} DESC NULLS LAST`, sql`${paperEvents.id} DESC NULLS LAST`)
           .limit(51);
         const strategies = await transaction

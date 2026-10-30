@@ -4,6 +4,7 @@ import {
   paperStrategyUpdateSchema,
   paperStrategyHistorySchema,
   paperEquityHistorySchema,
+  paperDiagnosticsSchema,
 } from '@hth/contracts';
 import type { PaperDashboardState } from '@hth/contracts';
 import type { createDatabase } from '@hth/database';
@@ -14,6 +15,7 @@ export interface PaperDashboard {
   updateStrategy(id: string, input: unknown): Promise<unknown>;
   strategyHistory(id: string, query: unknown): Promise<unknown>;
   equityHistory(): Promise<unknown>;
+  diagnostics(): Promise<unknown>;
   close(): Promise<void>;
 }
 export function createPaperDashboard(
@@ -27,6 +29,11 @@ export function createPaperDashboard(
     return value;
   }
   return {
+    async diagnostics() {
+      const value = await database.paper.readDiagnostics(accountId);
+      if (value.source !== 'unverified' && value.source !== expectedSource) throw new Error('PAPER_SOURCE_MISMATCH');
+      return paperDiagnosticsSchema.parse(value);
+    },
     async equityHistory() {
       const value = await database.paper.readEquityHistory(accountId);
       if (value.source !== 'unverified' && value.source !== expectedSource) throw new Error('PAPER_SOURCE_MISMATCH');
