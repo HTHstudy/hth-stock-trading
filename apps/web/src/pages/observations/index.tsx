@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { OBSERVATIONS_API } from '@shared/api/observations';
 import { formatTime } from '@shared/lib/format';
 import { ScheduledJobs } from './scheduled-jobs';
+import { CollectionMonitor } from './collection-monitor';
 
 const states = { completed: '관측 종료', failed: '중단·실패', cancelled: '취소', incomplete: '진행 중 또는 미완료' };
 const sourceLabel = (source: 'toss-readonly' | 'synthetic-only') =>
@@ -21,6 +22,7 @@ export function ObservationsPage() {
     queryKey: ['observation-reports'],
     queryFn: ({ signal }) => OBSERVATIONS_API.list(signal),
     staleTime: 5000,
+    refetchInterval: 10000,
   });
   const reports = list.data?.reports ?? [];
   const primary = reports.find((item) => item.manifest.id === selected) ?? reports[0];
@@ -29,6 +31,7 @@ export function ObservationsPage() {
     queryFn: ({ signal }) => OBSERVATIONS_API.get(primary!.manifest.id, signal),
     enabled: Boolean(primary),
     staleTime: 5000,
+    refetchInterval: 10000,
   });
   const report = detail.isError ? undefined : detail.data;
   const summary = report?.summary;
@@ -118,6 +121,11 @@ export function ObservationsPage() {
               <option key={item.manifest.id} value={item.manifest.id}>
                 {formatTime(item.manifest.startedAt)} · {sourceLabel(item.manifest.source)} · {states[item.state]} ·{' '}
                 {item.manifest.id.slice(0, 8)}
+                {item.monitoring?.state === 'overdue'
+                  ? ' · 갱신 지연'
+                  : item.monitoring?.gapCount
+                    ? ' · 수집 공백 있음'
+                    : ''}
               </option>
             ))}
           </select>
@@ -135,6 +143,7 @@ export function ObservationsPage() {
       )}
       {report && (
         <>
+          <CollectionMonitor report={report} />
           <section className="mb-5 grid gap-4 md:grid-cols-3">
             <div className={panel}>
               <p className="text-xs text-slate-500">출처</p>
@@ -234,9 +243,11 @@ export function ObservationsPage() {
               </section>
             </>
           )}
-          {report.journalSha256 && (
+          {report.recentSamples.length > 0 && (
             <section className={`${panel} overflow-x-auto`}>
-              <h2 className="mb-4 text-sm font-semibold">최근 관측 기록</h2>
+              <h2 className="mb-4 text-sm font-semibold">
+                최근 관측 기록{report.state === 'incomplete' ? ' · 최종 검증 전' : ''}
+              </h2>
               <table className="w-full whitespace-nowrap text-left text-xs">
                 <thead className="text-slate-500">
                   <tr>
