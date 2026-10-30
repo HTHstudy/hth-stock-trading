@@ -47,12 +47,19 @@ services:
       NODE_ENV: production
       TRADING_MODE: paper
       LOCAL_CONTAINER_MODE: 'true'
+      LOCAL_DB_PASSWORD: '${LOCAL_DB_PASSWORD:-hth_local_only}'
+      LOCAL_PAPER_DB_PASSWORD: '${LOCAL_PAPER_DB_PASSWORD:-local_paper_only}'
+      LOCAL_PAPER_ACCOUNT_ID: '${LOCAL_PAPER_ACCOUNT_ID:-}'
+      LOCAL_PAPER_KIND: '${LOCAL_PAPER_KIND:-synthetic}'
       LOCAL_WEB_PORT: '${LOCAL_WEB_PORT:-5173}'
       API_HOST: 127.0.0.1
       API_PORT: '4000'
       OWNER_PASSWORD_HASH: '${LOCAL_OWNER_PASSWORD_HASH:-}'
-      DASHBOARD_ENABLED: 'false'
-      PAPER_DASHBOARD_ENABLED: 'false'
+      DASHBOARD_ENABLED: '${LOCAL_MARKET_DASHBOARD_ENABLED:-false}'
+      TOSS_CLIENT_ID: '${LOCAL_TOSS_CLIENT_ID:-}'
+      TOSS_CLIENT_SECRET: '${LOCAL_TOSS_CLIENT_SECRET:-}'
+      PAPER_DASHBOARD_ENABLED: '${LOCAL_PAPER_DASHBOARD_ENABLED:-false}'
+      PAPER_DASHBOARD_KIND: '${LOCAL_PAPER_KIND:-synthetic}'
     depends_on:
       web:
         condition: service_healthy
@@ -76,6 +83,19 @@ services:
     environment:
       NODE_ENV: production
       TRADING_MODE: paper
+      LOCAL_CONTAINER_MODE: 'true'
+      LOCAL_DB_PASSWORD: '${LOCAL_DB_PASSWORD:-hth_local_only}'
+      LOCAL_PAPER_DB_PASSWORD: '${LOCAL_PAPER_DB_PASSWORD:-local_paper_only}'
+      LOCAL_PAPER_ACCOUNT_ID: '${LOCAL_PAPER_ACCOUNT_ID:-}'
+      LOCAL_PAPER_KIND: '${LOCAL_PAPER_KIND:-synthetic}'
+      WORKER_MODE: '${LOCAL_WORKER_MODE:-idle}'
+      WORKER_SOURCE: '${LOCAL_WORKER_SOURCE:-synthetic-only}'
+      WORKER_REQUEST_ID: '${LOCAL_WORKER_REQUEST_ID:-}'
+      WORKER_SYMBOLS: '${LOCAL_WORKER_SYMBOLS:-KR:005930}'
+      WORKER_SAMPLES: '${LOCAL_WORKER_SAMPLES:-60}'
+      WORKER_INTERVAL_SECONDS: '${LOCAL_WORKER_INTERVAL_SECONDS:-60}'
+      TOSS_CLIENT_ID: '${LOCAL_TOSS_CLIENT_ID:-}'
+      TOSS_CLIENT_SECRET: '${LOCAL_TOSS_CLIENT_SECRET:-}'
     depends_on:
       db:
         condition: service_healthy
@@ -86,8 +106,10 @@ services:
       POSTGRES_USER: hth
       POSTGRES_PASSWORD: '${LOCAL_DB_PASSWORD:-hth_local_only}'
       POSTGRES_DB: hth_trading
+      LOCAL_PAPER_DB_PASSWORD: '${LOCAL_PAPER_DB_PASSWORD:-local_paper_only}'
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-paper-db.sh:/docker-entrypoint-initdb.d/10-paper.sh:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U hth -d hth_trading']
       interval: 5s

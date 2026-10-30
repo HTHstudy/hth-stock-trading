@@ -13,13 +13,15 @@ async function main() {
       output: { type: 'string' },
       project: { type: 'string', default: 'hth-local' },
       'env-file': { type: 'string' },
+      database: { type: 'string', default: 'broker' },
     },
   });
   if (!/^hth-local(?:-[a-z0-9][a-z0-9-]{0,40})?$/.test(values.project)) throw new Error('INVALID_PROJECT');
+  if (!['broker', 'paper'].includes(values.database)) throw new Error('INVALID_DATABASE');
   const root = fileURLToPath(new URL('../', import.meta.url));
   const output = resolve(
     root,
-    values.output ?? `.local-data/backups/${values.project}-${Date.now()}-${randomUUID()}.dump`,
+    values.output ?? `.local-data/backups/${values.project}-${values.database}-${Date.now()}-${randomUUID()}.dump`,
   );
   await mkdir(dirname(output), { recursive: true, mode: 0o700 });
   const temporary = `${output}.tmp-${randomUUID()}`;
@@ -31,9 +33,9 @@ async function main() {
     'db',
     'pg_dump',
     '-U',
-    'hth',
+    values.database === 'paper' ? 'hth_test' : 'hth',
     '-d',
-    'hth_trading',
+    values.database === 'paper' ? 'hth_readonly_test' : 'hth_trading',
     '--format=custom',
     '--no-owner',
     '--no-acl',
@@ -53,7 +55,15 @@ async function main() {
   }
   const hash = createHash('sha256');
   for await (const chunk of createReadStream(output)) hash.update(chunk);
-  console.info(JSON.stringify({ service: 'local-db-backup', state: 'written', output, sha256: hash.digest('hex') }));
+  console.info(
+    JSON.stringify({
+      service: 'local-db-backup',
+      state: 'written',
+      database: values.database,
+      output,
+      sha256: hash.digest('hex'),
+    }),
+  );
 }
 main().catch(() => {
   console.error(

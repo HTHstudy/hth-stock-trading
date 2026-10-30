@@ -8,7 +8,7 @@
 | ------ | ---------------------------------------------- | ------------------- |
 | web    | Caddy + React 정적 빌드, `/api/*`를 API로 전달 | `127.0.0.1:5173`만  |
 | api    | 소유자 로그인, 관심종목, 저장된 리포트 조회    | 별도 포트 공개 없음 |
-| worker | Node.js 기본 대기 프로세스                     | 없음                |
+| worker | Node.js 명시적 대기·관측·정지 Paper 서비스     | 없음                |
 | db     | 별도 PostgreSQL 17, 영속 데이터 볼륨           | 없음                |
 
 Vite 개발 서버는 이미지에서 실행하지 않는다. React 빌드 파일만 Caddy에 복사한다. `/health/web`은 정적 웹 서버 확인이고 `/api/health/live`는 API 생존 확인이다. worker의 running/idle도 거래 준비 상태를 의미하지 않는다. 새 애플리케이션 라이브러리는 없으며 웹 서빙에 공식 Caddy 이미지를 사용한다.
@@ -36,9 +36,18 @@ corepack pnpm owner:hash --output=../../infra/.env.owner.local
 
 생성된 파일의 `OWNER_PASSWORD_HASH=` 뒤 해시만 `infra/.env.local`의 `LOCAL_OWNER_PASSWORD_HASH=` 값에 넣고 `local:up`을 다시 실행한다. 비밀번호 원문은 입력 숨김을 사용하며 env에 넣지 않는다. 기존 파일은 덮어쓰지 않는다. `LOCAL_DB_PASSWORD`도 별도 로컬 설정이다. 최초 초기화 이후 env 비밀번호를 바꾼 것만으로 PostgreSQL 내부 비밀번호가 변경되지는 않는다.
 
-현재 Compose는 **실제 시세 대시보드와 Paper 대시보드를 비활성화**하고 토스 키·DATABASE_URL·Paper 계좌 설정을 전달하지 않는다. API/worker 시작으로 마이그레이션·계좌 생성·관측·모의 재개·실주문을 실행하지 않는다. worker는 `idle`, `executionEnabled=false`로 시작하고 재시작해도 같다. 실제 Paper 실행·복구는 기존 별도 명령과 전용 테스트 DB 정책을 따르며 이번 Compose가 그 실행을 자동 서비스화한 것은 아니다. CLI를 단순히 `restart: unless-stopped` 서비스 명령으로 바꿔 반복 실행하지 않는다.
+Compose는 기본적으로 시세/Paper 대시보드를 비활성화하고 worker를 `idle`, `executionEnabled=false`로 시작한다. 키만 입력해도 관측·매매가 켜지지 않는다. API/worker 기동은 마이그레이션·계좌 생성·거래 재개를 실행하지 않는다. 명시적 `idle/observe/paper` 선택과 상태 조회는 [worker 서비스 운영](WORKER_SERVICE.md)을 따른다. Paper 서비스는 항상 정지 상태로 시작한다.
 
-실제 시세/Paper를 연결하는 후속 작업에는 동일 client의 호스트/컨테이너가 같은 토큰 잠금 DB를 사용하도록 전환하고, Paper의 localhost 전용 DB 주소 정책도 검토해야 한다. 기본 4개 구성이 자동으로 이 연결을 해결했다고 해석하지 않는다. 키를 옮기기 전에 기존 관측·token owner 종료 여부를 확인한다.
+새 DB 볼륨은 `hth_trading`과 Paper 전용 `hth_readonly_test`를 분리하며 Paper 역할 `hth_test`는 superuser/DB 생성/역할 생성 권한이 없다. API/worker는 같은 비밀번호 설정에서 내부 `db:5432` URL을 구성한다. DB 호스트 허용 확장은 명시적 production 로컬 컨테이너 모드에만 적용하며 기존 localhost 전용 테스트 검증은 유지한다. `LOCAL_PAPER_DB_PASSWORD`도 최초 설정 후 env 변경만으로 내부 비밀번호가 바뀌지 않는다.
+
+기존 로컬 Compose 볼륨에는 초기화 스크립트가 자동 재실행되지 않는다. worker/쓰기 작업을 멈추고 DB·파일 백업을 완료한 뒤 **해당 로컬 프로젝트만 대상으로** 아래 명령을 명시적으로 실행한다. 기존 역할 권한이나 DB 소유자가 다르면 실패하며 자동 수정하지 않는다. 기존 호스트 개발 DB에는 실행하지 않는다.
+
+```bash
+docker compose --env-file infra/.env.local -f infra/compose.local.yml \
+  exec -T db sh /docker-entrypoint-initdb.d/10-paper.sh
+```
+
+실제 시세로 연결하기 전에는 기존 관측과 토큰 소유자를 종료하고 모든 동일 client 프로세스가 **같은 broker 잠금 DB**를 사용하는지 확인해야 한다. 별도 DB를 새로 만든 것만으로 호스트 관측과 잠금이 공유되지 않는다. 현재 미국장 예약은 기존 환경에서 유지하며 이 구성으로 이전하지 않았다.
 
 ## 사내 CA가 필요한 빌드
 
@@ -51,7 +60,7 @@ LOCAL_BUILD_CA_FILE=/absolute/path/trusted-public-ca.pem \
   up -d --build --force-recreate --wait
 ```
 
-Dockerfile은 선택적 `npm_ca` secret을 의존성 설치 단계에서만 읽는다. CA 파일·개인키·환경 파일을 이미지에 복사하지 않고 TLS 검증을 끄지 않는다. `.dockerignore`는 모든 깊이의 env 파일, `.local-data`, 키 파일을 제외한다. 실제 broker를 연결할 때 런타임 CA 신뢰가 추가로 필요한지는 별도 확인해야 한다.
+Dockerfile은 선택적 `npm_ca` secret을 의존성 설치 단계에서만 읽는다. `NODE_EXTRA_CA_CERTS`로 기본 공개 루트를 유지하면서 추가 신뢰한다. CA 파일·개인키·환경 파일을 이미지에 복사하지 않고 TLS 검증을 끄지 않는다. `.dockerignore`는 모든 깊이의 env 파일, `.local-data`, 키 파일을 제외한다. 실제 broker를 연결할 때 런타임 CA 신뢰가 추가로 필요한지는 별도 확인해야 한다.
 
 ## 데이터 보존·종료·재시작
 
@@ -69,12 +78,13 @@ corepack pnpm local:up
 ## DB 백업과 빈 DB 복원 훈련
 
 ```bash
-corepack pnpm local:backup --env-file=infra/.env.local
+corepack pnpm local:backup --env-file=infra/.env.local --database=broker
+corepack pnpm local:backup --env-file=infra/.env.local --database=paper
 # 다른 검증 프로젝트라면 --project=hth-local-check
 # 출력 위치를 고정하려면 --output=.local-data/backups/my-backup.dump
 ```
 
-Node 도구가 실행 중 db 컨테이너의 `pg_dump --format=custom --no-owner --no-acl`을 호출한다. 임시 파일 0600으로 저장한 뒤 기존 파일을 덮어쓰지 않고 공개한다. 파일 경로와 SHA-256만 출력하고 dump 본문/접속 자격증명/원본 stderr는 로그에 남기지 않는다. 실패한 임시 파일은 정리한다. project는 hth-local 또는 그 검증용 접미 이름만 허용한다. 백업 파일을 다른 저장 장치에도 별도로 보관한다.
+Node 도구가 실행 중 db 컨테이너의 `pg_dump --format=custom --no-owner --no-acl`을 호출한다. 임시 파일 0600으로 저장한 뒤 기존 파일을 덮어쓰지 않고 공개한다. 대상 종류·파일 경로와 SHA-256만 출력하고 dump 본문/접속 자격증명/원본 stderr는 로그에 남기지 않는다. 실패한 임시 파일은 정리한다. project는 hth-local 또는 그 검증용 접미 이름만 허용한다. 백업 파일을 다른 저장 장치에도 별도로 보관한다.
 
 다음은 **운영 DB를 덮어쓰지 않는 빈 복원 확인용 DB** 예시다. 기존 이름이 있으면 자동 삭제하지 않고 다른 새 이름을 사용한다. 명령은 저장소 루트에서 실행한다.
 
@@ -86,6 +96,8 @@ docker compose --env-file infra/.env.local -f infra/compose.local.yml \
   exec -T db pg_restore -U hth -d hth_restore_check \
   --exit-on-error --no-owner --no-acl < .local-data/backups/my-backup.dump
 ```
+
+Paper 백업은 별도의 새 DB를 `createdb -U hth -O hth_test -T template0 hth_restore_paper_check`로 만들고 `pg_restore -U hth_test -d hth_restore_paper_check --exit-on-error --no-owner --no-acl`로 복원한다. `--database` 생략 시 broker만 백업되므로 두 DB를 각각 보관한다.
 
 복원된 테이블/행을 확인하고 계좌·설정·일일 손실·이력 정합성을 별도로 검증한다. `pg_dump`는 PostgreSQL 자체의 일관된 snapshot이며 파일 볼륨과의 공동 snapshot은 아니다. 실제 전체 복구를 하려면 worker/쓰기 요청을 먼저 중단하고 DB와 app_data를 같은 운영 시점에 백업한다. 소유자 해시 등 env도 별도 비밀 저장소에서 복구한다.
 
@@ -113,3 +125,5 @@ docker run --rm -i --network none \
 ```
 
 2026-10-30 검증에서 서버·웹 이미지를 실제 빌드했고, 별도 프로젝트의 4개 컨테이너 기동/전체 재생성, HTTP 로그인·미인증/교차 Origin 차단, 관심종목·DB 행 보존, 이전 로그인 세션 무효화, worker paper/idle을 확인했다. DB dump의 새 빈 DB 복원과 파일 archive의 새 볼륨 복원, 기존 백업 덮어쓰기 거부·0600 권한도 통과했다. 동일 UID 1000/소켓 디렉터리 0700/볼륨 공유와 이미지 내 env·빌드 CA 부재도 확인했다. 전체 406개 테스트와 타입·린트·빌드·포맷 검사를 통과했다. 이 검증은 기존 계좌의 Paper 운영이나 실제 broker 연결 검증을 대신하지 않는다.
+
+추가 서비스 검증은 `hth-local-worker-check`/59081에서 실제 키 없이 수행했다. 합성 부분 체결 후 잔고·소유권·주문/체결 보존, 정지 부팅·긴급 정지, DB 장애 시 failed 및 DB 복구만으로 재시도하지 않음, 별도 Paper 백업의 새 DB 복원, API/worker 사이 advisory lock 경합, 합성 관측 완료와 동일 요청 재실행 차단을 확인했다. 전체 테스트는 418개가 통과했다. 합성 검증은 실제 시장 데이터 품질이나 수익성 검증을 의미하지 않는다.

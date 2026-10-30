@@ -101,3 +101,5 @@ TanStack Query v5는 조회 캐시·오류·새로고침 상태, Lightweight Cha
 - [토스 공식 조사 및 원문 링크](docs/TOSS_API.md)
 
 로컬 컨테이너의 네트워크 공간 공유·데이터 보존·백업·실행 제한은 [로컬 운영 문서](docs/LOCAL_OPERATIONS.md)를 따른다. worker는 기본 대기이며 컨테이너 재시작으로 모의/실거래를 재개하지 않는다.
+
+worker 서비스는 [운영 정책](docs/WORKER_SERVICE.md)을 따른다. 기본 idle, Paper resume=false, 관측 UUID 영구 소비, 자동 재시도 금지, 단일 상태 파일 작성자를 유지한다. 상태 heartbeat를 시장 데이터 신선도나 거래 권한으로 해석하지 않는다.

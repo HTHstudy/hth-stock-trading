@@ -10,7 +10,7 @@
     "dev": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker build && corepack pnpm --parallel --filter @hth/web --filter @hth/api dev",
     "dev:web": "corepack pnpm build:packages && corepack pnpm --filter @hth/web dev",
     "dev:api": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker build && corepack pnpm --filter @hth/api dev",
-    "dev:worker": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker dev",
+    "dev:worker": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker build && corepack pnpm --filter @hth/worker dev",
     "broker:check": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker broker:check",
     "broker:sync": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker broker:sync",
     "data:backfill": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker data:backfill",
@@ -39,7 +39,8 @@
     "local:up": "docker compose --env-file infra/.env.local -f infra/compose.local.yml up -d --build --force-recreate --wait",
     "local:down": "docker compose --env-file infra/.env.local -f infra/compose.local.yml down",
     "local:status": "docker compose --env-file infra/.env.local -f infra/compose.local.yml ps",
-    "local:backup": "node infra/backup-db.mjs"
+    "local:backup": "node infra/backup-db.mjs",
+    "local:paper:prepare": "docker compose --env-file infra/.env.local -f infra/compose.local.yml run --rm --no-deps worker node apps/worker/dist/local-paper-prepare.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

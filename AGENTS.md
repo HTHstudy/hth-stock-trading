@@ -70,3 +70,5 @@
 - 관측 연속성은 `docs/MARKET_OBSERVATION.md`의 임시/최종 증거와 기한·공백 기준을 따른다. 마지막 완성 줄만 임시로 읽고 최종 hash 검증과 구분한다. PID·mtime으로 정상 실행을 추정하거나 조회로 관측/거래를 재개하지 않는다.
 
 - 로컬 Docker 기반은 `docs/LOCAL_OPERATIONS.md`를 따른다. 기존 개발 Compose/DB와 별도 프로젝트·볼륨을 사용하고 기본 worker는 idle이다. root env/키/로컬 데이터를 이미지나 새 볼륨으로 자동 복사하지 않는다. api/web의 네트워크 수명 공유 때문에 교체는 함께 수행하며, 조회 경계를 forwarded IP 신뢰로 우회하지 않는다.
+
+worker 서비스는 [운영 정책](docs/WORKER_SERVICE.md)을 따른다. 기본 idle, Paper resume=false, 관측 UUID 영구 소비, 자동 재시도 금지, 단일 상태 파일 작성자를 유지한다. 상태 heartbeat를 시장 데이터 신선도나 거래 권한으로 해석하지 않는다.
