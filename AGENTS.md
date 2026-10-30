@@ -10,7 +10,7 @@
 
 ## 구조
 
-- `apps/web`: React + Vite SPA, Vercel 배포. 증권사 키 및 DB에 접근하지 않는다.
+- `apps/web`: React + Vite SPA, 로컬 Caddy 서빙과 선택적 외부 정적 호스팅. 증권사 키 및 DB에 접근하지 않는다.
 - `apps/api`: Fastify HTTP 서버. 외부 입력과 환경변수는 Zod로 검증한다.
 - `apps/worker`: 읽기 전용 확인·캔들 수집·대시보드 IPC와 별도 Paper 실행기. 기본 main은 대기하며 토큰은 읽기 전용 worker만 발급한다.
 - `packages/contracts`: JSON 계약, 통화·시장·시간 타입, 안전 설정 검증. Node 전용 코드를 넣지 않는다.
@@ -25,7 +25,7 @@
 - import 방향은 `app → pages → shared`. 다른 레이어는 `@app/*`, `@pages/*`, `@shared/*` alias로 접근한다.
 - slice 간 직접 참조와 공개 entrypoint 우회를 금지한다. 선택 레이어는 실제 중복이 생긴 뒤 도입한다.
 - 화면 전용 로직은 해당 page에 둔다. 서버 상태는 TanStack Query v5로 관리한다.
-- 실제 자산 snapshot은 localhost 개발 환경에만 제공한다. public bind·production 활성화를 허용하지 않는다. 외부 배포에는 별도 소유자 인증이 필요하다.
+- 실제 자산 snapshot은 신뢰된 localhost 환경에만 제공한다. public bind를 허용하지 않는다. production 산출물의 로컬 컨테이너 실행은 `docs/LOCAL_OPERATIONS.md`의 명시적 loopback 모드만 허용한다. 외부 배포에는 별도 소유자 인증이 필요하다.
 - 금액 계산은 worker·trading의 decimal.js에서 수행하고 프론트엔드는 표시만 한다. 차트 좌표 계산만 number를 사용한다.
 
 - Paper 화면/API는 `docs/PAPER_DASHBOARD.md`를 따른다. 기본 비활성, loopback·전용 테스트 DB·서버 고정 계좌만 허용한다. 조회 DTO에서 계좌 ID·lease token·원본 요청/decision/감사 상세를 제거한다. 긴급 정지는 DB 정지 기록이며 정리 완료·자동 청산·재개를 의미하지 않는다. 조회로 worker를 시작하거나 사용자 DB 마이그레이션을 적용하지 않는다.
@@ -68,3 +68,5 @@
 - 실제 시세 Paper 계획은 `docs/PAPER_MARKET_PLAN.md`를 따른다. 미리보기는 키/DB 없이 실행하고 적용은 새 계좌 초기화에만 허용한다. 계획 hash를 I/O 전에 검증하며 재개/기존 계좌 변경에 재사용하지 않는다. hash를 운용 승인으로 표현하지 않는다.
 
 - 관측 연속성은 `docs/MARKET_OBSERVATION.md`의 임시/최종 증거와 기한·공백 기준을 따른다. 마지막 완성 줄만 임시로 읽고 최종 hash 검증과 구분한다. PID·mtime으로 정상 실행을 추정하거나 조회로 관측/거래를 재개하지 않는다.
+
+- 로컬 Docker 기반은 `docs/LOCAL_OPERATIONS.md`를 따른다. 기존 개발 Compose/DB와 별도 프로젝트·볼륨을 사용하고 기본 worker는 idle이다. root env/키/로컬 데이터를 이미지나 새 볼륨으로 자동 복사하지 않는다. api/web의 네트워크 수명 공유 때문에 교체는 함께 수행하며, 조회 경계를 forwarded IP 신뢰로 우회하지 않는다.

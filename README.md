@@ -144,3 +144,16 @@ Paper 리스크 검증 기반도 구현했습니다. `corepack pnpm risk:demo`�
 계좌 현황의 **관심종목 관리**에서 조회할 종목을 직접 저장할 수 있습니다. 저장 후 상단 새로고침으로 반영하며 매매 전략/관측 CLI 종목과는 별개입니다. 빈 목록도 유지합니다. [저장·충돌·범위](docs/WATCHLIST.md)
 
 실제 시세 Paper의 자금·전략·한도 미리보기는 `corepack pnpm paper:plan --plan=examples/paper-market-kr-plan.json`으로 확인합니다. [계획 검토와 새 계좌 초기화](docs/PAPER_MARKET_PLAN.md)를 따르며 미리보기로 관측이나 거래를 시작하지 않습니다.
+
+## 로컬 Docker 운영 기반
+
+`infra/compose.local.yml`로 웹(Caddy)·API·기본 대기 worker·DB 네 컨테이너를 구성할 수 있습니다. 기존 개발 DB와 별도 볼륨을 사용하고 기본 웹 포트는 5173입니다. 실행 중인 dev와 동시에 같은 포트를 점유하지 않습니다. [환경 설정·CA 빌드·백업/복원·운영 제한](docs/LOCAL_OPERATIONS.md)을 확인하세요. 실제 시세/Paper/실주문을 자동 시작하지 않습니다.
+
+```bash
+cp infra/.env.local.example infra/.env.local
+chmod 600 infra/.env.local
+corepack pnpm local:up
+corepack pnpm local:status
+```
+
+이전에 실패했던 Docker CA 신뢰 문제는 선택적 BuildKit CA secret으로 해결해 서버·웹 이미지의 실제 빌드와 격리된 4컨테이너 검증을 완료했습니다. TLS 검증은 유지합니다. 기존 개발 DB·관측 예약은 변경하지 않았습니다.

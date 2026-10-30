@@ -4,7 +4,7 @@
 
 계좌·백테스트·Paper 조회/정지/전략 변경 API는 소유자 세션을 요구한다. 인증을 설정하지 않으면 비공개 API는 503 OWNER_NOT_CONFIGURED, 설정했지만 로그인하지 않았으면 401 OWNER_LOGIN_REQUIRED로 차단한다. 인증 상태 조회와 로그인/로그아웃, 생존 확인만 세션 없이 제공한다. 프론트엔드는 인증 확인 전 비공개 화면을 마운트하지 않으며 로그인/설정 안내를 표시한다.
 
-이번 구현은 **신뢰된 로컬 컴퓨터의 단일 소유자**용이다. localhost 접근 제한·전용 Paper 테스트 DB·production/public bind 차단을 유지한다. 외부 Vercel/API 공개 배포를 활성화하지 않는다. 인터넷 운영에는 HTTPS·프록시 신뢰 경계·Secure cookie·추가 접근 정책·세션 저장/감사·계정 복구를 별도로 검증해야 한다. 실제 주문은 구현하지 않는다.
+이번 구현은 **신뢰된 로컬 컴퓨터의 단일 소유자**용이다. localhost 접근 제한·전용 Paper 테스트 DB·public bind 차단을 유지한다. production 산출물의 로컬 컨테이너 실행은 [로컬 운영](LOCAL_OPERATIONS.md)의 명시적 LOCAL_CONTAINER_MODE/IPv4 loopback에서만 허용한다. 외부 Vercel/API 공개 배포를 활성화하지 않는다. 인터넷 운영에는 HTTPS·프록시 신뢰 경계·Secure cookie·추가 접근 정책·세션 저장/감사·계정 복구를 별도로 검증해야 한다. 실제 주문은 구현하지 않는다.
 
 ## 최초 비밀번호 등록
 

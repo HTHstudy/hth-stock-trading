@@ -2,7 +2,7 @@
 
 ## 1. 배포와 책임
 
-개인용 MVP는 web 정적 파일·API·worker·PostgreSQL을 한 서버에 함께 올릴 수 있다. 실행 책임은 프로세스/컨테이너로 분리하며 서버 대수와 서비스 책임 분리는 별개다. 현재 개발 구조와 배포 설정은 변경하지 않았다.
+개인용 MVP는 web 정적 파일·API·worker·PostgreSQL을 한 서버에 함께 올릴 수 있다. 실행 책임은 프로세스/컨테이너로 분리하며 서버 대수와 서비스 책임 분리는 별개다. 로컬 운영 기반은 `infra/compose.local.yml`의 별도 네 컨테이너 구성으로 제공한다. 기존 개발 DB는 유지한다.
 
 관측 중 계좌 조회는 [공유 대시보드](docs/SHARED_DASHBOARD.md)의 비공개 로컬 IPC를 통해 잠금 owner의 broker를 재사용한다. 공유가 없으면 기존 독점 잠금/단독 조회로 돌아간다. 토큰 자체를 다른 프로세스나 브라우저에 배포하지 않는다. 컨테이너를 나누면 같은 UID와 비공개 socket volume을 구성해야 한다.
 
@@ -10,7 +10,7 @@
 
 ```mermaid
 flowchart LR
-  User[소유자 브라우저] --> Web[React SPA / Vercel]
+  User[소유자 브라우저] --> Web[React SPA / Caddy 또는 외부 정적 호스팅]
   Web -->|HTTPS + 소유자 인증| API[Fastify API / Docker]
   API --> DB[(PostgreSQL)]
   Worker[worker / Docker] --> DB
@@ -22,7 +22,7 @@ flowchart LR
 
 web은 상태 조회와 운영 명령의 UI다. API는 인증·입력 검증·DB 조회·명령 기록을 담당한다. worker는 시장 데이터, 전략 평가, 리스크 검증, 주문 실행, 체결 대사를 담당한다. API와 worker는 독립 실행 파일이지만 같은 저장소·DB를 사용하는 모듈형 애플리케이션이며 마이크로서비스로 분할하지 않는다.
 
-Vercel에는 SPA만 배포한다. 상시 루프와 WebSocket은 Docker worker에 둔다. 토스는 허용 IP를 확인하므로 broker 통신의 출구를 고정한다. API가 향후 토스 조회 결과를 요청받으면 DB snapshot을 반환하거나 worker에 작업을 기록한다. API와 worker가 각각 토큰을 발급하지 않는다.
+Vercel 등 외부 정적 호스팅을 선택하면 SPA만 배포한다. 기본 로컬 운영은 Caddy가 SPA를 제공한다. 상시 루프와 WebSocket은 Docker worker에 둔다. 토스는 허용 IP를 확인하므로 broker 통신의 출구를 고정한다. API가 향후 토스 조회 결과를 요청받으면 DB snapshot을 반환하거나 worker에 작업을 기록한다. API와 worker가 각각 토큰을 발급하지 않는다.
 
 ## 2. 디렉터리와 의존성
 
@@ -39,7 +39,8 @@ packages/
 docs/
   TOSS_API.md              공식 API 조사와 근거
 infra/
-  docker-compose.yml      로컬 PostgreSQL
+  docker-compose.yml      기존 개발 PostgreSQL
+  compose.local.yml       별도 로컬 web/api/worker/db 기반
   Dockerfile              API/worker 공용 빌드
 ```
 
@@ -84,7 +85,7 @@ TanStack Query v5는 조회 캐시·오류·새로고침 상태, Lightweight Cha
 
 `src/app`은 Query Provider·전역 스타일·앱 조립, `src/pages`는 화면 단위 slice, `src/shared`는 범용 UI·환경설정·경로다. 앱 간 계약 패키지는 `@hth/contracts`로 명명해 앱 내부 shared와 구분한다. 같은 slice 내부는 상대경로, 다른 레이어는 alias를 사용한다. 서버 상태는 TanStack Query v5로 관리하고 차트는 client에서 지연 로딩한다. 공개 환경변수 `VITE_*`에는 비밀을 넣지 않는다. 브라우저는 Vite `/api` 프록시를 통해 Fastify와 통신한다.
 
-현재 개발용 대시보드는 loopback IP·허용 Host/Origin·Sec-Fetch-Site를 검사하고 변경 요청에 전용 헤더를 요구한다. production 또는 공개 bind에서는 활성화를 거부한다. 단일 소유자 로그인과 서버 세션을 추가했으며 로컬 컴퓨터의 신뢰 경계를 유지한다. 이 구성을 인터넷 인증/배포로 대체 해석하지 않는다. Vercel 공개 배포 전에 HTTPS·Secure cookie·외부 프록시와 세션 운영 경계를 검증한다.
+현재 개발용 대시보드는 loopback IP·허용 Host/Origin·Sec-Fetch-Site를 검사하고 변경 요청에 전용 헤더를 요구한다. 공개 bind에서는 활성화를 거부한다. production 산출물의 로컬 실행은 명시적 LOCAL_CONTAINER_MODE와 IPv4 loopback에서만 허용한다. 단일 소유자 로그인과 서버 세션을 추가했으며 로컬 컴퓨터의 신뢰 경계를 유지한다. 이 구성을 인터넷 인증/배포로 대체 해석하지 않는다. Vercel 공개 배포 전에 HTTPS·Secure cookie·외부 프록시와 세션 운영 경계를 검증한다.
 
 ## 6. 운영·보안
 
@@ -98,3 +99,5 @@ TanStack Query v5는 조회 캐시·오류·새로고침 상태, Lightweight Cha
 - [Vercel 모노레포 Root Directory 설정](https://vercel.com/docs/monorepos)
 - [Vercel Functions의 실행 시간 제한](https://vercel.com/docs/functions/limitations)
 - [토스 공식 조사 및 원문 링크](docs/TOSS_API.md)
+
+로컬 컨테이너의 네트워크 공간 공유·데이터 보존·백업·실행 제한은 [로컬 운영 문서](docs/LOCAL_OPERATIONS.md)를 따른다. worker는 기본 대기이며 컨테이너 재시작으로 모의/실거래를 재개하지 않는다.
