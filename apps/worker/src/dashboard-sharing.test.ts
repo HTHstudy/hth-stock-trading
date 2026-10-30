@@ -26,7 +26,9 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 async function directory() {
-  const root = await mkdtemp('/private/tmp/hth-ds-');
+  // Keep Unix socket paths short on both Linux and macOS; os.tmpdir() on
+  // macOS can exceed the socket path limit once the scope hash is appended.
+  const root = await mkdtemp('/tmp/hth-ds-');
   roots.push(root);
   return root;
 }
