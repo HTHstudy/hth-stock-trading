@@ -1,0 +1,42 @@
+{
+  "formatVersion": "paper-market-plan-v1",
+  "mode": "paper",
+  "source": "toss-readonly",
+  "purpose": "validation-only",
+  "executionEnabled": false,
+  "strategyVersion": "1.0.0",
+  "cash": {
+    "KRW": "0",
+    "USD": "1000"
+  },
+  "limits": {
+    "KRW": {
+      "maxOrderAmount": "200000",
+      "maxInstrumentAmount": "200000",
+      "maxDailyLoss": "10000",
+      "buyCostBps": "10",
+      "sellCostBps": "30"
+    },
+    "USD": {
+      "maxOrderAmount": "300",
+      "maxInstrumentAmount": "300",
+      "maxDailyLoss": "10",
+      "buyCostBps": "10",
+      "sellCostBps": "30"
+    },
+    "maxPositions": 1
+  },
+  "strategy": {
+    "kind": "moving-average-cross",
+    "instrument": {
+      "market": "US",
+      "symbol": "AAPL"
+    },
+    "parameters": {
+      "fastPeriod": 5,
+      "slowPeriod": 20
+    },
+    "quantity": "1",
+    "maxFillQuantity": "1"
+  }
+}
