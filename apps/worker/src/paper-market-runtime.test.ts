@@ -7,6 +7,7 @@ import { paperWorkerConfigSchema } from './paper-worker.js';
 import { runPaperMarket } from './paper-market-runtime.js';
 import type { PaperMarketDependencies } from './paper-market-runtime.js';
 import { parsePaperMarketConfig } from './paper-market-config.js';
+import { defaultPaperMarketPlan } from './paper-market-plan.js';
 
 const definition = {
   kind: 'moving-average-cross',
@@ -111,6 +112,33 @@ it('정지는 broker lock/인증/worker/초기화를 우회한다', async () => 
   expect(dependencies.withBrokerLease).not.toHaveBeenCalled();
   expect(dependencies.createBroker).not.toHaveBeenCalled();
   expect(dependencies.createWorker).not.toHaveBeenCalled();
+});
+it('확인한 계획의 현금·한도·전략으로 새 계좌만 초기화하고 재개하지 않는다', async () => {
+  const plan = defaultPaperMarketPlan({ market: 'US', symbol: 'MSFT' });
+  plan.cash = { KRW: '0', USD: '500' };
+  plan.strategy.parameters = { fastPeriod: 3, slowPeriod: 10 };
+  const context = fixture(['--initialize', '--plan=local.json', '--plan-hash=' + contentHash(plan)]);
+  await runPaperMarket(context.config, context.dependencies, new AbortController().signal, () => {}, plan);
+  expect(context.dependencies.paper.createAccount).toHaveBeenCalledWith(
+    context.config.accountId,
+    expect.objectContaining({ cash: plan.cash }),
+    'toss-readonly',
+  );
+  expect(context.dependencies.paper.configureLimits.mock.calls[0]![2]).toEqual(plan.limits);
+  expect(context.dependencies.paper.configureStrategy.mock.calls[0]![2].definition).toEqual(plan.strategy);
+  expect(paperWorkerConfigSchema.parse(context.dependencies.createWorker.mock.calls[0]![0]).resume).toBe(false);
+});
+it('계획이 바뀌거나 없으면 마이그레이션·계좌·broker 접근 전에 차단한다', async () => {
+  const context = fixture(['--initialize', '--prepare', '--plan=local.json', '--plan-hash=' + '0'.repeat(64)]);
+  for (const input of [undefined, defaultPaperMarketPlan({ market: 'KR', symbol: '005930' })]) {
+    await expect(
+      runPaperMarket(context.config, context.dependencies, new AbortController().signal, () => {}, input),
+    ).rejects.toThrow();
+  }
+  expect(context.dependencies.prepare).not.toHaveBeenCalled();
+  expect(context.dependencies.withBrokerLease).not.toHaveBeenCalled();
+  expect(context.dependencies.paper.createAccount).not.toHaveBeenCalled();
+  expect(context.dependencies.createBroker).not.toHaveBeenCalled();
 });
 it('정의 hash 위조와 1페이지로 부족한 장기 기간은 인증 전에 차단한다', async () => {
   const { execute, dependencies, stored } = fixture();

@@ -15,6 +15,8 @@ export function parsePaperMarketConfig(args: string[], environment: Record<strin
         resume: { type: 'boolean', default: false },
         stop: { type: 'boolean', default: false },
         symbol: { type: 'string' },
+        plan: { type: 'string' },
+        'plan-hash': { type: 'string' },
         ticks: { type: 'string' },
         'share-dashboard': { type: 'boolean', default: false },
       },
@@ -32,6 +34,9 @@ export function parsePaperMarketConfig(args: string[], environment: Record<strin
           values.ticks ||
           values['share-dashboard'])) ||
       (values.resume && (values.initialize || values.prepare)) ||
+      (values.plan !== undefined &&
+        (!values.plan || !values.initialize || values.symbol !== undefined || values.stop || values.resume)) ||
+      Boolean(values.plan) !== Boolean(values['plan-hash']) ||
       (values.symbol && !values.initialize)
     )
       throw new Error('INVALID_FLAGS');
@@ -73,6 +78,14 @@ export function parsePaperMarketConfig(args: string[], environment: Record<strin
       resume: values.resume,
       stop: values.stop,
       shareDashboard: values['share-dashboard'],
+      planPath: values.plan,
+      planHash:
+        values['plan-hash'] === undefined
+          ? undefined
+          : z
+              .string()
+              .regex(/^[a-f0-9]{64}$/)
+              .parse(values['plan-hash']),
       instrument: { market: market as 'KR' | 'US', symbol: code! },
       ticks: z.coerce
         .number()

@@ -1,14 +1,18 @@
 import { BrokerError } from '@hth/broker';
 import { createTossReadonlyBroker } from '@hth/broker/toss';
-import { createDatabase } from '@hth/database';
+import { createDatabase, contentHash } from '@hth/database';
 import { migrateTestDatabase } from '@hth/database/testing';
 import { parsePaperMarketConfig } from './paper-market-config.js';
 import { runPaperMarket } from './paper-market-runtime.js';
 import { createPaperWorker } from './paper-worker.js';
 import { shareDashboardBroker } from './shared-dashboard-broker.js';
+import { readPaperMarketPlan, verifyPaperMarketPlan } from './paper-market-plan.js';
 
 async function main() {
   const config = parsePaperMarketConfig(process.argv.slice(2), process.env);
+  const plan = config.planPath
+    ? verifyPaperMarketPlan(await readPaperMarketPlan(config.planPath), config.planHash!)
+    : undefined;
   const database = createDatabase(config.paperUrl);
   const brokerDatabase = config.stop ? undefined : createDatabase(config.brokerUrl!);
   const controller = new AbortController();
@@ -26,6 +30,7 @@ async function main() {
       }),
     );
   try {
+    if (plan) report({ state: 'initialization-plan-verified', planHash: contentHash(plan) });
     await runPaperMarket(
       config,
       {
@@ -51,6 +56,7 @@ async function main() {
       },
       controller.signal,
       (status) => report({ ...status }),
+      plan,
     );
     report({ state: 'stopped' });
   } catch (error) {
@@ -65,6 +71,8 @@ async function main() {
 main().catch((error: unknown) => {
   const known = new Set([
     'PAPER_MARKET_CONFIGURATION_INVALID',
+    'PAPER_MARKET_PLAN_INVALID',
+    'PAPER_MARKET_PLAN_HASH_MISMATCH',
     'PAPER_SOURCE_MISMATCH',
     'BROKER_LEASE_BUSY',
     'BROKER_LEASE_LOST',

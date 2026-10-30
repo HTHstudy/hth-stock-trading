@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createDatabase } from '@hth/database';
+import { createDatabase, contentHash } from '@hth/database';
 import { migrateTestDatabase, testDatabaseUrl } from '@hth/database/testing';
 import { createHarness } from '../../../packages/broker/test/harness.js';
 import { parsePaperMarketConfig } from './paper-market-config.js';
@@ -9,6 +9,7 @@ import type { PaperMarketDependencies } from './paper-market-runtime.js';
 import { createPaperWorker } from './paper-worker.js';
 import { paperSyntheticSource } from './paper-synthetic-source.js';
 import type { PaperEvidence } from '@hth/contracts';
+import { defaultPaperMarketPlan } from './paper-market-plan.js';
 
 describe.skipIf(!process.env.TEST_DATABASE_URL)('실제 시세 Paper 명령의 DB 검증 (fixture broker)', () => {
   let database: ReturnType<typeof createDatabase>;
@@ -66,8 +67,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('실제 시세 Paper 명령의 D
       },
       createWorker: (value, source) => createPaperWorker(database.paper, value, source),
     };
-    const run = (flags: string[] = []) =>
-      runPaperMarket(config(flags), dependencies, new AbortController().signal, () => {});
+    const run = (flags: string[] = [], plan?: unknown) =>
+      runPaperMarket(config(flags), dependencies, new AbortController().signal, () => {}, plan);
     return { id, run, dependencies, brokerCreated: () => brokerCreated };
   }
   it('기본 관측은 정지 상태이며 기존 계좌 재초기화로 현금/조건을 바꾸지 않는다', async () => {
@@ -80,6 +81,24 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('실제 시세 Paper 명령의 D
     await expect(context.run(['--initialize'])).rejects.toThrow('PAPER_MARKET_ACCOUNT_EXISTS');
     expect((await database.paper.readAccount(context.id)).snapshot.cash).toEqual(before.snapshot.cash);
     expect(context.brokerCreated()).toBe(1);
+  });
+  it('계획의 실제 저장값과 정지·주문 없음을 확인하고 기존 계좌는 덮어쓰지 않는다', async () => {
+    const context = fixture();
+    const plan = defaultPaperMarketPlan({ market: 'KR', symbol: '005930' });
+    plan.cash = { KRW: '420000', USD: '0' };
+    plan.limits.KRW.maxOrderAmount = '42000';
+    plan.strategy.parameters = { fastPeriod: 3, slowPeriod: 10 };
+    const flags = ['--initialize', '--plan=fixture.json', '--plan-hash=' + contentHash(plan)];
+    await context.run(flags, plan);
+    const account = await database.paper.readAccount(context.id);
+    expect(account.snapshot.cash).toEqual(plan.cash);
+    expect(account.limits).toEqual(plan.limits);
+    expect(account.control.stopped).toBe(true);
+    expect(account.leaseUntil).toBeNull();
+    expect((await database.paper.readStrategies(context.id))[0]?.definition).toEqual(plan.strategy);
+    expect((await database.paper.readDashboard(context.id)).orders).toHaveLength(0);
+    await expect(context.run(flags, plan)).rejects.toThrow('PAPER_MARKET_ACCOUNT_EXISTS');
+    expect((await database.paper.readAccount(context.id)).snapshot.cash).toEqual(plan.cash);
   });
   it('오래된 시세로 resume하면 의도/체결 없이 중단하고 lease를 해제한다', async () => {
     const context = fixture();

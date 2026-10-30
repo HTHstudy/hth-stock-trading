@@ -9,6 +9,7 @@ import type { createPaperWorker } from './paper-worker.js';
 import type { PaperWorkerStatus } from './paper-worker.js';
 import { createPaperMarketSource } from './paper-market-source.js';
 import type { PaperMarketConfig } from './paper-market-config.js';
+import { defaultPaperMarketPlan, verifyPaperMarketPlan } from './paper-market-plan.js';
 
 type Database = ReturnType<typeof createDatabase>;
 type Paper = Pick<
@@ -36,8 +37,16 @@ export async function runPaperMarket(
   dependencies: PaperMarketDependencies,
   signal: AbortSignal,
   onTick: (status: PaperWorkerStatus) => void,
+  initializationPlan?: unknown,
 ) {
   signal.throwIfAborted();
+  if ((!config.initialize || !config.planPath) && initializationPlan !== undefined)
+    throw new Error('PAPER_MARKET_PLAN_INVALID');
+  const plan = config.initialize
+    ? config.planPath
+      ? verifyPaperMarketPlan(initializationPlan, config.planHash!)
+      : defaultPaperMarketPlan(config.instrument)
+    : undefined;
   if (config.prepare) await dependencies.prepare();
   signal.throwIfAborted();
   const paper = dependencies.paper;
@@ -60,7 +69,7 @@ export async function runPaperMarket(
         const created = await paper.createAccount(
           config.accountId,
           {
-            cash: { KRW: '1000000', USD: '1000' },
+            cash: plan!.cash,
             positions: [],
             observedAt: now,
             reconciled: false,
@@ -72,34 +81,12 @@ export async function runPaperMarket(
           'toss-readonly',
         );
         if (!created.created) throw new Error('PAPER_MARKET_ACCOUNT_EXISTS');
-        const version = await paper.configureLimits(config.accountId, 0, {
-          KRW: {
-            maxOrderAmount: '100000',
-            maxInstrumentAmount: '200000',
-            maxDailyLoss: '10000',
-            buyCostBps: '10',
-            sellCostBps: '30',
-          },
-          USD: {
-            maxOrderAmount: '100',
-            maxInstrumentAmount: '200',
-            maxDailyLoss: '10',
-            buyCostBps: '10',
-            sellCostBps: '30',
-          },
-          maxPositions: 5,
-        });
+        const version = await paper.configureLimits(config.accountId, 0, plan!.limits);
         await paper.configureStrategy(config.accountId, version, {
           id: 'market-ma',
-          version: movingAverageCross.version,
+          version: plan!.strategyVersion,
           enabled: true,
-          definition: {
-            kind: 'moving-average-cross',
-            instrument: config.instrument,
-            parameters: { fastPeriod: 5, slowPeriod: 20 },
-            quantity: '1',
-            maxFillQuantity: '1',
-          },
+          definition: plan!.strategy,
         });
       }
       const stored = await paper.readStrategies(config.accountId);
