@@ -39,7 +39,7 @@ corepack pnpm market:observe --symbols=US:AAPL --samples=60 --interval-seconds=6
 
 `--start-at`은 `--regular-only`와 함께만 사용하며 최대 36시간 뒤까지 기다린다. 대기 중에는 DB 연결·토큰 발급·잠금·관측 파일을 만들지 않는다. 30초 이하 간격으로 시각과 취소를 확인하며 시작을 2분 넘게 놓치면 `OBSERVATION_START_MISSED`로 종료한다. 절전 해제 후 잘못된 세션을 대신 수집하지 않는다. SIGINT/SIGTERM은 대기를 취소한다. 반복 일정·자동 재시작·절전 해제 기능은 없다.
 
-백그라운드로 실행할 때도 PC와 DB가 관측 시간에 실행 중이어야 한다. 예약 대기는 로그의 `waiting`으로 확인하고, 시세 관측 화면에는 실제 시작 후 생성된 실행만 보인다. 실패 시 자동 재시도하지 않는다. 시작 시 같은 client의 다른 수집이 잠금을 보유하면 기존 `BROKER_LEASE_BUSY` 정책으로 종료한다. 실제 수집 동안에는 기존 timeout·취소·오류 중단 정책을 유지한다.
+백그라운드로 실행할 때도 PC와 DB가 관측 시간에 실행 중이어야 한다. 예약 대기는 로그의 `waiting`과 [예약 기록 화면](OBSERVATION_JOBS.md)에서 확인한다. 실제 수집 리포트는 시작 후 생성된다. 실패 시 자동 재시도하지 않는다. 시작 시 같은 client의 다른 수집이 잠금을 보유하면 기존 `BROKER_LEASE_BUSY` 정책으로 종료한다. 실제 수집 동안에는 기존 timeout·취소·오류 중단 정책을 유지한다.
 
 ## 토큰과 수명
 
