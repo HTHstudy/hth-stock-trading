@@ -1,7 +1,7 @@
 import { BrokerError } from '@hth/broker';
 import { createTossReadonlyBroker } from '@hth/broker/toss';
 import { createDatabase, contentHash } from '@hth/database';
-import { migrateTestDatabase } from '@hth/database/testing';
+import { assertDedicatedPaperDatabase, migrateTestDatabase } from '@hth/database/testing';
 import { parsePaperMarketConfig } from './paper-market-config.js';
 import { runPaperMarket } from './paper-market-runtime.js';
 import { createPaperWorker } from './paper-worker.js';
@@ -30,6 +30,11 @@ async function main() {
       }),
     );
   try {
+    await assertDedicatedPaperDatabase(
+      database,
+      config.paperUrl,
+      process.env.LOCAL_CONTAINER_MODE === 'true' && process.env.NODE_ENV === 'production',
+    );
     if (plan) report({ state: 'initialization-plan-verified', planHash: contentHash(plan) });
     await runPaperMarket(
       config,

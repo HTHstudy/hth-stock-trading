@@ -1,10 +1,10 @@
+import { initializeSyntheticPaper } from './paper-synthetic-account.js';
 import { randomUUID } from 'node:crypto';
 import { parseArgs } from 'node:util';
 import { z } from 'zod';
 import { paperModeSchema } from '@hth/contracts';
 import { createDatabase } from '@hth/database';
 import { migrateTestDatabase, testDatabaseUrl } from '@hth/database/testing';
-import { marketTradingDate, movingAverageCross } from '@hth/trading';
 import { createPaperWorker } from './paper-worker.js';
 import { createPaperSyntheticSource } from './paper-synthetic-source.js';
 
@@ -49,53 +49,7 @@ async function main() {
       report({ state: 'stopped' });
       return;
     }
-    const now = new Date().toISOString();
-    const created = await database.paper.createAccount(
-      id,
-      {
-        cash: { KRW: '15000', USD: '1000' },
-        positions: [],
-        observedAt: now,
-        reconciled: false,
-        dailyPnl: {
-          KRW: { tradingDate: marketTradingDate(Date.parse(now), 'KR'), netPnl: '0' },
-          USD: { tradingDate: marketTradingDate(Date.parse(now), 'US'), netPnl: '0' },
-        },
-      },
-      'synthetic-only',
-    );
-    if (created.created) {
-      const limits = {
-        KRW: {
-          maxOrderAmount: '100000',
-          maxInstrumentAmount: '200000',
-          maxDailyLoss: '10000',
-          buyCostBps: '10',
-          sellCostBps: '30',
-        },
-        USD: {
-          maxOrderAmount: '1000',
-          maxInstrumentAmount: '2000',
-          maxDailyLoss: '100',
-          buyCostBps: '10',
-          sellCostBps: '30',
-        },
-        maxPositions: 5,
-      };
-      const version = await database.paper.configureLimits(id, 0, limits);
-      await database.paper.configureStrategy(id, version, {
-        id: 'demo-ma',
-        version: movingAverageCross.version,
-        enabled: true,
-        definition: {
-          kind: 'moving-average-cross',
-          instrument: { market: 'KR', symbol: '005930' },
-          parameters: { fastPeriod: 1, slowPeriod: 2 },
-          quantity: '2',
-          maxFillQuantity: '1',
-        },
-      });
-    }
+    await initializeSyntheticPaper(database, id);
     const strategies = (await database.paper.readStrategies(id)).map((strategy) => ({
       id: strategy.id,
       instrument: strategy.definition?.instrument ?? { market: 'KR' as const, symbol: '005930' },

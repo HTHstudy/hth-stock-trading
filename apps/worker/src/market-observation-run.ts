@@ -76,7 +76,18 @@ async function main() {
               readLifetime.addEventListener('abort', () => lifetime.abort(), { once: true });
               return broker ? createPaperMarketSource(broker, 1) : createPaperSyntheticSource(21);
             },
-            record: output.record,
+            record: async (value) => {
+              await output.record(value);
+              if (process.env.WORKER_REPORT_PROGRESS === '1')
+                console.info(
+                  JSON.stringify({
+                    service: 'worker-observation-progress',
+                    state: 'observing',
+                    samples: value.index,
+                    executionEnabled: false,
+                  }),
+                );
+            },
           },
           signal,
         );

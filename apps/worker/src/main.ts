@@ -1,17 +1,21 @@
-import { paperModeSchema } from '@hth/contracts';
-
-try {
-  const mode = paperModeSchema.parse(process.env.TRADING_MODE);
-  console.info(JSON.stringify({ service: 'worker', mode, state: 'idle', executionEnabled: false }));
-
-  const keepAlive = setInterval(() => {}, 60_000);
-  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-    process.once(signal, () => {
-      clearInterval(keepAlive);
-      console.info(JSON.stringify({ service: 'worker', state: 'stopped' }));
-    });
+import { localComposeEnvironment } from '@hth/database/testing';
+import { parseWorkerServiceConfig } from './worker-service-config.js';
+import { runWorkerService } from './worker-service.js';
+async function main() {
+  Object.assign(process.env, localComposeEnvironment(process.env));
+  const config = parseWorkerServiceConfig(process.env);
+  const controller = new AbortController();
+  const stop = () => controller.abort();
+  process.once('SIGINT', stop);
+  process.once('SIGTERM', stop);
+  try {
+    await runWorkerService(config, controller.signal);
+  } finally {
+    process.removeListener('SIGINT', stop);
+    process.removeListener('SIGTERM', stop);
   }
-} catch {
-  console.error('Worker startup failed. Only paper mode is supported.');
-  process.exitCode = 1;
 }
+main().catch(() => {
+  console.error(JSON.stringify({ service: 'worker-service', code: 'WORKER_SERVICE_FAILED', executionEnabled: false }));
+  process.exitCode = 1;
+});

@@ -1,7 +1,7 @@
 import { parseArgs } from 'node:util';
 import { z } from 'zod';
 import { paperModeSchema } from '@hth/contracts';
-import { testDatabaseUrl } from '@hth/database/testing';
+import { dedicatedPaperDatabaseUrl } from '@hth/database/testing';
 
 export function parsePaperMarketConfig(args: string[], environment: Record<string, string | undefined>) {
   try {
@@ -45,7 +45,10 @@ export function parsePaperMarketConfig(args: string[], environment: Record<strin
       .regex(/^(KR|US):[A-Z0-9.-]{1,40}$/)
       .parse(values.symbol ?? 'KR:005930');
     const [market, code] = symbol.split(':');
-    const paperUrl = testDatabaseUrl(environment.PAPER_MARKET_DATABASE_URL ?? '');
+    const paperUrl = dedicatedPaperDatabaseUrl(
+      environment.PAPER_MARKET_DATABASE_URL,
+      environment.LOCAL_CONTAINER_MODE === 'true' && environment.NODE_ENV === 'production',
+    );
     const target = new URL(paperUrl);
     if (!['postgres:', 'postgresql:'].includes(target.protocol) || target.search || target.hash)
       throw new Error('INVALID_DATABASE');
