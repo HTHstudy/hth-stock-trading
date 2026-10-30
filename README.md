@@ -142,3 +142,5 @@ Paper 리스크 검증 기반도 구현했습니다. `corepack pnpm risk:demo`�
 같은 화면 위쪽의 **정규장 관측 예약 기록**에서 시작 누락 실패와 결과 미확인을 구분합니다. 완료 로그의 데이터 품질은 리포트에서 별도로 확인합니다. [예약 상태의 의미](docs/OBSERVATION_JOBS.md)
 
 계좌 현황의 **관심종목 관리**에서 조회할 종목을 직접 저장할 수 있습니다. 저장 후 상단 새로고침으로 반영하며 매매 전략/관측 CLI 종목과는 별개입니다. 빈 목록도 유지합니다. [저장·충돌·범위](docs/WATCHLIST.md)
+
+실제 시세 Paper의 자금·전략·한도 미리보기는 `corepack pnpm paper:plan --plan=examples/paper-market-kr-plan.json`으로 확인합니다. [계획 검토와 새 계좌 초기화](docs/PAPER_MARKET_PLAN.md)를 따르며 미리보기로 관측이나 거래를 시작하지 않습니다.

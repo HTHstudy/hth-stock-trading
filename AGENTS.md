@@ -64,3 +64,5 @@
 - 새 의존성을 추가하면 목적과 대안을 문서에 기록한다.
 - 검증 명령: `corepack pnpm lint`, `corepack pnpm typecheck`, `corepack pnpm test`, `corepack pnpm build`, `corepack pnpm format:check`.
 - lockfile을 유지한다. 커밋·배포·마이그레이션 실행은 자동으로 수행하지 않는다.
+
+- 실제 시세 Paper 계획은 `docs/PAPER_MARKET_PLAN.md`를 따른다. 미리보기는 키/DB 없이 실행하고 적용은 새 계좌 초기화에만 허용한다. 계획 hash를 I/O 전에 검증하며 재개/기존 계좌 변경에 재사용하지 않는다. hash를 운용 승인으로 표현하지 않는다.
