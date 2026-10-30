@@ -2,15 +2,21 @@ import { createWatchlistStore, environmentWatchlist } from './watchlist-store.js
 import { createApp } from './app.js';
 import { createOwnerAuth } from './owner-auth.js';
 import { createDatabase } from '@hth/database';
-import { testDatabaseUrl } from '@hth/database/testing';
+import {
+  assertDedicatedPaperDatabase,
+  dedicatedPaperDatabaseUrl,
+  localComposeEnvironment,
+} from '@hth/database/testing';
 import { createPaperDashboard } from './paper-dashboard.js';
 import { fileURLToPath } from 'node:url';
 import { createObservationReports } from './observation-reports.js';
 import { createBacktestReports } from './backtest-reports.js';
 import { parseApiConfig } from './config.js';
 import { createDashboardService, loadDashboardFromWorker } from './dashboard-service.js';
+import { createWorkerStatus } from './worker-status.js';
 
 async function main() {
+  Object.assign(process.env, localComposeEnvironment(process.env));
   const config = parseApiConfig(process.env);
   const localAccess =
     (config.NODE_ENV !== 'production' || config.LOCAL_CONTAINER_MODE) &&
@@ -46,15 +52,22 @@ async function main() {
         fileURLToPath(new URL('../../../.local-data/scheduled-observations', import.meta.url)),
       )
     : undefined;
-  const paper = config.PAPER_DASHBOARD_ENABLED
+  const paperUrl =
+    config.PAPER_DASHBOARD_KIND === 'market' ? config.PAPER_MARKET_DATABASE_URL : config.PAPER_DEMO_DATABASE_URL;
+  const paperDatabase = config.PAPER_DASHBOARD_ENABLED
+    ? createDatabase(dedicatedPaperDatabaseUrl(paperUrl, config.LOCAL_CONTAINER_MODE))
+    : undefined;
+  if (paperDatabase) {
+    try {
+      await assertDedicatedPaperDatabase(paperDatabase, paperUrl!, config.LOCAL_CONTAINER_MODE);
+    } catch (error) {
+      await paperDatabase.close();
+      throw error;
+    }
+  }
+  const paper = paperDatabase
     ? createPaperDashboard(
-        createDatabase(
-          testDatabaseUrl(
-            (config.PAPER_DASHBOARD_KIND === 'market'
-              ? config.PAPER_MARKET_DATABASE_URL
-              : config.PAPER_DEMO_DATABASE_URL)!,
-          ),
-        ),
+        paperDatabase,
         (config.PAPER_DASHBOARD_KIND === 'market' ? config.PAPER_MARKET_ACCOUNT_ID : config.PAPER_DEMO_ACCOUNT_ID)!,
         config.PAPER_DASHBOARD_KIND === 'market' ? 'toss-readonly' : 'synthetic-only',
       )
@@ -68,6 +81,9 @@ async function main() {
     createOwnerAuth(config.OWNER_PASSWORD_HASH),
     observations,
     watchlist,
+    localAccess
+      ? createWorkerStatus(fileURLToPath(new URL('../../../.local-data/runtime', import.meta.url)))
+      : undefined,
   );
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {

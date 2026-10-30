@@ -4,6 +4,7 @@ import { OBSERVATIONS_API } from '@shared/api/observations';
 import { formatTime } from '@shared/lib/format';
 import { ScheduledJobs } from './scheduled-jobs';
 import { CollectionMonitor } from './collection-monitor';
+import { WorkerRuntimePanel } from './worker-runtime';
 
 const states = { completed: '관측 종료', failed: '중단·실패', cancelled: '취소', incomplete: '진행 중 또는 미완료' };
 const sourceLabel = (source: 'toss-readonly' | 'synthetic-only') =>
@@ -73,6 +74,7 @@ export function ObservationsPage() {
         시장 데이터만 검사한 기록입니다. 관측 종료는 전략·계좌·리스크 검증이나 매매 승인이 아닙니다. 이 화면에서 시세
         수집이나 거래를 시작하지 않습니다.
       </p>
+      <WorkerRuntimePanel />
       {jobs.isPending && (
         <p role="status" className="mb-5 text-xs text-slate-500">
           예약 실행 기록을 읽고 있습니다…

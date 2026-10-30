@@ -13,6 +13,7 @@ import {
   paperDashboardStateSchema,
   paperStopAcknowledgementSchema,
   ownerLoginSchema,
+  workerStatusSchema,
   ownerSessionSchema,
   paperStrategyUpdateSchema,
   paperStrategyAcknowledgementSchema,
@@ -25,6 +26,7 @@ import type { PaperDashboard } from './paper-dashboard.js';
 import type { OwnerAuth } from './owner-auth.js';
 import type { WatchlistStore } from './watchlist-store.js';
 import type { ObservationReports } from './observation-reports.js';
+import type { WorkerStatusReader } from './worker-status.js';
 
 export function createApp(
   logLevel = 'silent',
@@ -35,6 +37,7 @@ export function createApp(
   owner?: OwnerAuth,
   observations?: ObservationReports,
   watchlist?: WatchlistStore,
+  workerStatus?: WorkerStatusReader,
 ) {
   const app = Fastify({
     logger: {
@@ -62,9 +65,14 @@ export function createApp(
   );
 
   app.addHook('onRequest', async (request, reply) => {
-    const privateRoute = ['/v1/dashboard', '/v1/backtests', '/v1/paper', '/v1/observations', '/v1/watchlist'].some(
-      (path) => request.url.startsWith(path),
-    );
+    const privateRoute = [
+      '/v1/dashboard',
+      '/v1/backtests',
+      '/v1/paper',
+      '/v1/observations',
+      '/v1/watchlist',
+      '/v1/worker',
+    ].some((path) => request.url.startsWith(path));
     if (!privateRoute && !request.url.startsWith('/v1/auth')) return;
     reply.header('Cache-Control', 'no-store, private');
     reply.header('X-Content-Type-Options', 'nosniff');
@@ -90,6 +98,12 @@ export function createApp(
     return ownerSessionSchema.parse(
       owner?.read(request.headers.cookie) ?? { configured: false, authenticated: false, expiresAt: null },
     );
+  });
+  app.get('/v1/worker', async (request, reply) => {
+    if (!z.object({}).strict().safeParse(request.query).success)
+      return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (!workerStatus) return reply.code(503).send({ error: { code: 'WORKER_STATUS_UNAVAILABLE' } });
+    return workerStatusSchema.parse(await workerStatus.get());
   });
   app.post('/v1/auth/login', { bodyLimit: 2048 }, async (request, reply) => {
     const input = ownerLoginSchema.safeParse(request.body);

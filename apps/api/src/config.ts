@@ -1,5 +1,5 @@
 import { paperModeSchema } from '@hth/contracts';
-import { testDatabaseUrl } from '@hth/database/testing';
+import { dedicatedPaperDatabaseUrl } from '@hth/database/testing';
 import { z } from 'zod';
 import { ownerHashPattern } from './owner-auth.js';
 
@@ -63,7 +63,7 @@ const configSchema = z
       const account = market ? config.PAPER_MARKET_ACCOUNT_ID : config.PAPER_DEMO_ACCOUNT_ID;
       try {
         if (!url || !account) throw new Error('MISSING_CONFIGURATION');
-        testDatabaseUrl(url);
+        dedicatedPaperDatabaseUrl(url, config.LOCAL_CONTAINER_MODE);
         const target = new URL(url);
         if (!['postgres:', 'postgresql:'].includes(target.protocol) || target.search || target.hash)
           throw new Error('UNSAFE_DATABASE');
