@@ -121,6 +121,35 @@ export const observationFailureSchema = observationManifestSchema.safeExtend({
     })
     .strict(),
 });
+export const observationMonitoringSchema = z
+  .object({
+    asOf: z.iso.datetime({ offset: true }),
+    evidence: z.enum(['provisional', 'final-hash-verified']),
+    state: z.enum(['recent', 'overdue', 'awaiting-finalization', 'terminal', 'clock-unverified']),
+    lastRecordedAt: z.iso.datetime({ offset: true }).nullable(),
+    lastSuccessfulAt: z.iso.datetime({ offset: true }).nullable(),
+    deadlineAt: z.iso.datetime({ offset: true }).nullable(),
+    graceMs: duration,
+    gapCount: count,
+    maxWaitMs: duration,
+    maxExcessWaitMs: duration,
+    recentGaps: z
+      .array(
+        z
+          .object({
+            afterIndex: z.number().int().positive(),
+            beforeIndex: z.number().int().positive(),
+            from: z.iso.datetime({ offset: true }),
+            to: z.iso.datetime({ offset: true }),
+            waitMs: duration,
+            excessWaitMs: duration,
+          })
+          .strict(),
+      )
+      .max(10),
+    partialWrite: z.boolean(),
+  })
+  .strict();
 const viewFields = {
   manifest: observationManifestSchema,
   state: z.enum(['completed', 'cancelled', 'failed', 'incomplete']),
@@ -129,17 +158,27 @@ const viewFields = {
   summary: observationSummarySchema.nullable(),
   failureCode: observationFailureSchema.shape.failure.shape.code.nullable(),
   recordedSamples: count,
+  monitoring: observationMonitoringSchema.nullable().default(null),
 };
 const viewSchema = z.object(viewFields).strict();
 function validView(value: z.infer<typeof viewSchema>) {
   if (value.recordedSamples > value.manifest.samples) return false;
+  if (value.monitoring) {
+    if (value.monitoring.evidence !== (value.state === 'incomplete' ? 'provisional' : 'final-hash-verified'))
+      return false;
+    if ((value.recordedSamples === 0) !== (value.monitoring.lastRecordedAt === null)) return false;
+    if (value.monitoring.gapCount > Math.max(0, value.recordedSamples - 1)) return false;
+    if (value.state !== 'incomplete' && !['terminal', 'clock-unverified'].includes(value.monitoring.state))
+      return false;
+    if (value.state === 'incomplete' && value.monitoring.state === 'terminal') return false;
+  }
   if (value.state === 'incomplete')
     return (
       value.summary === null &&
       value.journalSha256 === null &&
       value.finishedAt === null &&
       value.failureCode === null &&
-      value.recordedSamples === 0
+      (value.recordedSamples === 0 || value.monitoring?.evidence === 'provisional')
     );
   if (value.journalSha256 === null || value.finishedAt === null) return false;
   if (value.summary)

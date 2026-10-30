@@ -15,6 +15,7 @@ import {
 import type { ObservationReport, ObservationRecord, ObservationList } from '@hth/contracts';
 import { contentHash } from '@hth/database';
 import { createObservationJobs } from './observation-jobs.js';
+import { observationMonitoring } from './observation-monitoring.js';
 
 const maxJournal = 32 * 1048576;
 const key = (item: { market: string; symbol: string }) => `${item.market}:${item.symbol}`;
@@ -76,7 +77,7 @@ function aggregate(records: ObservationRecord[], status: 'completed' | 'cancelle
   }
   return result;
 }
-export function createObservationReports(directory: string, jobsDirectory?: string) {
+export function createObservationReports(directory: string, jobsDirectory?: string, now: () => number = Date.now) {
   const root = resolve(directory);
   async function read(path: string, limit: number, charge?: (size: number) => void) {
     const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
@@ -140,7 +141,32 @@ export function createObservationReports(directory: string, jobsDirectory?: stri
       recentSamples: [],
       samplesLimited: false,
     };
-    if (!complete && !failed) return { report: observationReportSchema.parse(base), bytes: manifestBytes.length };
+    if (!complete && !failed) {
+      let journal: Buffer;
+      try {
+        journal = await read(join(folder, 'samples.jsonl'), maxJournal, charge);
+      } catch (error) {
+        if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+        journal = Buffer.alloc(0);
+      }
+      // A running writer may have appended part of its last line. Only complete
+      // newline-terminated records are usable provisional evidence.
+      const end = journal.lastIndexOf(10) + 1;
+      if (journal.length - end > 8192) throw new Error('INVALID_OBSERVATION');
+      const records = parseRecords(journal.subarray(0, end).toString('utf8'));
+      if ((await realpath(folder)) !== join(canonicalRoot, id) || (await realpath(root)) !== canonicalRoot)
+        throw new Error('INVALID_OBSERVATION');
+      return {
+        report: observationReportSchema.parse({
+          ...base,
+          recordedSamples: records.length,
+          recentSamples: records.slice(-50),
+          samplesLimited: records.length > 50,
+          monitoring: observationMonitoring(manifest, records, false, now(), end < journal.length),
+        }),
+        bytes: manifestBytes.length + journal.length,
+      };
+    }
     const terminalBytes = await read(join(folder, complete ? 'summary.json' : 'failure.json'), 262144, charge);
     const terminal = complete
       ? observationArtifactSchema.parse(JSON.parse(terminalBytes.toString('utf8')))
@@ -152,22 +178,25 @@ export function createObservationReports(directory: string, jobsDirectory?: stri
     if (createHash('sha256').update(journal).digest('hex') !== journalSha256) throw new Error('INVALID_OBSERVATION');
     const raw = journal.toString('utf8');
     if (raw && !raw.endsWith('\n')) throw new Error('INVALID_OBSERVATION');
-    const lines = raw ? raw.slice(0, -1).split('\n') : [];
-    if (lines.length > manifest.samples) throw new Error('INVALID_OBSERVATION');
-    const records = lines.map((line, index) => {
-      const record = observationRecordSchema.parse(JSON.parse(line));
-      if (record.index !== index + 1) throw new Error('INVALID_OBSERVATION');
-      const keys = new Set(record.instruments.map((item) => key(item.instrument)));
-      if (
-        record.error
-          ? record.instruments.length !== 0
-          : keys.size !== manifest.instruments.length ||
-            keys.size !== record.instruments.length ||
-            manifest.instruments.some((item) => !keys.has(key(item)))
-      )
-        throw new Error('INVALID_OBSERVATION');
-      return record;
-    });
+    const records = parseRecords(raw);
+    function parseRecords(raw: string) {
+      const lines = raw ? raw.slice(0, -1).split('\n') : [];
+      if (lines.length > manifest.samples) throw new Error('INVALID_OBSERVATION');
+      return lines.map((line, index) => {
+        const record = observationRecordSchema.parse(JSON.parse(line));
+        if (record.index !== index + 1) throw new Error('INVALID_OBSERVATION');
+        const keys = new Set(record.instruments.map((item) => key(item.instrument)));
+        if (
+          record.error
+            ? record.instruments.length !== 0
+            : keys.size !== manifest.instruments.length ||
+              keys.size !== record.instruments.length ||
+              manifest.instruments.some((item) => !keys.has(key(item)))
+        )
+          throw new Error('INVALID_OBSERVATION');
+        return record;
+      });
+    }
     if (
       summary &&
       (contentHash(aggregate(records, summary.status)) !== contentHash(summary) ||
@@ -188,6 +217,7 @@ export function createObservationReports(directory: string, jobsDirectory?: stri
         recordedSamples: records.length,
         recentSamples: records.slice(-50),
         samplesLimited: records.length > 50,
+        monitoring: observationMonitoring(manifest, records, true, now()),
       }),
       bytes: manifestBytes.length + terminalBytes.length + journal.length,
     };
@@ -196,7 +226,7 @@ export function createObservationReports(directory: string, jobsDirectory?: stri
   let loading: Promise<ObservationList> | undefined;
   return {
     async list(): Promise<ObservationList> {
-      if (cached && cached.until > Date.now()) return cached.list;
+      if (cached && cached.until > now()) return cached.list;
       if (loading) return loading;
       loading = (async () => {
         const reports: ObservationList['reports'] = [];
@@ -226,7 +256,7 @@ export function createObservationReports(directory: string, jobsDirectory?: stri
                 limited = true;
                 break;
               }
-              const { manifest, state, finishedAt, journalSha256, summary, failureCode, recordedSamples } =
+              const { manifest, state, finishedAt, journalSha256, summary, failureCode, recordedSamples, monitoring } =
                 result.report;
               reports.push(
                 observationListItemSchema.parse({
@@ -237,6 +267,7 @@ export function createObservationReports(directory: string, jobsDirectory?: stri
                   summary,
                   failureCode,
                   recordedSamples,
+                  monitoring,
                 }),
               );
             } catch {
@@ -254,7 +285,7 @@ export function createObservationReports(directory: string, jobsDirectory?: stri
             a.manifest.id.localeCompare(b.manifest.id),
         );
         const list = observationListSchema.parse({ reports, rejectedCount, limited });
-        cached = { until: Date.now() + 5000, list };
+        cached = { until: now() + 5000, list };
         return list;
       })();
       try {

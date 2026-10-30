@@ -32,6 +32,7 @@ export {
   observationFailureSchema,
   observationListItemSchema,
   observationReportSchema,
+  observationMonitoringSchema,
   observationListSchema,
 } from './observation.js';
 export type { ObservationRecord, ObservationReport, ObservationList } from './observation.js';

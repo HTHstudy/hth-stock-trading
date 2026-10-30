@@ -127,8 +127,8 @@ it('미완료와 상위 실행 실패를 정상 종료로 표시하지 않는다
     state: 'incomplete',
     summary: null,
     journalSha256: null,
-    recordedSamples: 0,
-    recentSamples: [],
+    recordedSamples: 1,
+    monitoring: { evidence: 'provisional' },
   });
   await writeFile(
     join(context.directory, 'failure.json'),
@@ -249,4 +249,107 @@ it('대량 목록은 제한을 표시하고 상세 조회는 캐시와 무관하
   expect(result.limited).toBe(true);
   expect(result.reports).toHaveLength(50);
   expect(result.reports.every((item) => item.state === 'incomplete' && item.summary === null)).toBe(true);
+});
+
+it('미완료 journal의 전체 줄만 임시 기록으로 읽고 지연과 마지막 성공을 구분한다', async () => {
+  const context = await fixture(3);
+  await rm(join(context.directory, 'summary.json'));
+  const failed = {
+    ...context.record,
+    index: 2,
+    startedAt: '2026-03-25T01:00:11Z',
+    finishedAt: '2026-03-25T01:00:12Z',
+    error: 'NETWORK_ERROR',
+    instruments: [],
+  };
+  await writeFile(
+    join(context.directory, 'samples.jsonl'),
+    JSON.stringify(context.record) + '\n' + JSON.stringify(failed) + '\n' + '{"index":3',
+  );
+  let now = Date.parse('2026-03-25T01:01:05Z');
+  const service = createObservationReports(context.root, undefined, () => now);
+  const report = await service.get(context.id);
+  expect(report).toMatchObject({
+    state: 'incomplete',
+    recordedSamples: 2,
+    summary: null,
+    journalSha256: null,
+    monitoring: {
+      state: 'overdue',
+      evidence: 'provisional',
+      partialWrite: true,
+      lastRecordedAt: failed.finishedAt,
+      lastSuccessfulAt: context.record.finishedAt,
+      deadlineAt: '2026-03-25T01:01:02.000Z',
+    },
+  });
+  expect(report.recentSamples).toHaveLength(2);
+  expect((await service.list()).reports[0]?.monitoring?.state).toBe('overdue');
+  now = Date.parse('2026-03-25T01:01:02Z');
+  expect((await service.get(context.id)).monitoring?.state).toBe('recent');
+  now += 1;
+  expect((await service.get(context.id)).monitoring?.state).toBe('overdue');
+});
+
+it('정상 품질의 완료 기록도 수집 공백을 보존하고 오래됐다고 실행 중 지연으로 바꾸지 않는다', async () => {
+  const context = await fixture(2);
+  const later = { ...context.record, index: 2, startedAt: '2026-03-25T01:20:00Z', finishedAt: '2026-03-25T01:20:01Z' };
+  const journal = JSON.stringify(context.record) + '\n' + JSON.stringify(later) + '\n';
+  await writeFile(join(context.directory, 'samples.jsonl'), journal);
+  await writeFile(
+    join(context.directory, 'summary.json'),
+    JSON.stringify({
+      ...context.artifact,
+      finishedAt: '2026-03-25T01:20:02Z',
+      journalSha256: createHash('sha256').update(journal).digest('hex'),
+    }),
+  );
+  const report = await createObservationReports(context.root, undefined, () => Date.parse('2026-03-26T01:30:00Z')).get(
+    context.id,
+  );
+  expect(report).toMatchObject({
+    state: 'completed',
+    summary: { healthy: 2 },
+    monitoring: {
+      state: 'terminal',
+      evidence: 'final-hash-verified',
+      gapCount: 1,
+      maxWaitMs: 1199000,
+      maxExcessWaitMs: 1189000,
+    },
+  });
+  expect(report.monitoring?.recentGaps[0]).toMatchObject({ afterIndex: 1, beforeIndex: 2 });
+});
+
+it('미완료 기록도 순서·종목·비공개 필드·크기 검증을 우회할 수 없다', async () => {
+  for (const change of ['sequence', 'symbol', 'private', 'partial-size']) {
+    const context = await fixture(2);
+    await rm(join(context.directory, 'summary.json'));
+    const bad = structuredClone(context.record);
+    if (change === 'sequence') bad.index = 2;
+    if (change === 'symbol') bad.instruments[0]!.instrument.symbol = 'OTHER';
+    await writeFile(
+      join(context.directory, 'samples.jsonl'),
+      change === 'partial-size'
+        ? 'x'.repeat(8193)
+        : JSON.stringify(change === 'private' ? { ...bad, accessToken: 'PRIVATE_KEY' } : bad) + '\n',
+    );
+    await expect(context.service.get(context.id)).rejects.toThrow('OBSERVATION_NOT_FOUND');
+  }
+});
+
+it('초기 빈 기록·완료 요약 대기·시각 불확실 상태를 종료나 프로세스 상태로 추정하지 않는다', async () => {
+  const context = await fixture();
+  await rm(join(context.directory, 'summary.json'));
+  const service = createObservationReports(context.root, undefined, () => Date.parse('2026-03-25T01:00:02Z'));
+  expect((await service.get(context.id)).monitoring?.state).toBe('awaiting-finalization');
+  await writeFile(join(context.directory, 'samples.jsonl'), '');
+  expect(await service.get(context.id)).toMatchObject({
+    recordedSamples: 0,
+    monitoring: { state: 'recent', lastRecordedAt: null },
+  });
+  const future = createObservationReports(context.root, undefined, () => Date.parse('2026-03-24T01:00:00Z'));
+  expect((await future.get(context.id)).monitoring?.state).toBe('clock-unverified');
+  await rm(join(context.directory, 'samples.jsonl'));
+  expect((await service.get(context.id)).recordedSamples).toBe(0);
 });
