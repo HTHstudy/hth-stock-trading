@@ -11,6 +11,7 @@ const errors: Record<string, string> = {
   PERMISSION_DENIED: '토스 Open API의 허용 IP와 접근 권한을 확인해주세요.',
   AUTHENTICATION_FAILED: '토스 인증에 실패했습니다. 서버의 API 키 설정을 확인해주세요.',
   BROKER_LEASE_BUSY: '다른 조회 작업이 실행 중입니다. 잠시 후 다시 시도해주세요.',
+  DASHBOARD_SHARE_UNAVAILABLE: '관측 worker의 공유 조회 연결을 확인하지 못했습니다. 실행 상태를 확인해 주세요.',
   RATE_LIMITED: '토스 호출 한도에 도달했습니다. 잠시 후 다시 조회해주세요.',
   NETWORK_ERROR: '토스 서버에 연결할 수 없습니다. 네트워크를 확인해주세요.',
   TIMEOUT: '조회 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요.',

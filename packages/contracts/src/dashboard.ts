@@ -89,6 +89,7 @@ export const dashboardErrorSchema = z.enum([
   'BROKER_LEASE_LOST',
   'REFRESH_TIMEOUT',
   'WORKER_ERROR',
+  'DASHBOARD_SHARE_UNAVAILABLE',
 ]);
 
 export const dashboardStateSchema = z.object({

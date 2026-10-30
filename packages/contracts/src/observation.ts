@@ -116,6 +116,7 @@ export const observationFailureSchema = observationManifestSchema.safeExtend({
         'MARKET_OBSERVATION_CONFIGURATION_INVALID',
         'OBSERVATION_START_MISSED',
         'OBSERVATION_SESSION_UNAVAILABLE',
+        'DASHBOARD_SHARE_UNAVAILABLE',
       ]),
     })
     .strict(),
