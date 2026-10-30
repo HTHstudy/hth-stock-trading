@@ -1,4 +1,6 @@
 import { z } from 'zod';
+export { workerRuntimeSchema, workerStatusSchema } from './worker-status.js';
+export type { WorkerRuntime, WorkerStatus } from './worker-status.js';
 export {
   paperDiagnosticCodeSchema,
   paperDiagnosticReportSchema,

@@ -8,6 +8,12 @@ import { createPaperLedger } from './paper-ledger.js';
 
 export function createDatabase(connectionString: string) {
   const pool = new pg.Pool({ connectionString, max: 5, connectionTimeoutMillis: 5000, query_timeout: 10_000 });
+  pool.on('error', () => {
+    // pg removes the failed idle client itself. Never emit its Error/client
+    // object: they can contain connection credentials. Queries still reject,
+    // and borrowed broker leases retain their own connection-loss fencing.
+    console.error(JSON.stringify({ service: 'database', code: 'DATABASE_IDLE_CONNECTION_LOST' }));
+  });
   const db = drizzle(pool, { schema });
   return {
     db,
