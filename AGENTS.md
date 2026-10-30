@@ -42,6 +42,7 @@
 - 비즈니스 로직은 순수 함수로 작성하고 I/O와 분리한다. 불필요한 클래스·서비스·의존성을 추가하지 않는다.
 - Toss endpoint/DTO를 추측하지 않는다. `docs/TOSS_API.md`의 공식 OpenAPI/AsyncAPI를 재확인한다.
 - token manager는 worker가 소유한다. 실제 연결 명령은 같은 DB에서 client별 advisory lock을 획득한 뒤 실행한다.
+- 공유 대시보드는 `docs/SHARED_DASHBOARD.md`를 따른다. broker 잠금 owner가 공개 snapshot만 로컬 IPC로 제공하며 token을 전송하지 않는다. 클라이언트 취소로 관측 transport를 중단하지 않는다. 불확실한 공유 연결 실패를 새 토큰 발급으로 우회하지 않고 owner는 요청 정리 후 잠금을 해제한다.
 - 테스트는 주입한 가짜 fetch만 사용한다. DB 통합 테스트는 localhost의 `hth_readonly_test` 전용 DB에서만 실행한다.
 - broker 원본 봉은 미확정으로 반환한다. worker가 `docs/MARKET_DATA_POLICY.md`의 세션·대기·재관측 증거로만 종료 플래그를 설정한다.
 - 전략 입력은 `prepareStrategyData`를 거친다. 과거 isClosed 플래그·만료된 dataQuality 보고서를 실행 승인으로 사용하지 않는다.

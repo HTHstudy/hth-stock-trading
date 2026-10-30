@@ -2,6 +2,12 @@
 
 ## 1. 배포와 책임
 
+개인용 MVP는 web 정적 파일·API·worker·PostgreSQL을 한 서버에 함께 올릴 수 있다. 실행 책임은 프로세스/컨테이너로 분리하며 서버 대수와 서비스 책임 분리는 별개다. 현재 개발 구조와 배포 설정은 변경하지 않았다.
+
+관측 중 계좌 조회는 [공유 대시보드](docs/SHARED_DASHBOARD.md)의 비공개 로컬 IPC를 통해 잠금 owner의 broker를 재사용한다. 공유가 없으면 기존 독점 잠금/단독 조회로 돌아간다. 토큰 자체를 다른 프로세스나 브라우저에 배포하지 않는다. 컨테이너를 나누면 같은 UID와 비공개 socket volume을 구성해야 한다.
+
+현재 web은 PATHS의 `#overview/#backtests/#paper/#observations`와 `hashchange`로 화면 네 개를 전환한다. 해시 부분은 HTTP 경로로 전송되지 않아 정적 SPA에서 별도 라우터/서버 fallback 없이 동작하는 단순한 구성이다. Vercel rewrite는 이미 있어 일반 경로(`/paper` 등)로 전환할 수 있으며 React SPA가 해시 라우팅을 요구하는 것은 아니다. 이번 인증 개선에서는 경로를 변경하지 않았다.
+
 ```mermaid
 flowchart LR
   User[소유자 브라우저] --> Web[React SPA / Vercel]
