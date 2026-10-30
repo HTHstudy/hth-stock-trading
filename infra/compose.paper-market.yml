@@ -1,0 +1,26 @@
+name: hth-paper-market-local
+
+# Development-only Paper ledger. Does not replace the business/synthetic DBs.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: hth
+      POSTGRES_DB: hth_trading
+      POSTGRES_PASSWORD: '${PAPER_LOCAL_ADMIN_PASSWORD:?Generate the local Paper environment first}'
+      LOCAL_PAPER_DB_PASSWORD: '${PAPER_LOCAL_PASSWORD:?Generate the local Paper environment first}'
+    ports:
+      - '127.0.0.1:${PAPER_LOCAL_PORT:-55434}:5432'
+    volumes:
+      - paper_market_data:/var/lib/postgresql/data
+      - ./init-paper-db.sh:/docker-entrypoint-initdb.d/10-paper.sh:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U hth_test -d hth_readonly_test']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+volumes:
+  paper_market_data:

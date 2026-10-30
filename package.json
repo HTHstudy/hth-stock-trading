@@ -40,7 +40,12 @@
     "local:down": "docker compose --env-file infra/.env.local -f infra/compose.local.yml down",
     "local:status": "docker compose --env-file infra/.env.local -f infra/compose.local.yml ps",
     "local:backup": "node infra/backup-db.mjs",
-    "local:paper:prepare": "docker compose --env-file infra/.env.local -f infra/compose.local.yml run --rm --no-deps worker node apps/worker/dist/local-paper-prepare.js"
+    "local:paper:prepare": "docker compose --env-file infra/.env.local -f infra/compose.local.yml run --rm --no-deps worker node apps/worker/dist/local-paper-prepare.js",
+    "paper:prepare": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:prepare",
+    "paper:local:config": "node infra/init-paper-local.mjs",
+    "paper:local:up": "docker compose --env-file .local-data/paper-market-local/.env -f infra/compose.paper-market.yml up -d --wait",
+    "paper:local:down": "docker compose --env-file .local-data/paper-market-local/.env -f infra/compose.paper-market.yml down",
+    "paper:local:backup": "node infra/backup-db.mjs --stack=paper-market --env-file=.local-data/paper-market-local/.env"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

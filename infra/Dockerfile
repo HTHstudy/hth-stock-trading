@@ -18,6 +18,7 @@ COPY apps/api ./apps/api
 COPY apps/worker ./apps/worker
 COPY apps/web ./apps/web
 COPY packages ./packages
+COPY examples ./examples
 RUN pnpm -r build
 
 FROM node:24-slim AS runtime

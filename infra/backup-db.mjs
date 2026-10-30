@@ -11,21 +11,32 @@ async function main() {
   const { values } = parseArgs({
     options: {
       output: { type: 'string' },
-      project: { type: 'string', default: 'hth-local' },
+      project: { type: 'string' },
+      stack: { type: 'string', default: 'local' },
       'env-file': { type: 'string' },
-      database: { type: 'string', default: 'broker' },
+      database: { type: 'string' },
     },
   });
-  if (!/^hth-local(?:-[a-z0-9][a-z0-9-]{0,40})?$/.test(values.project)) throw new Error('INVALID_PROJECT');
-  if (!['broker', 'paper'].includes(values.database)) throw new Error('INVALID_DATABASE');
+  if (!['local', 'paper-market'].includes(values.stack)) throw new Error('INVALID_STACK');
+  const project = values.project ?? (values.stack === 'paper-market' ? 'hth-paper-market-local' : 'hth-local');
+  const database = values.database ?? (values.stack === 'paper-market' ? 'paper' : 'broker');
+  if (
+    values.stack === 'paper-market'
+      ? project !== 'hth-paper-market-local'
+      : !/^hth-local(?:-[a-z0-9][a-z0-9-]{0,40})?$/.test(project)
+  )
+    throw new Error('INVALID_PROJECT');
+  if (!['broker', 'paper'].includes(database) || (values.stack === 'paper-market' && database !== 'paper'))
+    throw new Error('INVALID_DATABASE');
   const root = fileURLToPath(new URL('../', import.meta.url));
   const output = resolve(
     root,
-    values.output ?? `.local-data/backups/${values.project}-${values.database}-${Date.now()}-${randomUUID()}.dump`,
+    values.output ?? `.local-data/backups/${project}-${database}-${Date.now()}-${randomUUID()}.dump`,
   );
   await mkdir(dirname(output), { recursive: true, mode: 0o700 });
   const temporary = `${output}.tmp-${randomUUID()}`;
-  const args = ['compose', '-f', resolve(root, 'infra/compose.local.yml'), '-p', values.project];
+  const compose = values.stack === 'paper-market' ? 'infra/compose.paper-market.yml' : 'infra/compose.local.yml';
+  const args = ['compose', '-f', resolve(root, compose), '-p', project];
   if (values['env-file']) args.push('--env-file', resolve(root, values['env-file']));
   args.push(
     'exec',
@@ -33,9 +44,9 @@ async function main() {
     'db',
     'pg_dump',
     '-U',
-    values.database === 'paper' ? 'hth_test' : 'hth',
+    database === 'paper' ? 'hth_test' : 'hth',
     '-d',
-    values.database === 'paper' ? 'hth_readonly_test' : 'hth_trading',
+    database === 'paper' ? 'hth_readonly_test' : 'hth_trading',
     '--format=custom',
     '--no-owner',
     '--no-acl',
@@ -59,7 +70,7 @@ async function main() {
     JSON.stringify({
       service: 'local-db-backup',
       state: 'written',
-      database: values.database,
+      database,
       output,
       sha256: hash.digest('hex'),
     }),
