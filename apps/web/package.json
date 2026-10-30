@@ -12,6 +12,7 @@
   "dependencies": {
     "@hth/contracts": "workspace:*",
     "@tanstack/react-query": "^5.105.0",
+    "@tanstack/react-router": "^1.170.46",
     "lightweight-charts": "^5.2.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
