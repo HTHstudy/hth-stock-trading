@@ -34,7 +34,8 @@
     "paper:market": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:market",
     "paper:day-review": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:day-review",
     "market:observe": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker market:observe",
-    "paper:rehearse": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:rehearse"
+    "paper:rehearse": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:rehearse",
+    "paper:plan": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:plan"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
