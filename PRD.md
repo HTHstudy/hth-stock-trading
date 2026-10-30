@@ -103,6 +103,8 @@
 
 ### 로컬 상시 운영 기반
 
-1차 실제 시세 Paper의 종목·가상 자금·1주 주문·1종목 한도·5/20 전략과 유한 실행 검토 기준은 [검증 설정 v1](docs/PAPER_VALIDATION_SETTINGS.md)에 정리했다. 계획만 작성했으며 DB 적용·재개는 수행하지 않았다.
+1차 실제 시세 Paper의 종목·가상 자금·1주 주문·1종목 한도·5/20 전략과 유한 실행 검토 기준은 [검증 설정 v1](docs/PAPER_VALIDATION_SETTINGS.md)에 정리했다.
+
+이후 [오프라인 준비](docs/PAPER_OFFLINE_PREPARATION.md)로 신규 전용 DB의 국내·미국 정지 계좌를 원자적으로 준비하고 설정/이력/감사 hash·재시작 보존·백업 복원을 검증했다. 실제 시세 관측·모의 재개는 이 준비에서 실행하지 않았다. 시장 품질 검증과 초기 계좌 준비를 분리한다.
 
 web/api/worker/db 네 컨테이너의 별도 로컬 Compose와 영속 볼륨, 선택적 CA 빌드 secret, DB 백업·빈 DB 복원 절차를 제공한다. 기본 worker는 idle이며 명시적 관측·정지 Paper 서비스와 상태 조회를 제공한다. 실제 시세 상시 운용 검증·인터넷 공개·자동 거래 재개는 후속 범위다. [실행과 검증](docs/LOCAL_OPERATIONS.md)을 따른다.

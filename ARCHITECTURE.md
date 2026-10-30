@@ -109,3 +109,7 @@ worker 서비스는 [운영 정책](docs/WORKER_SERVICE.md)을 따른다. 기본
 TanStack Router의 코드 기반 route tree를 `apps/web/src/app/router.tsx`에 둔다. 페이지는 기존 `pages` 공개 entrypoint를 lazy import하며 일반 경로 `/`, `/backtests`, `/paper`, `/observations`를 사용한다. 링크 타입 검사와 브라우저 history·404 처리를 위해 `@tanstack/react-router`를 추가했다. 기존 수동 hash 분기를 확장하는 대안 대신 공식 라우터를 사용하고, 4개 화면에 별도 route 생성 플러그인은 도입하지 않았다. [공식 코드 기반 라우팅](https://tanstack.com/router/latest/docs/routing/code-based-routing)을 따른다.
 
 OwnerAccess가 인증을 확인한 후에만 RouterProvider와 페이지를 렌더링한다. route loader·자동 prefetch는 사용하지 않으며 조회는 기존 TanStack Query가 담당한다. 세션 만료/로그아웃 시 기존 캐시 취소·삭제 경계를 유지한다. 브라우저 URL은 인증 수단이 아니며 비공개 API는 서버에서 계속 검사한다. 루트의 기존 `#overview/#backtests/#paper/#observations` 링크는 검색 조건을 보존한 일반 경로로 replace하여 history를 늘리지 않는다. 알 수 없는 hash와 다른 경로의 fragment는 이동 대상으로 해석하지 않는다. Caddy·Vercel의 기존 index.html fallback을 유지하며 외부 배포는 수행하지 않았다.
+
+## Paper 초기 준비 경계
+
+`paper:prepare`는 기존 읽기 전용 broker runtime과 독립된 로컬 명령이다. 기본 미리보기는 키/DB 없이 실행하며 새 정지 계좌 준비에는 계획 hash를 I/O 전에 검증한다. database의 `paperPreparation` 저장소는 계좌·한도·전략·불변 전략 이력·계획 hash 감사 기록을 하나의 트랜잭션에 저장하고 같은 ID 경합/기존 계좌 덮어쓰기를 거부한다. 준비 점검은 read-only repeatable-read snapshot이고 worker lease·대사·시세·자산 평가를 생성하지 않는다. 실제 시세 준비 원장은 개발용 별도 PostgreSQL(55434)을 사용하며 기존 업무/합성 DB를 유지한다. 클라우드 운영의 서비스 수를 늘리는 분리 요구가 아니며 기존 4서비스 운영 DB로 이관할 때는 백업/복원을 사용한다. 새 앱 라이브러리는 도입하지 않았다. [절차와 한계](docs/PAPER_OFFLINE_PREPARATION.md)를 따른다.

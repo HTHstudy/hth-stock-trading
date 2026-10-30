@@ -67,6 +67,7 @@
 - lockfile을 유지한다. 커밋·배포·마이그레이션 실행은 자동으로 수행하지 않는다.
 
 - 실제 시세 Paper 계획은 `docs/PAPER_MARKET_PLAN.md`를 따른다. 미리보기는 키/DB 없이 실행하고 적용은 새 계좌 초기화에만 허용한다. 계획 hash를 I/O 전에 검증하며 재개/기존 계좌 변경에 재사용하지 않는다. hash를 운용 승인으로 표현하지 않는다.
+- 오프라인 Paper 준비는 `docs/PAPER_OFFLINE_PREPARATION.md`를 따른다. 새 정지 계좌·한도·전략·이력·계획 감사 기록을 원자적으로 저장한다. 준비/점검에서 broker·source·worker·토큰을 생성하지 않는다. check는 읽기 전용 snapshot이며 초기 상태를 복구하거나 거래를 승인하지 않는다. 개발용 Paper DB는 기존 업무/합성 DB와 분리하고 기본 미리보기와 명시적 apply/migrate를 유지한다.
 
 - 관측 연속성은 `docs/MARKET_OBSERVATION.md`의 임시/최종 증거와 기한·공백 기준을 따른다. 마지막 완성 줄만 임시로 읽고 최종 hash 검증과 구분한다. PID·mtime으로 정상 실행을 추정하거나 조회로 관측/거래를 재개하지 않는다.
 

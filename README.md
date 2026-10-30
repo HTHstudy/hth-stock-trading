@@ -1,5 +1,7 @@
 # HTH Stock Trading
 
+현재 단계와 남은 작업은 [개발·운영 검증 현황](docs/DEVELOPMENT_STATUS.md)에서 확인합니다.
+
 개인용 국내·미국주식 자동매매 시스템입니다. **읽기 전용 토스 연동·캔들 저장·로컬 대시보드와 이동평균 교차 백테스트를 제공합니다. Paper 주문 원장·원자적 예약·내부 모의 체결도 구현했습니다. 합성 데이터의 상시 Paper 실행·복구 루프도 제공합니다. 로컬 합성 Paper 조회·긴급 정지 화면도 제공합니다. 단일 소유자 로그인과 전략 설정·활성 관리도 제공합니다. 실제 시세용 Paper CLI도 추가했으며 실데이터 운용 검증·외부 배포·실제 주문은 후속입니다.** 기본 dev는 키 없이 실행할 수 있으며, `DASHBOARD_ENABLED=true`일 때만 대시보드가 worker를 통해 실제 데이터를 조회합니다. `TRADING_MODE=live`는 거부합니다.
 
 ## 구성
@@ -89,6 +91,8 @@ corepack pnpm broker:sync
 broker 원본 봉은 `isClosed=false`이며 worker가 시장 세션·60초 대기·종료 후 재수집을 확인해 종료 플래그를 설정합니다. 시세·계좌·캘린더·환율·캔들 신선도 검증도 수행합니다. 대시보드의 **전략 입력 데이터 검증**에서 종료/대기/제외 봉과 차단 사유를 확인할 수 있습니다. 통과 보고서도 `validUntil` 이후 만료됩니다. 원천 데이터의 영구 불변·전략 실행·주문 승인을 보장하지 않습니다. [상세 정책](docs/MARKET_DATA_POLICY.md)
 
 ## 로컬 PostgreSQL과 Docker
+
+관측 대기 중 실제 시세 Paper 계좌를 키 없이 준비하려면 [오프라인 계좌 준비](docs/PAPER_OFFLINE_PREPARATION.md)를 따릅니다. `paper:prepare`는 기본 미리보기이며, 명시적 새 계좌 준비·읽기 전용 설정 점검만 지원합니다. 개발용 Paper DB는 55434에서 별도 실행하고 기존 DB와 현재 웹 연결은 유지합니다. 실제 시세 조회·모의 재개·실주문은 준비 명령에 포함되지 않습니다.
 
 ```bash
 corepack pnpm infra:up

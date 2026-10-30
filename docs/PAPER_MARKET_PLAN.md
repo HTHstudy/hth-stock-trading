@@ -21,6 +21,8 @@ corepack pnpm paper:plan --plan=examples/paper-market-us-plan.json
 
 ## 새 계좌 초기화에 연결
 
+관측 대기 중에는 [오프라인 준비](PAPER_OFFLINE_PREPARATION.md)의 별도 `paper:prepare`를 사용한다. 키·broker 없이 새 정지 계좌를 원자적으로 준비하고 읽기 전용으로 점검할 수 있다. 아래 `paper:market --initialize`와 동작이 다르며 이미 준비한 계좌에 초기화를 반복하지 않는다.
+
 실제 시세 관측 결과와 검증 조건을 검토한 뒤에만 별도 테스트 DB에서 실행한다. 아래 명령은 절차 예시이며 이번 개발에서는 실행하지 않았다. `PAPER_MARKET_DATABASE_URL`과 토큰 잠금용 `DATABASE_URL`, 키 설정은 [기존 실행 문서](PAPER_MARKET_SOURCE.md)를 따른다.
 
 ```bash
