@@ -1,0 +1,71 @@
+{
+  "formatVersion": "paper-rehearsal-v1",
+  "source": "synthetic-only",
+  "executionEnabled": false,
+  "cash": {
+    "KRW": "15000",
+    "USD": "150"
+  },
+  "strategy": {
+    "fastPeriod": 1,
+    "slowPeriod": 2,
+    "quantity": "2",
+    "maxFillQuantity": "1"
+  },
+  "manualQuantity": "3",
+  "limits": {
+    "KRW": {
+      "maxOrderAmount": "100000",
+      "maxInstrumentAmount": "200000",
+      "maxDailyLoss": "10000",
+      "buyCostBps": "10",
+      "sellCostBps": "30"
+    },
+    "USD": {
+      "maxOrderAmount": "1000",
+      "maxInstrumentAmount": "2000",
+      "maxDailyLoss": "100",
+      "buyCostBps": "10",
+      "sellCostBps": "30"
+    },
+    "maxPositions": 5
+  },
+  "profiles": [
+    {
+      "instrument": {
+        "market": "KR",
+        "symbol": "005930"
+      },
+      "flat": ["1000", "1000", "1000"],
+      "bullish": ["1000", "900", "1100"],
+      "bearish": ["1000", "1100", "900"],
+      "expectedRoundTrip": {
+        "cash": "14591",
+        "equity": "17591",
+        "dailyPnl": "-409"
+      },
+      "manualInstrument": {
+        "market": "KR",
+        "symbol": "000660"
+      }
+    },
+    {
+      "instrument": {
+        "market": "US",
+        "symbol": "AAPL"
+      },
+      "flat": ["10", "10", "10"],
+      "bullish": ["10", "9", "11"],
+      "bearish": ["10", "11", "9"],
+      "expectedRoundTrip": {
+        "cash": "145.91",
+        "equity": "175.91",
+        "dailyPnl": "-4.09"
+      },
+      "manualInstrument": {
+        "market": "US",
+        "symbol": "MSFT"
+      }
+    }
+  ]
+}
