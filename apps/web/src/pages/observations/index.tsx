@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { OBSERVATIONS_API } from '@shared/api/observations';
 import { formatTime } from '@shared/lib/format';
+import { ScheduledJobs } from './scheduled-jobs';
 
 const states = { completed: '관측 종료', failed: '중단·실패', cancelled: '취소', incomplete: '진행 중 또는 미완료' };
 const sourceLabel = (source: 'toss-readonly' | 'synthetic-only') =>
@@ -10,6 +11,11 @@ const number = (value: number | undefined | null) =>
   value == null ? '—' : new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(value);
 const panel = 'rounded-xl border border-slate-800 bg-[#0d1424] p-5';
 export function ObservationsPage() {
+  const jobs = useQuery({
+    queryKey: ['observation-jobs'],
+    queryFn: ({ signal }) => OBSERVATIONS_API.jobs(signal),
+    refetchInterval: 10000,
+  });
   const [selected, setSelected] = useState('');
   const list = useQuery({
     queryKey: ['observation-reports'],
@@ -50,9 +56,10 @@ export function ObservationsPage() {
         </div>
         <button
           className="rounded-lg bg-teal-300 px-4 py-2.5 text-xs font-semibold text-slate-950 disabled:opacity-40"
-          disabled={list.isFetching || detail.isFetching}
+          disabled={list.isFetching || detail.isFetching || jobs.isFetching}
           onClick={() => {
             void list.refetch();
+            void jobs.refetch();
             if (primary) void detail.refetch();
           }}
         >
@@ -63,6 +70,19 @@ export function ObservationsPage() {
         시장 데이터만 검사한 기록입니다. 관측 종료는 전략·계좌·리스크 검증이나 매매 승인이 아닙니다. 이 화면에서 시세
         수집이나 거래를 시작하지 않습니다.
       </p>
+      {jobs.isPending && (
+        <p role="status" className="mb-5 text-xs text-slate-500">
+          예약 실행 기록을 읽고 있습니다…
+        </p>
+      )}
+      {jobs.isError && (
+        <p role="alert" className="mb-5 text-xs text-rose-300">
+          예약 기록 조회에 실패했습니다. 이전 예약 상태를 현재 상태로 표시하지 않습니다.
+        </p>
+      )}
+      {!jobs.isError && jobs.data && (
+        <ScheduledJobs result={jobs.data} reportIds={reports.map((item) => item.manifest.id)} onSelect={setSelected} />
+      )}
       {list.isError && (
         <p role="alert" className="mb-5 text-sm text-rose-300">
           목록을 조회하지 못했습니다. 표시 중인 목록은 마지막 수신값일 수 있습니다.
