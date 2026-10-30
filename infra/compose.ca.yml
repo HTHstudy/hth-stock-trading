@@ -1,0 +1,14 @@
+services:
+  api:
+    build:
+      secrets: [npm_ca]
+  worker:
+    build:
+      secrets: [npm_ca]
+  web:
+    build:
+      secrets: [npm_ca]
+
+secrets:
+  npm_ca:
+    file: '${LOCAL_BUILD_CA_FILE:?Set a trusted public CA bundle path}'

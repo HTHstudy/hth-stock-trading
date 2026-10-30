@@ -4,7 +4,14 @@ node_modules
 .git
 .env
 .env.*
+**/.env
+**/.env.*
 .aws
 .vercel
 coverage
 *.log
+.local-data
+.agents
+.codex
+**/*.pem
+**/*.key

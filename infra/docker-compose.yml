@@ -23,6 +23,7 @@ services:
     build:
       context: ..
       dockerfile: infra/Dockerfile
+      target: runtime
     command: ['node', 'apps/api/dist/main.js']
     environment:
       NODE_ENV: production
@@ -39,6 +40,7 @@ services:
     build:
       context: ..
       dockerfile: infra/Dockerfile
+      target: runtime
     command: ['node', 'apps/worker/dist/main.js']
     environment:
       NODE_ENV: production

@@ -35,7 +35,11 @@
     "paper:day-review": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:day-review",
     "market:observe": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker market:observe",
     "paper:rehearse": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:rehearse",
-    "paper:plan": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:plan"
+    "paper:plan": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:plan",
+    "local:up": "docker compose --env-file infra/.env.local -f infra/compose.local.yml up -d --build --force-recreate --wait",
+    "local:down": "docker compose --env-file infra/.env.local -f infra/compose.local.yml down",
+    "local:status": "docker compose --env-file infra/.env.local -f infra/compose.local.yml ps",
+    "local:backup": "node infra/backup-db.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

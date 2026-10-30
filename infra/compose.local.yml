@@ -1,0 +1,102 @@
+name: hth-local
+
+x-backend: &backend
+  image: hth-local-backend
+  build:
+    context: ..
+    dockerfile: infra/Dockerfile
+    target: runtime
+  user: '1000:1000'
+  init: true
+  restart: unless-stopped
+  stop_grace_period: 30s
+  security_opt: ['no-new-privileges:true']
+  volumes:
+    - app_data:/app/.local-data
+    - dashboard_socket:/tmp/hth-dashboard-1000
+  logging:
+    driver: json-file
+    options:
+      max-size: '10m'
+      max-file: '3'
+
+services:
+  web:
+    image: hth-local-web
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+      target: web
+    ports:
+      - '127.0.0.1:${LOCAL_WEB_PORT:-5173}:8080'
+    restart: unless-stopped
+    init: true
+    security_opt: ['no-new-privileges:true']
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', '--header=Host: localhost', 'http://127.0.0.1:8080/health/web']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  api:
+    <<: *backend
+    # Preserve the API's loopback-only boundary without trusting forwarded IPs.
+    network_mode: 'service:web'
+    command: ['node', 'apps/api/dist/main.js']
+    environment:
+      NODE_ENV: production
+      TRADING_MODE: paper
+      LOCAL_CONTAINER_MODE: 'true'
+      LOCAL_WEB_PORT: '${LOCAL_WEB_PORT:-5173}'
+      API_HOST: 127.0.0.1
+      API_PORT: '4000'
+      OWNER_PASSWORD_HASH: '${LOCAL_OWNER_PASSWORD_HASH:-}'
+      DASHBOARD_ENABLED: 'false'
+      PAPER_DASHBOARD_ENABLED: 'false'
+    depends_on:
+      web:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  worker:
+    <<: *backend
+    command: ['node', 'apps/worker/dist/main.js']
+    environment:
+      NODE_ENV: production
+      TRADING_MODE: paper
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: hth
+      POSTGRES_PASSWORD: '${LOCAL_DB_PASSWORD:-hth_local_only}'
+      POSTGRES_DB: hth_trading
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U hth -d hth_trading']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+volumes:
+  postgres_data:
+  app_data:
+  dashboard_socket:

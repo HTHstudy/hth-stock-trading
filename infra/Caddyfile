@@ -1,0 +1,27 @@
+{
+	admin off
+	auto_https off
+}
+:8080 {
+	@local host localhost 127.0.0.1
+	handle @local {
+		handle_path /api/* {
+			reverse_proxy 127.0.0.1:4000 {
+				header_up -X-Forwarded-For
+				header_up -X-Forwarded-Host
+				header_up -X-Forwarded-Proto
+			}
+		}
+		handle /health/web {
+			respond "ok" 200
+		}
+		handle {
+			root * /srv
+			try_files {path} /index.html
+			file_server
+		}
+	}
+	handle {
+		respond "Local access only" 403
+	}
+}
