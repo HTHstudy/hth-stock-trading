@@ -39,7 +39,10 @@ async function main() {
       : undefined;
   const observations =
     config.NODE_ENV !== 'production' && ['127.0.0.1', 'localhost', '::1'].includes(config.API_HOST)
-      ? createObservationReports(fileURLToPath(new URL('../../../.local-data/observations', import.meta.url)))
+      ? createObservationReports(
+          fileURLToPath(new URL('../../../.local-data/observations', import.meta.url)),
+          fileURLToPath(new URL('../../../.local-data/scheduled-observations', import.meta.url)),
+        )
       : undefined;
   const paper = config.PAPER_DASHBOARD_ENABLED
     ? createPaperDashboard(

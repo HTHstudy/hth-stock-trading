@@ -1,6 +1,7 @@
 import {
   paperStrategyHistorySchema,
   paperEquityHistorySchema,
+  observationJobsSchema,
   paperStrategyHistoryQuerySchema,
   watchlistStateSchema,
   watchlistUpdateSchema,
@@ -214,6 +215,16 @@ export function createApp(
       return observationListSchema.parse(await observations.list());
     } catch {
       return reply.code(503).send({ error: { code: 'OBSERVATIONS_UNAVAILABLE' } });
+    }
+  });
+  app.get('/v1/observations/jobs', async (request, reply) => {
+    if (!z.object({}).strict().safeParse(request.query).success)
+      return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (!observations) return reply.code(503).send({ error: { code: 'OBSERVATIONS_UNAVAILABLE' } });
+    try {
+      return observationJobsSchema.parse(await observations.jobs());
+    } catch {
+      return reply.code(503).send({ error: { code: 'OBSERVATION_JOBS_UNAVAILABLE' } });
     }
   });
   app.get('/v1/observations/:id', async (request, reply) => {

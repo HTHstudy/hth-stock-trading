@@ -1,4 +1,6 @@
 import { z } from 'zod';
+export { observationJobSchema, observationJobsSchema } from './observation-jobs.js';
+export type { ObservationJobs } from './observation-jobs.js';
 export { paperEquityPointSchema, paperEquityHistorySchema } from './paper-equity.js';
 export type { PaperEquityPoint, PaperEquityHistory } from './paper-equity.js';
 export {

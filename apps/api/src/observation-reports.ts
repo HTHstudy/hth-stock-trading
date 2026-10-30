@@ -14,6 +14,7 @@ import {
 } from '@hth/contracts';
 import type { ObservationReport, ObservationRecord, ObservationList } from '@hth/contracts';
 import { contentHash } from '@hth/database';
+import { createObservationJobs } from './observation-jobs.js';
 
 const maxJournal = 32 * 1048576;
 const key = (item: { market: string; symbol: string }) => `${item.market}:${item.symbol}`;
@@ -75,7 +76,7 @@ function aggregate(records: ObservationRecord[], status: 'completed' | 'cancelle
   }
   return result;
 }
-export function createObservationReports(directory: string) {
+export function createObservationReports(directory: string, jobsDirectory?: string) {
   const root = resolve(directory);
   async function read(path: string, limit: number, charge?: (size: number) => void) {
     const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
@@ -261,6 +262,10 @@ export function createObservationReports(directory: string) {
       } finally {
         loading = undefined;
       }
+    },
+    async jobs() {
+      if (!jobsDirectory) return { asOf: new Date().toISOString(), jobs: [], rejectedCount: 0, limited: false };
+      return createObservationJobs(jobsDirectory).list();
     },
     async get(id: string) {
       if (!z.uuid().safeParse(id).success) throw new Error('INVALID_REPORT_ID');
