@@ -103,3 +103,9 @@ TanStack Query v5는 조회 캐시·오류·새로고침 상태, Lightweight Cha
 로컬 컨테이너의 네트워크 공간 공유·데이터 보존·백업·실행 제한은 [로컬 운영 문서](docs/LOCAL_OPERATIONS.md)를 따른다. worker는 기본 대기이며 컨테이너 재시작으로 모의/실거래를 재개하지 않는다.
 
 worker 서비스는 [운영 정책](docs/WORKER_SERVICE.md)을 따른다. 기본 idle, Paper resume=false, 관측 UUID 영구 소비, 자동 재시도 금지, 단일 상태 파일 작성자를 유지한다. 상태 heartbeat를 시장 데이터 신선도나 거래 권한으로 해석하지 않는다.
+
+## 프론트엔드 라우팅
+
+TanStack Router의 코드 기반 route tree를 `apps/web/src/app/router.tsx`에 둔다. 페이지는 기존 `pages` 공개 entrypoint를 lazy import하며 일반 경로 `/`, `/backtests`, `/paper`, `/observations`를 사용한다. 링크 타입 검사와 브라우저 history·404 처리를 위해 `@tanstack/react-router`를 추가했다. 기존 수동 hash 분기를 확장하는 대안 대신 공식 라우터를 사용하고, 4개 화면에 별도 route 생성 플러그인은 도입하지 않았다. [공식 코드 기반 라우팅](https://tanstack.com/router/latest/docs/routing/code-based-routing)을 따른다.
+
+OwnerAccess가 인증을 확인한 후에만 RouterProvider와 페이지를 렌더링한다. route loader·자동 prefetch는 사용하지 않으며 조회는 기존 TanStack Query가 담당한다. 세션 만료/로그아웃 시 기존 캐시 취소·삭제 경계를 유지한다. 브라우저 URL은 인증 수단이 아니며 비공개 API는 서버에서 계속 검사한다. 루트의 기존 `#overview/#backtests/#paper/#observations` 링크는 검색 조건을 보존한 일반 경로로 replace하여 history를 늘리지 않는다. 알 수 없는 hash와 다른 경로의 fragment는 이동 대상으로 해석하지 않는다. Caddy·Vercel의 기존 index.html fallback을 유지하며 외부 배포는 수행하지 않았다.

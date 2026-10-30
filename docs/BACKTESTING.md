@@ -73,7 +73,7 @@ artifact에는 입력 데이터셋 ID/hash/출처, 엔진·전략 버전, 전략
 
 ## 로컬 조회·비교 화면
 
-`corepack pnpm dev` 실행 후 [백테스트 실험실](http://localhost:5173/#backtests)에서 `.local-data` 바로 아래에 저장한 JSON 리포트를 조회한다. 키·DB 없이 동작하고 실험 실행이나 주문 API는 제공하지 않는다. 비교용 합성 설정도 제공하며 파라미터와 비용은 기능 검증용 가정이다.
+`corepack pnpm dev` 실행 후 [백테스트 실험실](http://localhost:5173/backtests)에서 `.local-data` 바로 아래에 저장한 JSON 리포트를 조회한다. 키·DB 없이 동작하고 실험 실행이나 주문 API는 제공하지 않는다. 비교용 합성 설정도 제공하며 파라미터와 비용은 기능 검증용 가정이다.
 
 ```bash
 corepack pnpm backtest:run --demo --config=../../examples/backtest-compare-config.json --output=../../.local-data/backtest-demo-compare.json

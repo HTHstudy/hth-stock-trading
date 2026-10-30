@@ -25,7 +25,7 @@ corepack pnpm dev
 
 web: http://localhost:5173, API 생존 확인: http://localhost:4000/health/live. 앱은 현재 PostgreSQL 없이 실행됩니다. API의 health는 거래 준비 상태나 DB 연결을 보장하지 않습니다.
 
-백테스트는 http://localhost:5173/#backtests 에서 `.local-data`에 저장한 리포트의 지표·곡선·거래 내역과 두 실험 조건을 비교합니다. 키·DB 없이 합성 데모를 만드는 방법은 [백테스트 문서](docs/BACKTESTING.md)에 있습니다.
+백테스트는 http://localhost:5173/backtests 에서 `.local-data`에 저장한 리포트의 지표·곡선·거래 내역과 두 실험 조건을 비교합니다. 키·DB 없이 합성 데모를 만드는 방법은 [백테스트 문서](docs/BACKTESTING.md)에 있습니다.
 
 개별 실행은 `corepack pnpm dev:web`, `dev:api`, `dev:worker`입니다. dev는 web/API를 실행하며 API 실행 전에 공통 패키지와 worker를 빌드합니다. 기본 worker는 idle이므로 별도 실행하지 않아도 됩니다. 명시적 서비스 모드는 [worker 서비스 운영](docs/WORKER_SERVICE.md)을 따릅니다. 패키지나 worker 소스를 변경하면 다시 빌드하고 API를 재시작하세요. 서버 설정은 루트 `.env`, 공개 웹 설정은 `apps/web/.env.local`에 둡니다. `VITE_API_URL`은 `/api`로 설정하며 Vite가 localhost API에 프록시합니다.
 
@@ -128,7 +128,7 @@ Paper 리스크 검증 기반도 구현했습니다. `corepack pnpm risk:demo`�
 1. 외부 배포용 소유자 인증·세션·TLS 및 프록시 경계를 구현합니다. 로컬 읽기 전용 대시보드는 구현했습니다.
 2. 날짜별 캘린더·백필·revision·동결 데이터셋을 구현했습니다. 생성한 마이그레이션을 검토한 뒤 사용자 DB 적용과 데이터셋 저장을 진행합니다.
 3. 백테스트 엔진·CLI·로컬 결과 조회와 비교 화면까지 구현했습니다. [백테스트 실행과 모델 가정](docs/BACKTESTING.md)을 확인하고 실제 동결 입력과 여러 기간으로 검증합니다.
-4. [Paper 주문 원장·원자적 예약](docs/PAPER_LEDGER.md)을 구현하고 임시 DB에서 검증했습니다. [모의 체결·부분 체결·잔고/소유권·원가 반영](docs/PAPER_FILLS.md)도 구현했습니다. [상시 worker의 복구·관측 갱신·실행 루프](docs/PAPER_WORKER.md)와 테스트 DB 전용 `corepack pnpm paper:demo`도 추가했습니다. 기본 정지이며 `--resume`으로만 모의 거래를 시작합니다. [Paper 조회·긴급 정지 화면](docs/PAPER_DASHBOARD.md)도 추가했습니다. 기본 비활성이며 별도 모의 계좌를 연결한 후 `http://127.0.0.1:5173/#paper`에서 확인합니다. 소유자 인증과 전략 설정·활성 관리도 구현했습니다. DB 출처 영속화와 합성/실제 시세/미확인 표시를 지원합니다. [실제 시세 Paper CLI](docs/PAPER_MARKET_SOURCE.md)도 기본 정지·전용 모의 DB·토큰 잠금 공유 방식으로 추가했습니다. [휴장 대기·일일 기준 검토 CLI](docs/PAPER_SESSIONS_REVIEW.md)를 추가했습니다. [읽기 전용 시세 관측/리포트 CLI](docs/MARKET_OBSERVATION.md)를 추가했습니다. 다음은 여러 시장 세션의 실데이터 관측 결과 축적과 검토입니다. 사용자 DB에는 새 마이그레이션을 적용하지 않았습니다.
+4. [Paper 주문 원장·원자적 예약](docs/PAPER_LEDGER.md)을 구현하고 임시 DB에서 검증했습니다. [모의 체결·부분 체결·잔고/소유권·원가 반영](docs/PAPER_FILLS.md)도 구현했습니다. [상시 worker의 복구·관측 갱신·실행 루프](docs/PAPER_WORKER.md)와 테스트 DB 전용 `corepack pnpm paper:demo`도 추가했습니다. 기본 정지이며 `--resume`으로만 모의 거래를 시작합니다. [Paper 조회·긴급 정지 화면](docs/PAPER_DASHBOARD.md)도 추가했습니다. 기본 비활성이며 별도 모의 계좌를 연결한 후 `http://127.0.0.1:5173/paper`에서 확인합니다. 소유자 인증과 전략 설정·활성 관리도 구현했습니다. DB 출처 영속화와 합성/실제 시세/미확인 표시를 지원합니다. [실제 시세 Paper CLI](docs/PAPER_MARKET_SOURCE.md)도 기본 정지·전용 모의 DB·토큰 잠금 공유 방식으로 추가했습니다. [휴장 대기·일일 기준 검토 CLI](docs/PAPER_SESSIONS_REVIEW.md)를 추가했습니다. [읽기 전용 시세 관측/리포트 CLI](docs/MARKET_OBSERVATION.md)를 추가했습니다. 다음은 여러 시장 세션의 실데이터 관측 결과 축적과 검토입니다. 사용자 DB에는 새 마이그레이션을 적용하지 않았습니다.
 5. 전략 설정 이력 조회·비교 UI는 구현했습니다. [실제 시세 운영 검증 목록](docs/OPERATIONAL_VALIDATION.md)에 따라 반복 관측·시장별 정규장·경계·프로세스 수명을 확인합니다. 외부 배포용 HTTPS/프록시/세션 운영 경계와 실거래는 후속 범위입니다.
 
 휴장 대기와 장시간 중단 후 손실 기준 검토는 [Paper 세션·검토 절차](docs/PAPER_SESSIONS_REVIEW.md)를 따릅니다. 개장이나 검토 승인으로 자동 재개하지 않습니다.
@@ -137,7 +137,7 @@ Paper 리스크 검증 기반도 구현했습니다. `corepack pnpm risk:demo`�
 
 관측 중 웹 계좌 현황도 새로고침하려면 새 관측 실행에 `--share-dashboard`를 지정합니다. 관측 worker의 인증·호출 제한을 재사용하며 토큰을 브라우저나 파일로 전달하지 않습니다. [공유 방식과 적용 범위](docs/SHARED_DASHBOARD.md)
 
-저장된 운영 리포트는 로그인 후 `http://127.0.0.1:5173/#observations`의 **시세 관측** 메뉴에서 확인합니다. 파일 형식·해시·집계를 검증하며 조회로 관측이나 매매를 시작하지 않습니다. [조회 범위와 제한](docs/MARKET_OBSERVATION.md)
+저장된 운영 리포트는 로그인 후 `http://127.0.0.1:5173/observations`의 **시세 관측** 메뉴에서 확인합니다. 파일 형식·해시·집계를 검증하며 조회로 관측이나 매매를 시작하지 않습니다. [조회 범위와 제한](docs/MARKET_OBSERVATION.md)
 
 같은 화면 위쪽의 **정규장 관측 예약 기록**에서 시작 누락 실패와 결과 미확인을 구분합니다. 완료 로그의 데이터 품질은 리포트에서 별도로 확인합니다. [예약 상태의 의미](docs/OBSERVATION_JOBS.md)
 

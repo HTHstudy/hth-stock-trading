@@ -25,6 +25,7 @@
 - import 방향은 `app → pages → shared`. 다른 레이어는 `@app/*`, `@pages/*`, `@shared/*` alias로 접근한다.
 - slice 간 직접 참조와 공개 entrypoint 우회를 금지한다. 선택 레이어는 실제 중복이 생긴 뒤 도입한다.
 - 화면 전용 로직은 해당 page에 둔다. 서버 상태는 TanStack Query v5로 관리한다.
+- 라우팅은 `src/app/router.tsx`의 TanStack Router 코드 기반 tree와 `shared/routes/paths.ts`를 사용한다. OwnerAccess 바깥에서 보호된 페이지를 렌더링하거나 route loader/prefetch로 비공개 조회를 우회하지 않는다. 이전 루트 해시 링크 호환과 일반 경로의 SPA fallback을 유지한다. 웹 테스트는 웹 tsconfig에서 검사하며 Node 도구용 tsconfig에서는 제외한다.
 - 실제 자산 snapshot은 신뢰된 localhost 환경에만 제공한다. public bind를 허용하지 않는다. production 산출물의 로컬 컨테이너 실행은 `docs/LOCAL_OPERATIONS.md`의 명시적 loopback 모드만 허용한다. 외부 배포에는 별도 소유자 인증이 필요하다.
 - 금액 계산은 worker·trading의 decimal.js에서 수행하고 프론트엔드는 표시만 한다. 차트 좌표 계산만 number를 사용한다.
 
