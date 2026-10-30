@@ -31,6 +31,7 @@ it.each(
     [...args, '--stop', '--resume'],
     [...args, '--stop', '--prepare'],
     [...args, '--stop', '--ticks=1'],
+    [...args, '--stop', '--share-dashboard'],
     [...args, '--symbol=US:AAPL'],
     [...args, '--ticks=0'],
     [...args, '--ticks=NaN'],

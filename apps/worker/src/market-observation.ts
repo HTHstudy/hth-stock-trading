@@ -42,6 +42,7 @@ export function observationFailureCode(error: unknown): string {
       'MARKET_OBSERVATION_CONFIGURATION_INVALID',
       'OBSERVATION_START_MISSED',
       'OBSERVATION_SESSION_UNAVAILABLE',
+      'DASHBOARD_SHARE_UNAVAILABLE',
     ].includes(error.message)
     ? error.message
     : 'OBSERVATION_FAILED';

@@ -7,6 +7,7 @@ import { runMarketObservation, observationFailureCode } from './market-observati
 import { createPaperMarketSource } from './paper-market-source.js';
 import { createPaperSyntheticSource } from './paper-synthetic-source.js';
 import { requireObservationSession, waitForObservationStart } from './market-observation-start.js';
+import { shareDashboardBroker } from './shared-dashboard-broker.js';
 
 async function main() {
   const config = parseMarketObservationConfig(process.argv.slice(2), process.env);
@@ -42,6 +43,7 @@ async function main() {
     const collect = async (leaseSignal: AbortSignal) => {
       const lifetime = new AbortController();
       const signal = AbortSignal.any([shutdown.signal, leaseSignal, lifetime.signal]);
+      let sharing: Awaited<ReturnType<typeof shareDashboardBroker>> | undefined;
       try {
         const broker = config.broker
           ? createTossReadonlyBroker({
@@ -56,6 +58,17 @@ async function main() {
             throw new Error('OBSERVATION_START_MISSED');
           requireObservationSession(calendar, config.regularMarket, settings, Date.now());
         }
+        if (config.shareDashboard && broker && config.broker)
+          sharing = await shareDashboardBroker(
+            {
+              clientId: config.broker.TOSS_CLIENT_ID,
+              clientSecret: config.broker.TOSS_CLIENT_SECRET,
+              databaseUrl: config.broker.DATABASE_URL,
+              interval: config.broker.CANDLE_INTERVAL,
+            },
+            broker,
+            signal,
+          );
         return await runMarketObservation(
           settings,
           {
@@ -69,6 +82,7 @@ async function main() {
         );
       } finally {
         lifetime.abort();
+        await sharing?.close();
       }
     };
     const summary =

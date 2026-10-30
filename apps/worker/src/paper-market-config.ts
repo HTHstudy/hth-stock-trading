@@ -16,6 +16,7 @@ export function parsePaperMarketConfig(args: string[], environment: Record<strin
         stop: { type: 'boolean', default: false },
         symbol: { type: 'string' },
         ticks: { type: 'string' },
+        'share-dashboard': { type: 'boolean', default: false },
       },
     });
     const accountId = z
@@ -23,7 +24,13 @@ export function parsePaperMarketConfig(args: string[], environment: Record<strin
       .regex(/^paper-market-[A-Za-z0-9._:-]{1,70}$/)
       .parse(values.account);
     if (
-      (values.stop && (values.initialize || values.prepare || values.resume || values.symbol || values.ticks)) ||
+      (values.stop &&
+        (values.initialize ||
+          values.prepare ||
+          values.resume ||
+          values.symbol ||
+          values.ticks ||
+          values['share-dashboard'])) ||
       (values.resume && (values.initialize || values.prepare)) ||
       (values.symbol && !values.initialize)
     )
@@ -65,6 +72,7 @@ export function parsePaperMarketConfig(args: string[], environment: Record<strin
       prepare: values.prepare,
       resume: values.resume,
       stop: values.stop,
+      shareDashboard: values['share-dashboard'],
       instrument: { market: market as 'KR' | 'US', symbol: code! },
       ticks: z.coerce
         .number()

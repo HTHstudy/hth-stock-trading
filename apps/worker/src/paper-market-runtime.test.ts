@@ -129,6 +129,40 @@ it('실행 실패 시 broker 취소를 완료하고 오류를 전달한다', asy
   await expect(execute()).rejects.toThrow('fixture worker failure');
   expect(dependencies.createBroker.mock.calls[0]![0].signal?.aborted).toBe(true);
 });
+it('같은 broker의 공유 조회를 열고 종료 정리가 끝난 뒤 잠금을 해제한다', async () => {
+  const context = fixture(['--share-dashboard']);
+  const order: string[] = [];
+  const close = vi.fn(async () => {
+    order.push('sharing closed');
+  });
+  const originalLease = context.dependencies.withBrokerLease.getMockImplementation()!;
+  context.dependencies.withBrokerLease.mockImplementation(async (key, operation) => {
+    try {
+      return await originalLease(key, operation);
+    } finally {
+      order.push('lock released');
+    }
+  });
+  const shareDashboard = vi.fn<NonNullable<PaperMarketDependencies['shareDashboard']>>(async (broker, signal) => {
+    expect(broker).toBe(context.dependencies.createBroker.mock.results[0]!.value);
+    expect(signal.aborted).toBe(false);
+    return { close };
+  });
+  await runPaperMarket(
+    context.config,
+    { ...context.dependencies, shareDashboard },
+    new AbortController().signal,
+    () => {},
+  );
+  expect(shareDashboard).toHaveBeenCalledTimes(1);
+  expect(close).toHaveBeenCalledTimes(1);
+  expect(order).toEqual(['sharing closed', 'lock released']);
+});
+it('요청한 공유 연결을 만들 수 없으면 worker를 실행하지 않는다', async () => {
+  const context = fixture(['--share-dashboard']);
+  await expect(context.execute()).rejects.toThrow('DASHBOARD_SHARE_UNAVAILABLE');
+  expect(context.dependencies.createWorker).not.toHaveBeenCalled();
+});
 
 it('시간 초과된 source의 후속 정리가 끝날 때까지 토큰 잠금을 유지한다', async () => {
   const { execute, dependencies } = fixture();

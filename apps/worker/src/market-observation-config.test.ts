@@ -19,6 +19,7 @@ it.each(
     ['--demo', '--symbols=KR:005930,KR:005930'],
     ['--demo', '--samples=10001'],
     ['--demo', '--regular-only'],
+    ['--demo', '--share-dashboard'],
     ['--demo', '--start-at=2026-10-29T13:35:00Z'],
   ].map((args) => [args] as const),
 )('의도하지 않은 실행 옵션을 거부한다: %j', (args) => {
@@ -46,6 +47,7 @@ it('live와 관측 범위를 벗어나는 캔들 설정을 거부한다', () => 
     DATABASE_URL: 'postgresql://localhost/unused',
   };
   expect(parseMarketObservationConfig([], env).instruments).toHaveLength(2);
+  expect(parseMarketObservationConfig(['--share-dashboard'], env).shareDashboard).toBe(true);
   expect(() => parseMarketObservationConfig([], { ...env, CANDLE_INTERVAL: '1d' })).toThrow();
   expect(() => parseMarketObservationConfig([], { ...env, CANDLE_MAX_PAGES: '5' })).toThrow();
 });

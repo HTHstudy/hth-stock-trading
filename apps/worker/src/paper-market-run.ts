@@ -5,6 +5,7 @@ import { migrateTestDatabase } from '@hth/database/testing';
 import { parsePaperMarketConfig } from './paper-market-config.js';
 import { runPaperMarket } from './paper-market-runtime.js';
 import { createPaperWorker } from './paper-worker.js';
+import { shareDashboardBroker } from './shared-dashboard-broker.js';
 
 async function main() {
   const config = parsePaperMarketConfig(process.argv.slice(2), process.env);
@@ -35,6 +36,17 @@ async function main() {
           return brokerDatabase.withBrokerLease(key, operation);
         },
         createBroker: createTossReadonlyBroker,
+        shareDashboard: (broker, signal) =>
+          shareDashboardBroker(
+            {
+              clientId: config.clientId!,
+              clientSecret: config.clientSecret!,
+              databaseUrl: config.brokerUrl!,
+              interval: '1m',
+            },
+            broker,
+            signal,
+          ),
         createWorker: (value, source) => createPaperWorker(database.paper, value, source),
       },
       controller.signal,
@@ -65,6 +77,7 @@ main().catch((error: unknown) => {
     'PAPER_WORKER_NO_ENABLED_STRATEGIES',
     'PAPER_LEASE_NOT_OWNED',
     'PAPER_CONTROL_CHANGED',
+    'DASHBOARD_SHARE_UNAVAILABLE',
   ]);
   const code =
     error instanceof BrokerError

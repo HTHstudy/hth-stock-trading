@@ -20,6 +20,10 @@ export interface PaperMarketDependencies {
   withBrokerLease: (key: number, operation: (signal: AbortSignal) => Promise<void>) => Promise<void>;
   prepare: () => Promise<void>;
   createBroker: typeof createTossReadonlyBroker;
+  shareDashboard?: (
+    broker: ReturnType<typeof createTossReadonlyBroker>,
+    signal: AbortSignal,
+  ) => Promise<{ close: () => Promise<void> }>;
   createWorker: (
     config: Parameters<typeof createPaperWorker>[1],
     source: Parameters<typeof createPaperWorker>[2],
@@ -48,6 +52,7 @@ export async function runPaperMarket(
     const lifetime = new AbortController();
     const combined = AbortSignal.any([signal, leaseSignal, lifetime.signal]);
     let pendingRead: Promise<unknown> | undefined;
+    let sharing: { close: () => Promise<void> } | undefined;
     try {
       combined.throwIfAborted();
       if (config.initialize) {
@@ -130,6 +135,10 @@ export async function runPaperMarket(
         signal: combined,
       });
       const source = createPaperMarketSource(broker, 1, dependencies.now);
+      if (config.shareDashboard) {
+        if (!dependencies.shareDashboard) throw new Error('DASHBOARD_SHARE_UNAVAILABLE');
+        sharing = await dependencies.shareDashboard(broker, combined);
+      }
       const worker = dependencies.createWorker(
         {
           accountId: config.accountId,
@@ -150,6 +159,7 @@ export async function runPaperMarket(
       lifetime.abort();
       // Do not release the token lock while a timed-out source is still issuing reads.
       await pendingRead?.catch(() => {});
+      await sharing?.close();
     }
   });
 }
