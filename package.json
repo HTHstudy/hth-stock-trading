@@ -50,7 +50,8 @@
     "verify:ci": "node infra/verify-ci.mjs",
     "prepare": "husky",
     "test:unit": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker build && vitest run --exclude '**/*.integration.test.ts'",
-    "backtest:experiment": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker backtest:experiment"
+    "backtest:experiment": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker backtest:experiment",
+    "backtest:experiment:review": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker backtest:experiment:review"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

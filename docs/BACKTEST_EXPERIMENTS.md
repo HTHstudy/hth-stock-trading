@@ -62,3 +62,13 @@ manifest 예시는 다음과 같다. `contentHash`의 64자리 0은 실제 동�
 새 디렉터리 0700·임시 파일 0600으로 기록·sync 후 hard link로 완성 결과를 게시한다. 기존 결과와 입력 파일을 덮어쓰지 않는다. 기존 부모 디렉터리 권한은 바꾸지 않는다. 실패 시 임시 파일을 정리하며 원본 오류·로컬 경로·인증 값을 로그에 출력하지 않는다. 강제 종료 후 결과가 존재하면 hash를 검증하고 자동 덮어쓰기/재시도를 하지 않는다.
 
 이 비교 파일은 현재 웹의 개별 backtest artifact API와 별도 형식이며 웹에 자동 등록하지 않는다. 합성 파일의 결과는 실제 성과가 아니며 모든 입력은 수집 당시 재현성만 보장하는 `pointInTime=false`다. 더 긴 실제 여러 기간·검증 구간 입력 확보와 비용 가정 검토는 별도 남은 작업이다.
+
+## 저장된 결과 검토
+
+```bash
+corepack pnpm backtest:experiment:review --manifest="$PWD/.local-data/experiment/manifest.json" --input="$PWD/.local-data/experiment/result.json" --output="$PWD/.local-data/experiment/review.json"
+```
+
+검토는 manifest·결과·개별 artifact의 strict schema와 hash, 조합의 누락/중복, 입력 식별자·역할·설정의 연결을 검사한다. 원본 동결 파일이나 broker/DB 없이 실행하며 입력 파일을 다시 검증하거나 엔진을 재실행하지 않는다. `datasetFilesReverified=false`, `engineReexecuted=false`로 이 경계를 표시한다. 결과에는 기간별 전체 지표와 말기 미체결 수를 보존하고 재개 권한·최적 순위·수익성 승인을 만들지 않는다.
+
+`artifactIntegrityVerified=true`는 체크섬과 내부 연결 검사다. 모든 hash를 다시 계산한 위조나 잘못된 체결 가정·원천 데이터의 진위를 판별하는 서명/공증이 아니다. 입력부터 재현하려면 원본 파일로 `backtest:experiment`를 별도 실행하고 result hash를 비교한다. 조회만으로 해당 재실행을 시작하지 않는다. 검토 출력도 기존 파일 덮어쓰기 금지·private 권한·원자적 게시 규칙을 사용한다.

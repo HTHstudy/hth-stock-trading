@@ -32,7 +32,8 @@
     "paper:plan": "tsx src/paper-market-plan-run.ts",
     "paper:prepare": "tsx src/paper-prepare-run.ts",
     "paper:review": "tsx src/paper-review-run.ts",
-    "backtest:experiment": "tsx src/backtest-experiment-run.ts"
+    "backtest:experiment": "tsx src/backtest-experiment-run.ts",
+    "backtest:experiment:review": "tsx src/backtest-experiment-review-run.ts"
   },
   "dependencies": {
     "@hth/contracts": "workspace:*",
