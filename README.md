@@ -15,6 +15,8 @@
 
 시장 관측을 기다리는 동안 `corepack pnpm paper:rehearse`로 국내·미국 합성 검증 조건을 확인할 수 있습니다. 실행·격리 DB 준비·26개 통과 기준은 [Paper 통합 리허설](docs/PAPER_REHEARSAL.md)을 따릅니다. 기본은 미리보기이며 기존 계좌를 재개하지 않습니다.
 
+`corepack pnpm paper:review`는 키·DB 없이 실행 전후 원장 검토 도구를 미리봅니다. 기존 전용 Paper DB에서 읽기 전용 checkpoint를 저장하고 오프라인으로 현금·부분 체결·비용·소유권·원가·종료 정리를 비교합니다. 신호/체결이 없으면 미완료로 남기며 계좌를 재개하지 않습니다. [사용법과 판정 한계](docs/PAPER_RUN_REVIEW.md)를 따릅니다.
+
 ## 로컬 실행
 
 Node.js 24와 Corepack이 필요합니다. pnpm은 packageManager에 고정합니다. 전역 pnpm이 없다면 모든 명령을 `corepack pnpm`으로 실행할 수 있습니다.
