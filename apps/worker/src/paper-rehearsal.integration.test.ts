@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createDatabase } from '@hth/database';
 import { migrateTestDatabase, testDatabaseUrl } from '@hth/database/testing';
 import { rehearsePaper } from './paper-rehearsal.js';
+import type { RehearsalCheck } from './paper-rehearsal.js';
 
 const plan = JSON.parse(readFileSync(new URL('../../../examples/paper-rehearsal-plan.json', import.meta.url), 'utf8'));
 describe.skipIf(!process.env.TEST_DATABASE_URL)('격리된 Paper 통합 리허설', () => {
@@ -16,8 +17,9 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('격리된 Paper 통합 리허�
   });
   it('외부 통신 없이 두 시장의 체결/복구/보호/진단을 같은 결과로 재현한다', async () => {
     const network = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('NETWORK_FORBIDDEN'));
-    const first = await rehearsePaper(database, plan, new AbortController().signal);
-    const second = await rehearsePaper(database, plan, new AbortController().signal);
+    const verify = (check: RehearsalCheck) => expect(check.passed, `${check.market}/${check.check}`).toBe(true);
+    const first = await rehearsePaper(database, plan, new AbortController().signal, verify);
+    const second = await rehearsePaper(database, plan, new AbortController().signal, verify);
     expect(second).toEqual(first);
     expect(first.checks).toHaveLength(26);
     expect(first.checks.every((check) => check.passed)).toBe(true);

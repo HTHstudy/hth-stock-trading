@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { assessMarketData, paperSessionState } from '@hth/trading';
+import { assessMarketData, paperSessionState, movingAverageCross } from '@hth/trading';
 import { parsePaperRehearsalConfig, paperRehearsalPlanSchema } from './paper-rehearsal-plan.js';
 import { rehearsalEvidence } from './paper-rehearsal-source.js';
 
@@ -58,6 +58,47 @@ describe('Paper 리허설 경계', () => {
 });
 
 describe('KR/US 합성 시세는 실제 신선도 게이트를 통과한다', () => {
+  it('분이 바뀌어도 같은 리허설 계좌의 봉 시각은 고정하고 시세 관측 시각만 갱신한다', () => {
+    for (const [instrument, anchor, later] of [
+      [{ market: 'US', symbol: 'AAPL' }, '2026-11-02T01:02:59.900Z', '2026-11-02T01:03:00.100Z'],
+      [{ market: 'KR', symbol: '005930' }, '2026-11-01T15:01:59.900Z', '2026-11-01T15:03:00.100Z'],
+    ] as const) {
+      const first = rehearsalEvidence(instrument, ['1000', '900', '1100'], anchor, anchor);
+      const second = rehearsalEvidence(instrument, ['1000', '900', '1100'], later, anchor);
+      expect(second.marketData.candles).toEqual(first.marketData.candles);
+      expect(second.quote.observedAt).not.toBe(first.quote.observedAt);
+      expect(second.marketData.candles.every((c) => !c.isClosed)).toBe(true);
+    }
+  });
+  it('거래일 전환 전후와 CI 실패 시각에도 종료 봉 3개와 매수 교차를 유지한다', () => {
+    const cases: { market: 'KR' | 'US'; asOf: string }[] = [{ market: 'US', asOf: '2026-11-02T01:02:35Z' }];
+    for (const [market, boundary] of [
+      ['KR', '2026-11-01T15:00:00Z'],
+      ['US', '2026-10-31T00:00:00Z'],
+      ['US', '2026-11-02T01:00:00Z'],
+    ] as const)
+      for (const minute of [-2, -1, 0, 1, 2, 3, 4, 5])
+        cases.push({ market, asOf: new Date(Date.parse(boundary) + minute * 60000 + 30000).toISOString() });
+    for (const { market, asOf } of cases) {
+      const instrument = { market, symbol: market === 'KR' ? '005930' : 'AAPL' };
+      const entry = rehearsalEvidence(instrument, ['1000', '900', '1100'], asOf);
+      const result = assessMarketData({
+        ...entry.marketData,
+        instrument,
+        quoteTimestamp: entry.quote.timestamp,
+        quoteObservedAt: asOf,
+        asOf,
+      });
+      expect(result.blockers, `${market} ${asOf}`).toEqual([]);
+      expect(result.candles, `${market} ${asOf}`).toHaveLength(3);
+      expect(
+        movingAverageCross.evaluate(
+          { instrument, evaluatedAt: asOf, closedCandles: result.candles, ownedQuantity: '0' },
+          { fastPeriod: 1, slowPeriod: 2 },
+        ).action,
+      ).toBe('BUY');
+    }
+  });
   it.each([
     '2026-10-30T01:45:30Z',
     '2026-01-15T14:30:30Z',

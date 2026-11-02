@@ -118,7 +118,7 @@ export async function rehearsePaper(
               instrument.market === profile.instrument.market && instrument.symbol === profile.instrument.symbol;
             if (!target && (instrument.market !== manual.market || instrument.symbol !== manual.symbol))
               throw new Error('PAPER_REHEARSAL_INSTRUMENT_MISMATCH');
-            const evidence = rehearsalEvidence(instrument, target ? profile[phase] : profile.flat, now);
+            const evidence = rehearsalEvidence(instrument, target ? profile[phase] : profile.flat, now, observedAt);
             if (stale && target) evidence.quote.timestamp = new Date(Date.parse(now) - 180000).toISOString();
             return evidence;
           });
