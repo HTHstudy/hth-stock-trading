@@ -11,6 +11,18 @@ corepack pnpm data:backfill --market=US --symbol=AAPL --from=2026-10-26 --to=202
 
 저장이 필요하면 마이그레이션 `0001`의 테이블과 불변성 trigger를 먼저 검토·적용하고 같은 명령에 `--save`를 추가한다. 서버 시작이나 수집 명령에서 마이그레이션을 자동 실행하지 않는다. `broker:sync`도 이제 revision을 함께 기록하므로 `0001`이 필요하다. 사용자 DB에는 이번 작업에서 마이그레이션을 적용하지 않았다.
 
+## DB 저장 없이 파일로 보관
+
+```bash
+corepack pnpm data:backfill --market=US --symbol=AAPL --from=2026-09-14 --to=2026-10-30 --interval=1d --output=../../.local-data/research/new-dataset.json
+```
+
+`--output`은 수집 완료 후 schema·전체 커버리지·비어 있지 않은 종료 봉을 검사하고 `{ id, contentHash, dataset }` 파일을 만든다. 이 ID는 로컬 artifact UUID이며 DB 행 ID가 아니다. `saved=false`, `exported=true`, `storage=file`로 구분한다. `--save`와 함께 사용하면 인증 설정/DB 연결 전에 거부한다. 파일 경로는 worker 디렉터리 기준이고 JSON만 허용한다.
+
+이 모드는 업무 DB 스키마 확인·동결 저장·마이그레이션을 수행하지 않는다. 실제 수집에는 여전히 기존 인증 잠금 DB와 broker 연결이 필요하다. 파일만으로 인증 잠금 없이 수집하는 기능이 아니다. 기본 dry run과 `--save`의 동작은 유지한다.
+
+새 디렉터리는 0700, 임시 파일은 0600으로 생성해 기록·sync 후 hard link로 완성 파일만 게시한다. 기존 파일은 덮어쓰지 않으며 실패한 임시 파일은 정리한다. 기존 부모 디렉터리의 권한은 변경하지 않으므로 서버 전용 private 경로를 사용한다. 게시 직전 취소를 다시 확인한다. 게시 후 프로세스가 종료돼 완료 응답을 못 받은 경우 파일 존재와 schema/hash를 확인하고 기존 파일을 삭제하거나 자동 재시도하지 않는다. 동일 입력의 hash 재검증에는 기존 `parseDatasetExport`를 사용한다. point-in-time 정확도·시세 재배포 권한·전략 운용 승인을 제공하지 않는다.
+
 ## 범위와 완전성
 
 - `from`·`to`는 해당 시장의 거래일이며 양끝을 포함한다. 최대 366일, 미래 거래일은 거부한다.

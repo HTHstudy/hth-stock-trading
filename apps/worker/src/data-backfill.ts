@@ -1,41 +1,14 @@
 import { createHash } from 'node:crypto';
-import { parseArgs } from 'node:util';
-import { z } from 'zod';
 import { BrokerError } from '@hth/broker';
 import { createTossReadonlyBroker } from '@hth/broker/toss';
 import { createDatabase } from '@hth/database';
 import { parseReadonlyConfig } from './readonly-config.js';
 import { collectHistoricalDataset } from './historical-collect.js';
+import { parseBackfillOptions } from './data-backfill-options.js';
+import { exportHistoricalDataset } from './historical-export.js';
 
 async function main() {
-  const { values } = parseArgs({
-    options: {
-      market: { type: 'string' },
-      symbol: { type: 'string' },
-      from: { type: 'string' },
-      to: { type: 'string' },
-      interval: { type: 'string' },
-      'max-pages': { type: 'string' },
-      adjusted: { type: 'boolean', default: false },
-      save: { type: 'boolean', default: false },
-    },
-  });
-  const options = z
-    .object({
-      market: z.enum(['KR', 'US']),
-      symbol: z
-        .string()
-        .regex(/^[A-Za-z0-9.-]{1,40}$/)
-        .transform((value) => value.toUpperCase()),
-      from: z.iso.date(),
-      to: z.iso.date(),
-      interval: z.enum(['1m', '1d']).default('1d'),
-      'max-pages': z.coerce.number().int().min(1).max(100).default(50),
-      adjusted: z.boolean(),
-      save: z.boolean(),
-    })
-    .safeParse(values);
-  if (!options.success) throw new Error('INVALID_HISTORICAL_REQUEST');
+  const options = parseBackfillOptions(process.argv.slice(2));
   const config = parseReadonlyConfig(process.env);
   const database = createDatabase(config.DATABASE_URL);
   const shutdown = new AbortController();
@@ -43,7 +16,7 @@ async function main() {
   process.once('SIGINT', cancel);
   process.once('SIGTERM', cancel);
   try {
-    if (options.data.save) await database.datasets.verifySchema();
+    if (options.save) await database.datasets.verifySchema();
     const key = createHash('sha256').update(config.TOSS_CLIENT_ID).digest().readInt32BE(0);
     const result = await database.withBrokerLease(key, async (leaseSignal) => {
       const signal = AbortSignal.any([leaseSignal, shutdown.signal, AbortSignal.timeout(600_000)]);
@@ -55,23 +28,26 @@ async function main() {
       const dataset = await collectHistoricalDataset(
         broker,
         {
-          instrument: { market: options.data.market, symbol: options.data.symbol },
-          from: options.data.from,
-          to: options.data.to,
-          interval: options.data.interval,
-          adjusted: options.data.adjusted,
+          instrument: { market: options.market, symbol: options.symbol },
+          from: options.from,
+          to: options.to,
+          interval: options.interval,
+          adjusted: options.adjusted,
           source: 'toss',
         },
-        { maxPages: options.data['max-pages'], signal },
+        { maxPages: options['max-pages'], signal },
       );
       signal.throwIfAborted();
-      const frozen = options.data.save ? await database.datasets.freeze(dataset) : null;
+      const frozen = options.save ? await database.datasets.freeze(dataset) : null;
+      const exported = options.output ? await exportHistoricalDataset(options.output, dataset, signal) : null;
       return {
+        exported: Boolean(exported),
+        storage: frozen ? 'database' : exported ? 'file' : 'none',
         mode: 'paper',
         executionEnabled: false,
         saved: Boolean(frozen),
-        id: frozen?.id ?? null,
-        contentHash: frozen?.contentHash ?? null,
+        id: frozen?.id ?? exported?.id ?? null,
+        contentHash: frozen?.contentHash ?? exported?.contentHash ?? null,
         candles: dataset.candles.length,
         observations: dataset.observations.length,
         complete: dataset.coverage.complete,
@@ -92,6 +68,7 @@ async function main() {
 main().catch((error: unknown) => {
   const allowed = [
     'INVALID_HISTORICAL_REQUEST',
+    'DATASET_EXPORT_JSON_REQUIRED',
     'FUTURE_HISTORICAL_RANGE',
     'BACKFILL_SCHEMA_NOT_READY',
     'INVALID_PAGE_LIMIT',
