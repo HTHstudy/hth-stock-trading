@@ -49,7 +49,8 @@
     "paper:review": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:review",
     "verify:ci": "node infra/verify-ci.mjs",
     "prepare": "husky",
-    "test:unit": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker build && vitest run --exclude '**/*.integration.test.ts'"
+    "test:unit": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker build && vitest run --exclude '**/*.integration.test.ts'",
+    "backtest:experiment": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker backtest:experiment"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
