@@ -13,3 +13,4 @@ coverage/
 .aws/
 *.pem
 *.key
+.pnpm-store/
