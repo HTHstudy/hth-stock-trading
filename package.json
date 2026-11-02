@@ -48,7 +48,8 @@
     "paper:local:backup": "node infra/backup-db.mjs --stack=paper-market --env-file=.local-data/paper-market-local/.env",
     "paper:review": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:review",
     "verify:ci": "node infra/verify-ci.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:unit": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker build && vitest run --exclude '**/*.integration.test.ts'"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

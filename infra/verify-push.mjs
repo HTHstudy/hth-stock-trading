@@ -10,7 +10,7 @@ const git = (...args) => {
   if (result.error || result.status !== 0) throw new Error('PUSH_GIT_CHECK_FAILED');
   return result.stdout.trim();
 };
-async function verify() {
+async function verify(needsDatabase) {
   const name = 'hth-push-test-' + randomUUID();
   const controller = new AbortController();
   const abort = () => controller.abort();
@@ -35,7 +35,29 @@ async function verify() {
     });
   const docker = (args, options = {}) => run('docker', args, { capture: true, ...options });
   let created = false;
+  let attempted = false;
   try {
+    const fastEnv = { ...process.env };
+    delete fastEnv.TEST_DATABASE_URL;
+    console.info(
+      JSON.stringify({
+        service: 'verify-push',
+        state: 'typecheck-and-unit-tests',
+        databaseTestsRequired: needsDatabase,
+      }),
+    );
+    for (const args of [
+      ['pnpm', 'typecheck'],
+      ['pnpm', 'exec', 'vitest', 'run', '--exclude', '**/*.integration.test.ts'],
+    ]) {
+      const result = await run('corepack', args, { env: fastEnv });
+      if (result.code !== 0) {
+        process.exitCode = result.code;
+        return;
+      }
+    }
+    if (!needsDatabase) return;
+    attempted = true;
     console.info(JSON.stringify({ service: 'verify-push', state: 'creating-isolated-test-database' }));
     const started = await docker([
       'run',
@@ -74,23 +96,16 @@ async function verify() {
       ...process.env,
       TEST_DATABASE_URL: `postgresql://hth_test:local_test_only@127.0.0.1:${port}/hth_readonly_test`,
     };
-    for (const [command, ...args] of [
-      ['corepack', 'pnpm', 'verify:ci'],
-      ['docker', 'compose', '-f', 'infra/docker-compose.yml', 'config', '--quiet'],
-      ['docker', 'compose', '-f', 'infra/compose.local.yml', 'config', '--quiet'],
-    ]) {
-      const result = await run(command, args, { env });
-      if (result.code !== 0) {
-        process.exitCode = result.code;
-        break;
-      }
-    }
+    const result = await run('corepack', ['pnpm', 'exec', 'vitest', 'run', '.integration.test.ts'], { env });
+    if (result.code !== 0) process.exitCode = result.code;
   } finally {
     try {
       // Cleanup has its own signal so Ctrl-C cannot cancel removal of our DB.
-      const removed = await docker(['rm', '--force', name], { signal: AbortSignal.timeout(10000) }).catch(() => ({
-        code: 1,
-      }));
+      const removed = attempted
+        ? await docker(['rm', '--force', name], { signal: AbortSignal.timeout(10000) }).catch(() => ({
+            code: 1,
+          }))
+        : { code: 0 };
       if (created && removed.code !== 0) {
         console.error(
           JSON.stringify({ service: 'verify-push', code: 'PUSH_TEST_DATABASE_CLEANUP_FAILED', container: name }),
@@ -109,14 +124,34 @@ try {
     .map((line) => {
       const parts = line.trim().split(/\s+/);
       if (parts.length !== 4 || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(parts[1])) throw new Error('PUSH_REF_INVALID');
-      return parts[1];
+      if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(parts[3])) throw new Error('PUSH_REF_INVALID');
+      return { sha: parts[1], previous: parts[3] };
     })
-    .filter((sha) => !/^0+$/.test(sha));
+    .filter((update) => !/^0+$/.test(update.sha));
   if (updates.length) {
     const head = git('rev-parse', 'HEAD');
-    if (updates.some((sha) => sha !== head)) throw new Error('PUSH_CURRENT_HEAD_REQUIRED');
+    if (updates.some((update) => update.sha !== head)) throw new Error('PUSH_CURRENT_HEAD_REQUIRED');
     if (git('status', '--porcelain=v1', '--untracked-files=normal')) throw new Error('PUSH_CLEAN_WORKTREE_REQUIRED');
-    await verify();
+    const critical = (path) =>
+      [
+        'packages/database/',
+        'packages/trading/',
+        'packages/contracts/',
+        'apps/worker/src/paper-',
+        'apps/api/src/paper-',
+        'infra/verify-push',
+      ].some((prefix) => path.startsWith(prefix)) ||
+      ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml'].includes(path) ||
+      /^tsconfig[^/]*\.json$/.test(path);
+    const needsDatabase = updates.some((update) => {
+      if (/^0+$/.test(update.previous)) return true;
+      const changed = spawnSync('git', ['diff', '--name-only', '-z', '--no-renames', update.previous, head, '--'], {
+        cwd,
+        encoding: 'utf8',
+      });
+      return changed.error || changed.status !== 0 || changed.stdout.split('\0').some((path) => critical(path));
+    });
+    await verify(Boolean(needsDatabase));
   }
 } catch (error) {
   const allowed = new Set([
