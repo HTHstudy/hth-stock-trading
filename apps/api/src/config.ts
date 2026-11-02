@@ -27,6 +27,11 @@ const configSchema = z
       .enum(['true', 'false'])
       .default('false')
       .transform((value) => value === 'true'),
+    PAPER_PREPARATION_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
+    PAPER_PREPARATION_DATABASE_URL: z.string().min(1).optional(),
     PAPER_DASHBOARD_KIND: z.enum(['synthetic', 'market']).default('synthetic'),
     PAPER_MARKET_DATABASE_URL: z.string().min(1).optional(),
     PAPER_MARKET_ACCOUNT_ID: z
@@ -45,17 +50,27 @@ const configSchema = z
         code: 'custom',
         message: 'Local container mode requires production artifacts on IPv4 loopback',
       });
-    if ((config.DASHBOARD_ENABLED || config.PAPER_DASHBOARD_ENABLED) && !config.OWNER_PASSWORD_HASH)
+    if (
+      (config.DASHBOARD_ENABLED || config.PAPER_DASHBOARD_ENABLED || config.PAPER_PREPARATION_ENABLED) &&
+      !config.OWNER_PASSWORD_HASH
+    )
       context.addIssue({
         code: 'custom',
         message: 'Owner authentication must be configured before enabling dashboards',
       });
     if (
-      (config.DASHBOARD_ENABLED || config.PAPER_DASHBOARD_ENABLED) &&
+      (config.DASHBOARD_ENABLED || config.PAPER_DASHBOARD_ENABLED || config.PAPER_PREPARATION_ENABLED) &&
       ((config.NODE_ENV === 'production' && !config.LOCAL_CONTAINER_MODE) ||
         !['127.0.0.1', 'localhost', '::1'].includes(config.API_HOST))
     ) {
       context.addIssue({ code: 'custom', message: 'Dashboard is available on a development loopback server only' });
+    }
+    if (config.PAPER_PREPARATION_ENABLED) {
+      try {
+        dedicatedPaperDatabaseUrl(config.PAPER_PREPARATION_DATABASE_URL, config.LOCAL_CONTAINER_MODE);
+      } catch {
+        context.addIssue({ code: 'custom', message: 'Preparation dashboard requires a dedicated Paper DB' });
+      }
     }
     if (config.PAPER_DASHBOARD_ENABLED) {
       const market = config.PAPER_DASHBOARD_KIND === 'market';

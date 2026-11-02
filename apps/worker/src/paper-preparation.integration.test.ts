@@ -64,7 +64,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('broker 없는 실제 시세 Pap
     const before = await db.paperPreparation.read(account);
     const result = await runPaperPreparation([...args, '--check'], { PAPER_MARKET_DATABASE_URL: testDatabaseUrl() });
     expect(result).toMatchObject({ state: 'checked', preparationMatches: true, canResume: false });
-    expect(await db.paperPreparation.read(account)).toEqual(before);
+    expect(await db.paperPreparation.read(account)).toEqual({ ...before, asOf: expect.any(String) });
   });
   it('같은 계좌의 경합 초기화는 하나만 성공하고 기존 자금·설정을 덮어쓰지 않는다', async () => {
     const account = id();
@@ -74,7 +74,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('broker 없는 실제 시세 Pap
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
     const before = await db.paperPreparation.read(account);
     await expect(operation()).rejects.toThrow('PAPER_MARKET_ACCOUNT_EXISTS');
-    expect(await db.paperPreparation.read(account)).toEqual(before);
+    expect(await db.paperPreparation.read(account)).toEqual({ ...before, asOf: expect.any(String) });
   });
   it('계획·전략·준비 영수증 불일치를 숨기거나 현재 값으로 복원하지 않는다', async () => {
     const account = id();

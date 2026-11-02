@@ -27,6 +27,8 @@ import type { OwnerAuth } from './owner-auth.js';
 import type { WatchlistStore } from './watchlist-store.js';
 import type { ObservationReports } from './observation-reports.js';
 import type { WorkerStatusReader } from './worker-status.js';
+import { paperPreparationDashboardSchema } from '@hth/contracts';
+import type { PaperPreparationDashboardReader } from './paper-preparation.js';
 
 export function createApp(
   logLevel = 'silent',
@@ -38,6 +40,7 @@ export function createApp(
   observations?: ObservationReports,
   watchlist?: WatchlistStore,
   workerStatus?: WorkerStatusReader,
+  preparation?: PaperPreparationDashboardReader,
 ) {
   const app = Fastify({
     logger: {
@@ -104,6 +107,20 @@ export function createApp(
       return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
     if (!workerStatus) return reply.code(503).send({ error: { code: 'WORKER_STATUS_UNAVAILABLE' } });
     return workerStatusSchema.parse(await workerStatus.get());
+  });
+  app.get('/v1/paper/preparation', async (request, reply) => {
+    if (!z.object({}).strict().safeParse(request.query).success)
+      return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (!preparation)
+      return paperPreparationDashboardSchema.parse({
+        status: 'disabled',
+        asOf: new Date().toISOString(),
+        accounts: [],
+        executionEnabled: false,
+        canResume: false,
+        marketReadiness: 'not-checked',
+      });
+    return paperPreparationDashboardSchema.parse(await preparation.read());
   });
   app.post('/v1/auth/login', { bodyLimit: 2048 }, async (request, reply) => {
     const input = ownerLoginSchema.safeParse(request.body);
@@ -342,6 +359,7 @@ export function createApp(
     dashboard?.close();
     owner?.close();
     await paper?.close();
+    await preparation?.close();
   });
 
   return app;

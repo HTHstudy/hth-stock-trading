@@ -115,6 +115,8 @@ export function createPaperPreparationStore(db: NodePgDatabase<typeof schema>) {
       inputSchema.shape.accountId.parse(accountId);
       return db.transaction(
         async (transaction) => {
+          const time = await transaction.execute<{ instant: string }>(sql`SELECT clock_timestamp()::text AS instant`);
+          const asOf = new Date(time.rows[0]!.instant).toISOString();
           const [account] = await transaction
             .select()
             .from(schema.paperAccounts)
@@ -123,7 +125,8 @@ export function createPaperPreparationStore(db: NodePgDatabase<typeof schema>) {
           const strategies = await transaction
             .select()
             .from(schema.paperStrategies)
-            .where(eq(schema.paperStrategies.accountId, accountId));
+            .where(eq(schema.paperStrategies.accountId, accountId))
+            .limit(2);
           const revisions = await transaction
             .select()
             .from(schema.paperStrategyRevisions)
@@ -138,7 +141,7 @@ export function createPaperPreparationStore(db: NodePgDatabase<typeof schema>) {
           SELECT (SELECT count(*) FROM ${schema.paperIntents} WHERE ${schema.paperIntents.accountId} = ${accountId})::text AS orders,
                  (SELECT count(*) FROM ${schema.paperFills} WHERE ${schema.paperFills.accountId} = ${accountId})::text AS fills,
                  (SELECT count(*) FROM ${schema.paperReservations} WHERE ${schema.paperReservations.accountId} = ${accountId})::text AS reservations`);
-          return { account, strategies, revisions, receipts, counts: counts.rows[0]! };
+          return { asOf, account, strategies, revisions, receipts, counts: counts.rows[0]! };
         },
         { isolationLevel: 'repeatable read', accessMode: 'read only' },
       );

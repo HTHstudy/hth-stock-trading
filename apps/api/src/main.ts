@@ -14,6 +14,7 @@ import { createBacktestReports } from './backtest-reports.js';
 import { parseApiConfig } from './config.js';
 import { createDashboardService, loadDashboardFromWorker } from './dashboard-service.js';
 import { createWorkerStatus } from './worker-status.js';
+import { createPaperPreparationDashboard } from './paper-preparation.js';
 
 async function main() {
   Object.assign(process.env, localComposeEnvironment(process.env));
@@ -72,6 +73,21 @@ async function main() {
         config.PAPER_DASHBOARD_KIND === 'market' ? 'toss-readonly' : 'synthetic-only',
       )
     : undefined;
+  const preparationUrl = config.PAPER_PREPARATION_DATABASE_URL;
+  const preparationDatabase = config.PAPER_PREPARATION_ENABLED ? createDatabase(preparationUrl!) : undefined;
+  const preparation = preparationDatabase
+    ? createPaperPreparationDashboard(
+        {
+          read: async (id) => {
+            await assertDedicatedPaperDatabase(preparationDatabase, preparationUrl!, config.LOCAL_CONTAINER_MODE);
+            return preparationDatabase.paperPreparation.read(id);
+          },
+        },
+        fileURLToPath(new URL('../../../.local-data/paper-market-local', import.meta.url)),
+        fileURLToPath(new URL('../../../examples', import.meta.url)),
+        () => preparationDatabase.close(),
+      )
+    : undefined;
   const app = createApp(
     config.LOG_LEVEL,
     dashboard,
@@ -84,6 +100,7 @@ async function main() {
     localAccess
       ? createWorkerStatus(fileURLToPath(new URL('../../../.local-data/runtime', import.meta.url)))
       : undefined,
+    preparation,
   );
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {

@@ -7,6 +7,10 @@
     "./dashboard-process": {
       "types": "./dist/dashboard-process.d.ts",
       "import": "./dist/dashboard-process.js"
+    },
+    "./paper-preparation-query": {
+      "types": "./dist/paper-preparation-query.d.ts",
+      "import": "./dist/paper-preparation-query.js"
     }
   },
   "scripts": {
