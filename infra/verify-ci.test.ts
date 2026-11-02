@@ -51,6 +51,7 @@ it('테스트 DB 누락·일반 DB·외부 주소는 실행 전에 거부하고 
       const r = f.run({ TEST_DATABASE_URL: url });
       expect(r.status).toBe(1);
       expect(r.stdout + r.stderr).not.toContain('PRIVATE_PASSWORD');
+      if (url === undefined) expect(r.stderr).toContain('VERIFY_CI_DEDICATED_DATABASE_REQUIRED');
     }
     await expect(readFile(f.log)).rejects.toThrow();
   } finally {

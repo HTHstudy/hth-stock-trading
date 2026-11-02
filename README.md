@@ -62,7 +62,7 @@ corepack pnpm build
 corepack pnpm format:check
 ```
 
-Husky가 커밋 전 스테이징 파일의 린트·포맷을 검사하고 푸시 전 전체 검증을 실행합니다. `pnpm install`에서 자동 연결하며 기존 checkout은 `corepack pnpm run prepare`로 설치합니다. 푸시에는 깨끗한 작업 디렉터리와 전용 테스트 DB의 `TEST_DATABASE_URL`이 필요합니다. 전체 검증은 `corepack pnpm verify:ci`이며 Actions도 같은 명령을 사용합니다. DB 없는 실행이나 단일 worker 실행은 전체 CI 검증 완료로 처리하지 않습니다. [검증 절차와 간헐 실패 회귀 기록](docs/CI_VALIDATION.md)을 따릅니다.
+Husky가 커밋 전 스테이징 파일의 린트·포맷을 검사하고 푸시 전 전체 검증을 실행합니다. `pnpm install`에서 자동 연결하며 기존 checkout은 `corepack pnpm run prepare`로 설치합니다. 푸시에는 깨끗한 작업 디렉터리와 실행 중인 Docker/Compose가 필요합니다. hook이 전용 임시 테스트 DB를 자동 생성·정리하므로 `TEST_DATABASE_URL`을 직접 설정할 필요가 없습니다. 전체 검증은 `corepack pnpm verify:ci`이며 Actions도 같은 명령을 사용합니다. DB 없는 실행이나 단일 worker 실행은 전체 CI 검증 완료로 처리하지 않습니다. [검증 절차와 간헐 실패 회귀 기록](docs/CI_VALIDATION.md)을 따릅니다.
 
 테스트는 안전 모드, API, 토스 DTO·인증·호출 제한·재시도·타임아웃·시장 날짜·캔들 정규화·잠금을 확인합니다. 실제 증권사 요청은 하지 않습니다. 일반 테스트는 DB 없이 실행하며 PostgreSQL 통합 테스트는 건너뜁니다. CI는 전용 PostgreSQL에서 통합 테스트도 실행합니다. 로컬 통합 테스트를 활성화하려면 localhost의 전용 DB에 `TEST_DATABASE_URL=postgresql://hth_test:local_test_only@localhost:5432/hth_readonly_test`를 지정합니다. 이 테스트는 지정한 전용 DB에 마이그레이션을 적용하고 시세 테이블을 초기화합니다. 개발/운영 DB URL을 사용하지 마세요.
 

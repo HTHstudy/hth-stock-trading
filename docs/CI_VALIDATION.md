@@ -12,19 +12,13 @@
 
 pre-commit은 자동 수정을 하지 않는다. lint-staged의 기본 백업/부분 스테이징 처리로 아직 스테이징하지 않은 변경은 보존한다. 타입 검사와 DB 통합 테스트까지 매 커밋마다 실행하면 작은 단위로 커밋하기 어려우므로 전체 검사는 푸시 전에 수행한다.
 
-pre-push에는 아래 전용 DB의 `TEST_DATABASE_URL`과 Docker Compose가 필요하다. hook은 업무 `.env`를 읽거나 DB를 자동 생성·선택하지 않는다. DB 누락/오류를 성공으로 처리하지 않는다. 전용 임시 DB를 명시해 실행하며 기존 업무/실제 시세 Paper DB를 사용하지 않는다. `git push`를 실행하는 셸에 URL을 설정해야 한다.
+pre-push는 Docker에서 매번 새 PostgreSQL 17 테스트 DB를 자동 생성한다. Docker Desktop/엔진과 Compose만 실행 가능한 상태면 `TEST_DATABASE_URL` 설정 없이 평소처럼 푸시하면 된다. 임시 DB는 localhost의 임의 포트와 고유한 컨테이너 이름을 사용하고, 기존 업무/Paper DB 주소나 볼륨을 재사용하지 않는다. 셸에 이미 있는 TEST_DATABASE_URL도 hook에서는 새 테스트 DB 주소로 대체한다. 업무 `.env`는 읽지 않는다.
 
 ```bash
-docker run --rm --detach --name hth-hook-test-db \
-  --env POSTGRES_USER=hth_test --env POSTGRES_PASSWORD=local_test_only \
-  --env POSTGRES_DB=hth_readonly_test --publish 127.0.0.1::5432 postgres:17-alpine
-docker port hth-hook-test-db 5432
-# 표시된 포트로 설정하고 DB가 준비된 뒤 푸시한다.
-export TEST_DATABASE_URL=postgresql://hth_test:local_test_only@127.0.0.1:<PORT>/hth_readonly_test
 git push
-# 검사 종료 후 이 임시 DB만 정리한다.
-docker stop hth-hook-test-db
 ```
+
+DB 준비를 최대 30초 확인한 뒤 전체 검증과 Compose 검사를 실행한다. 성공/실패/SIGINT/SIGTERM 이후에는 이번 컨테이너만 제거한다. DB 생성·준비·정리 실패도 푸시를 차단한다. Docker가 꺼져 있으면 먼저 실행하고 다시 푸시한다. 강제 종료(SIGKILL)나 호스트 장애 시에는 `hth-push-test-*` 중단 컨테이너가 남을 수 있으므로 해당 테스트 컨테이너만 확인해 정리한다. hook을 우회하지 않는다. GUI에서 Node/Corepack/Docker를 찾지 못하면 해당 앱의 PATH 설정도 확인한다.
 
 푸시 대상은 현재 HEAD이고 작업 디렉터리는 깨끗해야 한다. 작업 중인 수정이 커밋의 오류를 가리는 것을 막는다. 다른 브랜치의 커밋을 푸시하려면 해당 커밋을 checkout한 별도 worktree에서 설치/검증한다. 다른 작업을 강제로 stash하거나 함께 커밋하지 않는다. 브랜치 삭제와 업데이트 없는 푸시는 검사할 코드가 없으므로 전체 검사를 생략한다.
 
@@ -34,7 +28,7 @@ Husky는 Git hook 공유/설치, lint-staged는 부분 스테이징·공백 포�
 
 ## 전체 검증 명령
 
-Node 24와 lockfile의 pnpm을 사용한다. 전용 PostgreSQL의 `TEST_DATABASE_URL`을 설정한 뒤 아래 명령을 실행한다. URL은 localhost/127.0.0.1, DB `hth_readonly_test`, role `hth_test`만 허용한다. 업무 DB나 기존 Paper 운영 DB를 지정하지 않는다.
+Node 24와 lockfile의 pnpm을 사용한다. 직접 `verify:ci`를 실행할 때는 전용 PostgreSQL의 `TEST_DATABASE_URL`을 설정한 뒤 아래 명령을 실행한다. pre-push와 달리 직접 실행은 DB를 자동 생성하지 않는다. URL은 localhost/127.0.0.1, DB `hth_readonly_test`, role `hth_test`만 허용한다. 업무 DB나 기존 Paper 운영 DB를 지정하지 않는다.
 
 ```bash
 corepack pnpm install --frozen-lockfile
@@ -58,3 +52,7 @@ UTC `2026-11-02T01:02:35Z`의 합성 입력을 재현하면 세션 끝을 `19:59
 최종 수정본은 4CPU Linux Node 24/PostgreSQL 17 환경에서 `verify:ci`를 통과했다. 기본 worker 설정(3 workers)으로 73개 파일·448개 테스트가 모두 통과했고 format/lint/typecheck/build도 성공했다. 두 Compose config 검사도 통과했다. 이 검증 시점에는 진행 중이던 Paper 리뷰 작업을 분리했고 원격 Actions 재실행·커밋·푸시는 수행하지 않았다.
 
 Husky 추가 후 Linux 전체 검증은 75개 파일·453개 테스트와 format/lint/typecheck/build를 통과했다. 실제 임시 Git 저장소에서 오류 커밋 차단과 부분 스테이징 보존을 검증했고, pre-push의 HEAD/작업 파일 검사·실패 전파·삭제/no-op 처리도 검증했다. 테스트용 Git 저장소는 hook에서 상속되는 저장소 환경변수를 제거하고 독립적으로 생성한다.
+
+## 푸시 환경 개선
+
+기존 hook은 사용자가 임시 DB와 TEST_DATABASE_URL을 매번 준비해야 했다. 검증용 DB 종료 후 일반 셸/GUI에서 푸시하면 전체 검사를 시작하지 못하는 문제를 해결하기 위해 pre-push의 DB 생성/대기/정리를 자동화했다. 기존 DB 설정 무시·localhost 포트 검사·실패 전파·SIGTERM 정리·삭제/no-op 생략을 가짜 도구 테스트로 검증한다. CI는 기존 PostgreSQL service와 직접 verify:ci를 유지하며 테스트에서 실제 broker를 호출하지 않는다. 새 라이브러리는 추가하지 않았다.

@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 try {
   if (process.argv.length !== 2 || process.env.VITEST_MAX_WORKERS !== undefined)
     throw new Error('VERIFY_CI_ARGUMENT_OVERRIDE_REJECTED');
-  const database = new URL(process.env.TEST_DATABASE_URL ?? '');
+  if (!process.env.TEST_DATABASE_URL) throw new Error('VERIFY_CI_DEDICATED_DATABASE_REQUIRED');
+  const database = new URL(process.env.TEST_DATABASE_URL);
   if (
     !['postgres:', 'postgresql:'].includes(database.protocol) ||
     !['localhost', '127.0.0.1'].includes(database.hostname) ||
