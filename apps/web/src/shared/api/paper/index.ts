@@ -4,8 +4,10 @@ import { updateStrategy } from './endpoints/update-strategy';
 import { getStrategyHistory } from './endpoints/get-strategy-history';
 import { getEquityHistory } from './endpoints/get-equity-history';
 import { getDiagnostics } from './endpoints/get-diagnostics';
+import { getPreparation } from './endpoints/get-preparation';
 
 export const PAPER_API = {
+  preparation: getPreparation,
   diagnostics: getDiagnostics,
   get: getPaper,
   stop: stopPaper,
