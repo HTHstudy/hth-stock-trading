@@ -6,6 +6,7 @@ import { withBrokerLease } from './lease.js';
 import { createDatasetStore } from './datasets.js';
 import { createPaperLedger } from './paper-ledger.js';
 import { createPaperPreparationStore } from './paper-preparation.js';
+import { createPaperReviewStore } from './paper-review.js';
 
 export function createDatabase(connectionString: string) {
   const pool = new pg.Pool({ connectionString, max: 5, connectionTimeoutMillis: 5000, query_timeout: 10_000 });
@@ -22,6 +23,7 @@ export function createDatabase(connectionString: string) {
     datasets: createDatasetStore(db),
     paper: createPaperLedger(db),
     paperPreparation: createPaperPreparationStore(db),
+    paperReview: createPaperReviewStore(db, connectionString),
     withBrokerLease: <Result>(key: number, operation: (signal: AbortSignal) => Promise<Result>) =>
       withBrokerLease(pool, key, operation),
     close: () => pool.end(),

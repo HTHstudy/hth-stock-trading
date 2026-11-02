@@ -1,4 +1,11 @@
 import { z } from 'zod';
+export {
+  paperReviewSnapshotSchema,
+  paperReviewCheckpointSchema,
+  paperReviewReportSchema,
+  paperReviewArtifactSchema,
+} from './paper-review.js';
+export type { PaperReviewSnapshot, PaperReviewCheckpoint, PaperReviewReport } from './paper-review.js';
 export { paperPreparationDashboardSchema } from './paper-preparation.js';
 export type { PaperPreparationDashboard } from './paper-preparation.js';
 export { workerRuntimeSchema, workerStatusSchema } from './worker-status.js';

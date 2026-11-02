@@ -30,7 +30,8 @@
     "market:observe": "tsx --env-file-if-exists=../../.env src/market-observation-run.ts",
     "paper:rehearse": "tsx src/paper-rehearsal-run.ts",
     "paper:plan": "tsx src/paper-market-plan-run.ts",
-    "paper:prepare": "tsx src/paper-prepare-run.ts"
+    "paper:prepare": "tsx src/paper-prepare-run.ts",
+    "paper:review": "tsx src/paper-review-run.ts"
   },
   "dependencies": {
     "@hth/contracts": "workspace:*",

@@ -46,6 +46,7 @@
     "paper:local:up": "docker compose --env-file .local-data/paper-market-local/.env -f infra/compose.paper-market.yml up -d --wait",
     "paper:local:down": "docker compose --env-file .local-data/paper-market-local/.env -f infra/compose.paper-market.yml down",
     "paper:local:backup": "node infra/backup-db.mjs --stack=paper-market --env-file=.local-data/paper-market-local/.env",
+    "paper:review": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker paper:review",
     "verify:ci": "node infra/verify-ci.mjs",
     "prepare": "husky"
   },
