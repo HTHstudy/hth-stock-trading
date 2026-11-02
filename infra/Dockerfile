@@ -1,5 +1,6 @@
 FROM node:24-slim AS build
 WORKDIR /app
+ENV HUSKY=0
 RUN corepack enable
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY apps/api/package.json ./apps/api/package.json

@@ -11,7 +11,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['apps/**/*.test.ts', 'packages/**/*.test.ts'],
+    include: ['apps/**/*.test.ts', 'packages/**/*.test.ts', 'infra/**/*.test.ts'],
     clearMocks: true,
     restoreMocks: true,
     env: { NODE_ENV: 'test', TRADING_MODE: 'paper' },

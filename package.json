@@ -45,7 +45,9 @@
     "paper:local:config": "node infra/init-paper-local.mjs",
     "paper:local:up": "docker compose --env-file .local-data/paper-market-local/.env -f infra/compose.paper-market.yml up -d --wait",
     "paper:local:down": "docker compose --env-file .local-data/paper-market-local/.env -f infra/compose.paper-market.yml down",
-    "paper:local:backup": "node infra/backup-db.mjs --stack=paper-market --env-file=.local-data/paper-market-local/.env"
+    "paper:local:backup": "node infra/backup-db.mjs --stack=paper-market --env-file=.local-data/paper-market-local/.env",
+    "verify:ci": "node infra/verify-ci.mjs",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
@@ -56,6 +58,8 @@
     "eslint-plugin-check-file": "^3.3.0",
     "eslint-plugin-import": "^2.32.0",
     "globals": "^16.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
     "prettier": "^3.6.0",
     "tsx": "^4.20.0",
     "typescript": "5.9.3",

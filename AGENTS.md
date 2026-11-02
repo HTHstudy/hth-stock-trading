@@ -63,7 +63,7 @@
 - 주문 의도는 전송 전 DB에 기록한다. 불확실한 응답에 주문을 무조건 재전송하지 않는다.
 - 중복 방지, 부분 체결, 기존 보유분 보호, 재시작 복구는 `DESIGN.md`의 불변조건을 따른다.
 - 새 의존성을 추가하면 목적과 대안을 문서에 기록한다.
-- 검증 명령: `corepack pnpm lint`, `corepack pnpm typecheck`, `corepack pnpm test`, `corepack pnpm build`, `corepack pnpm format:check`.
+- Git 검증은 `docs/CI_VALIDATION.md`를 따른다. Husky pre-commit은 스테이징 파일 린트·포맷을 검사하고 pre-push는 깨끗한 현재 HEAD를 전용 테스트 DB에서 `corepack pnpm verify:ci`와 Compose config로 검사한다. hook을 우회하지 않는다. CI도 같은 전체 명령을 사용한다. DB 통합 테스트 생략이나 단일 worker 진단 결과를 전체 CI 통과로 보고하지 않는다. 개별 검증 명령은 원인 분석에 사용할 수 있다.
 - lockfile을 유지한다. 커밋·배포·마이그레이션 실행은 자동으로 수행하지 않는다.
 
 - 실제 시세 Paper 계획은 `docs/PAPER_MARKET_PLAN.md`를 따른다. 미리보기는 키/DB 없이 실행하고 적용은 새 계좌 초기화에만 허용한다. 계획 hash를 I/O 전에 검증하며 재개/기존 계좌 변경에 재사용하지 않는다. hash를 운용 승인으로 표현하지 않는다.
