@@ -8,6 +8,7 @@ import type {
   PaperSignal,
 } from '@hth/contracts';
 import { marketTradingDate } from '@hth/trading';
+import { syntheticPaperDay } from './paper-calendar.js';
 import type { createDatabase } from '../src/index.js';
 
 type Database = ReturnType<typeof createDatabase>;
@@ -41,31 +42,7 @@ export async function freshEvidence(
   const end = Math.floor(now.getTime() / 60_000) * 60_000 - 60_000;
   const day = (offset: number) => {
     const tradingDate = new Date(Date.parse(`${date}T00:00:00Z`) + offset * 86_400_000).toISOString().slice(0, 10);
-    const previousDate = new Date(Date.parse(`${tradingDate}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
-    const offsetAt = (value: string) =>
-      new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/New_York',
-        timeZoneName: 'longOffset',
-      })
-        .formatToParts(new Date(`${value}T12:00:00Z`))
-        .find((part) => part.type === 'timeZoneName')!
-        .value.replace('GMT', '');
-    return {
-      market,
-      tradingDate,
-      sessionsKnown: true,
-      sessions: [
-        {
-          type: 'regular' as const,
-          startsAt:
-            market === 'KR' ? `${tradingDate}T00:00:00+09:00` : `${previousDate}T20:00:00${offsetAt(previousDate)}`,
-          endsAt:
-            market === 'KR'
-              ? `${tradingDate}T23:59:59.999+09:00`
-              : `${tradingDate}T19:59:59.999${offsetAt(tradingDate)}`,
-        },
-      ],
-    };
+    return syntheticPaperDay(now, market, tradingDate);
   };
   const instrument = { market, symbol };
   return {

@@ -216,9 +216,10 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper 합성 체결 원장', ()
     const request = order(id, evidence, 'ma-a', '2');
     request.candidate.limitPrice = '0.01';
     await database.paper.recordIntent(request);
-    expect((await database.paper.reserve(id, request.candidate.intentId, lease.token, evidence)).intent.state).toBe(
-      'READY',
-    );
+    const reserved = await database.paper.reserve(id, request.candidate.intentId, lease.token, evidence);
+    expect(reserved.intent.decision?.dataBlockers).toEqual([]);
+    expect(reserved.intent.codes).toEqual([]);
+    expect(reserved.intent.state).toBe('READY');
     const run = async () => {
       const current = await freshEvidence(database, 'AAPL', 'US');
       current.quote.price = '0.01';
