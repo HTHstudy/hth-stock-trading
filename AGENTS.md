@@ -64,7 +64,7 @@
 - 주문 의도는 전송 전 DB에 기록한다. 불확실한 응답에 주문을 무조건 재전송하지 않는다.
 - 중복 방지, 부분 체결, 기존 보유분 보호, 재시작 복구는 `DESIGN.md`의 불변조건을 따른다.
 - 새 의존성을 추가하면 목적과 대안을 문서에 기록한다.
-- Git 검증은 `docs/CI_VALIDATION.md`를 따른다. pre-commit은 스테이징 파일 린트·포맷, pre-push 기본은 타입·DB 없는 단위 검사다. DB/트레이딩/계약/Paper 및 검사·의존성 설정 변경이나 비교 기준 미확인은 새 임시 DB에서 통합 검사도 실행한다. 기존 TEST_DATABASE_URL·업무/Paper DB를 재사용하지 않는다. DB 테스트는 *.integration.test.ts로 작성한다. hook을 우회하지 않는다. CI의 verify:ci 전체 검사와 Compose 검사는 유지하며 로컬 일부 검사 통과를 전체 CI 통과로 보고하지 않는다.
+- Git 검증은 `docs/CI_VALIDATION.md`를 따른다. pre-commit에서 스테이징 파일 포맷·린트·관련 단위 테스트를 검사한다. 관련 테스트가 없거나 DB 통합을 생략한 로컬 결과를 전체 검증 통과로 표현하지 않는다. pre-push 검사는 없고 CI의 verify:ci 전체 검사와 Compose 검사는 유지한다. DB 테스트는 *.integration.test.ts로 작성하고 전용 테스트 DB에서만 실행한다. hook을 우회하지 않는다.
 - lockfile을 유지한다. 커밋·배포·마이그레이션 실행은 자동으로 수행하지 않는다.
 
 - 실제 시세 Paper 계획은 `docs/PAPER_MARKET_PLAN.md`를 따른다. 미리보기는 키/DB 없이 실행하고 적용은 새 계좌 초기화에만 허용한다. 계획 hash를 I/O 전에 검증하며 재개/기존 계좌 변경에 재사용하지 않는다. hash를 운용 승인으로 표현하지 않는다.
