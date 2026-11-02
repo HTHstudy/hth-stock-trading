@@ -113,3 +113,5 @@ OwnerAccess가 인증을 확인한 후에만 RouterProvider와 페이지를 렌�
 ## Paper 초기 준비 경계
 
 `paper:prepare`는 기존 읽기 전용 broker runtime과 독립된 로컬 명령이다. 기본 미리보기는 키/DB 없이 실행하며 새 정지 계좌 준비에는 계획 hash를 I/O 전에 검증한다. database의 `paperPreparation` 저장소는 계좌·한도·전략·불변 전략 이력·계획 hash 감사 기록을 하나의 트랜잭션에 저장하고 같은 ID 경합/기존 계좌 덮어쓰기를 거부한다. 준비 점검은 read-only repeatable-read snapshot이고 worker lease·대사·시세·자산 평가를 생성하지 않는다. 실제 시세 준비 원장은 개발용 별도 PostgreSQL(55434)을 사용하며 기존 업무/합성 DB를 유지한다. 클라우드 운영의 서비스 수를 늘리는 분리 요구가 아니며 기존 4서비스 운영 DB로 이관할 때는 백업/복원을 사용한다. 새 앱 라이브러리는 도입하지 않았다. [절차와 한계](docs/PAPER_OFFLINE_PREPARATION.md)를 따른다.
+
+준비 상태 API는 worker의 공개 순수 조회 함수 모듈 `@hth/worker/paper-preparation-query`를 사용하며 CLI 실행/apply/migrate를 import하지 않는다. API가 고정 manifest·계획과 읽기 전용 DB snapshot을 조립하고 contracts의 비공개 정보 없는 DTO로 투영한다. Paper page가 TanStack Query로 조회하며 기존 원장 연결과 제어 범위는 유지한다. [공개 데이터와 인증 경계](docs/PAPER_PREPARATION_DASHBOARD.md)를 따른다. clean CI의 공개 모듈 타입/런타임 해석을 위해 root test/typecheck도 공통 패키지 뒤 worker를 빌드한다.

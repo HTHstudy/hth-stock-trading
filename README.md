@@ -94,6 +94,8 @@ broker 원본 봉은 `isClosed=false`이며 worker가 시장 세션·60초 대�
 
 관측 대기 중 실제 시세 Paper 계좌를 키 없이 준비하려면 [오프라인 계좌 준비](docs/PAPER_OFFLINE_PREPARATION.md)를 따릅니다. `paper:prepare`는 기본 미리보기이며, 명시적 새 계좌 준비·읽기 전용 설정 점검만 지원합니다. 개발용 Paper DB는 55434에서 별도 실행하고 기존 DB와 현재 웹 연결은 유지합니다. 실제 시세 조회·모의 재개·실주문은 준비 명령에 포함되지 않습니다.
 
+로그인 후 `/paper`의 [실제 시세 Paper 준비 상태](docs/PAPER_PREPARATION_DASHBOARD.md)에서 두 시장의 준비 설정·정지·일일 기준 검토 필요 여부를 확인할 수 있습니다. 별도 서버 설정으로 활성화하며 기존 Paper 원장 화면의 연결/긴급 정지 대상을 바꾸지 않습니다.
+
 ```bash
 corepack pnpm infra:up
 corepack pnpm db:generate
