@@ -97,10 +97,11 @@ it('증거 파일은 크기/일반 파일을 검사하고 출력은 덮어쓰기
 it('실제 CLI는 키/DB 없이 미완료 종료 코드 2를 반환하고 민감한 입력을 출력하지 않는다', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'paper-review-cli-'));
   try {
-    const run = fileURLToPath(new URL('./paper-review-run.ts', import.meta.url));
+    const run = fileURLToPath(new URL('../dist/paper-review-run.js', import.meta.url));
     const cli = (args: string[]) =>
-      spawnSync(process.execPath, ['--import', 'tsx', run, ...args], {
+      spawnSync(process.execPath, [run, ...args], {
         encoding: 'utf8',
+        timeout: 10_000,
         env: { ...process.env, TRADING_MODE: 'paper', DATABASE_URL: 'PRIVATE_DATABASE_NOT_USED' },
       });
     expect(cli([]).status).toBe(0);
@@ -119,4 +120,4 @@ it('실제 CLI는 키/DB 없이 미완료 종료 코드 2를 반환하고 민감
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
-});
+}, 30_000);
