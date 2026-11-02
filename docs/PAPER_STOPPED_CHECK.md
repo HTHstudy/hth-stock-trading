@@ -35,3 +35,13 @@ CLI의 ticks=1은 단일 HTTP 요청이나 단일 수집 프레임을 뜻하지 
 4. 준비된 계좌의 실행 직전 checkpoint → 명시적 유한 Paper 실행 → 종료 checkpoint/전후 비교를 따른다. 오래된 검사 결과나 만료된 계획을 실행 승인으로 재사용하지 않는다.
 
 지침은 [시장 source](PAPER_MARKET_SOURCE.md), [거래일 검토](PAPER_SESSIONS_REVIEW.md), [전후 검토](PAPER_RUN_REVIEW.md)를 따른다.
+
+## 2026-11-02 국내 일일 기준 적용과 재관측
+
+사용자의 다음 단계 진행 요청에 따라 국내 준비 계좌만 새 계획으로 검토했다. 기존 만료 계획을 사용하지 않고 DB 시각/현재 version을 읽어 `carry-negative-pnl-v1` 계획을 생성·보관한 뒤 `CARRY_FORWARD_PAPER_LOSSES`를 명시해 적용했다. 같은 broker 잠금과 계좌 CAS·정지·미체결 없음 조건을 사용했다. 국내 계좌의 KRW/USD 일일 기준은 모두 2026-10-30에서 2026-11-02로 갱신됐고 손익 0은 보유분 없는 기존 상태 그대로 보존됐다. 미국 준비 계좌는 변경하지 않았다.
+
+정책 적용 전후 현금·보유량·소유권·원가·의도·예약·체결 및 설정 hash 보존, 적용 후 정지·lease 없음·목표 날짜 일치를 확인했다. 이 계좌에는 보유분이 없어 정책 적용 시 현재가 조회나 새 토큰 발급은 필요하지 않았다. 감사 이력/평가 기준/version/epoch만 기존 검토 절차대로 변경됐다. 적용 결과는 `.local-data/paper-day-reviews/993eedee-d567-4cb3-af6b-8186adf00a47/`에 private 파일로 보관했다.
+
+이후 13:48:37–13:48:39 KST에 국내만 resume=false/ticks=1로 재관측했다. broker 캘린더의 정규장 open, 반환 200봉/적격 종료 198봉, 시장 blocker 없음이었다. 시작 프레임은 복구 직후 ACCOUNT_UNAVAILABLE였지만 첫 관측 적용 후 실제 tick 프레임에서는 계좌를 포함한 prepareStrategyData blocker도 없었다. 마지막 시장 검사 유효 기한은 당시 13:50:00 KST였으며 이 기록을 이후의 거래 허가로 재사용하지 않는다. 최종 tick은 paused/신호 0/체결 0, 종료 정지·lease/활성 예약 없음, 자산·설정 보존을 확인했다.
+
+재관측 전후 checkpoint·상태/품질 메타데이터와 비교 artifact는 `.local-data/paper-stopped-checks/f6cabdef-98a0-4fab-8c48-813066cc11e2/`에 보관했다. 비교 결과는 주문 의도/체결 경로를 실행하지 않은 `incomplete`이며 리포트의 canResume/executionEnabled는 false다. 다음 단계는 실제 실행 직전의 새 checkpoint와 별도 명시적 유한 Paper 재개다. 미국은 여전히 정규장 중 재점검과 해당 계좌의 일일 기준 검토가 남아 있다.
