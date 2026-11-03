@@ -1,3 +1,4 @@
+import { aggregateObservationRecords as aggregate } from '@hth/worker/observation-evidence';
 import { constants } from 'node:fs';
 import { lstat, open, opendir, realpath } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -12,71 +13,13 @@ import {
   observationRecordSchema,
   observationReportSchema,
 } from '@hth/contracts';
-import type { ObservationReport, ObservationRecord, ObservationList } from '@hth/contracts';
+import type { ObservationReport, ObservationList } from '@hth/contracts';
 import { contentHash } from '@hth/database';
 import { createObservationJobs } from './observation-jobs.js';
 import { observationMonitoring } from './observation-monitoring.js';
 
 const maxJournal = 32 * 1048576;
 const key = (item: { market: string; symbol: string }) => `${item.market}:${item.symbol}`;
-function aggregate(records: ObservationRecord[], status: 'completed' | 'cancelled' | 'failed') {
-  const result = {
-    samples: records.length,
-    successfulSamples: 0,
-    errorSamples: 0,
-    healthy: 0,
-    closed: 0,
-    blocked: 0,
-    quoteRegressions: 0,
-    totalDurationMs: 0,
-    maxDurationMs: 0,
-    blockers: {} as Record<string, number>,
-    errors: {} as Record<string, number>,
-    instruments: {} as Record<
-      string,
-      {
-        samples: number;
-        healthy: number;
-        closed: number;
-        blocked: number;
-        quoteRegressions: number;
-        missingQuoteTimes: number;
-        maxQuoteAgeMs: number | null;
-      }
-    >,
-    status,
-  };
-  for (const record of records) {
-    result.totalDurationMs += record.durationMs;
-    result.maxDurationMs = Math.max(result.maxDurationMs, record.durationMs);
-    if (record.error) {
-      result.errorSamples++;
-      result.errors[record.error] = (result.errors[record.error] ?? 0) + 1;
-      continue;
-    }
-    result.successfulSamples++;
-    for (const item of record.instruments) {
-      result[item.state]++;
-      if (item.quoteRegressed) result.quoteRegressions++;
-      for (const code of new Set(item.blockers)) result.blockers[code] = (result.blockers[code] ?? 0) + 1;
-      const counters = (result.instruments[key(item.instrument)] ??= {
-        samples: 0,
-        healthy: 0,
-        closed: 0,
-        blocked: 0,
-        quoteRegressions: 0,
-        missingQuoteTimes: 0,
-        maxQuoteAgeMs: null,
-      });
-      counters.samples++;
-      counters[item.state]++;
-      if (item.quoteRegressed) counters.quoteRegressions++;
-      if (item.quoteAgeMs === null) counters.missingQuoteTimes++;
-      else counters.maxQuoteAgeMs = Math.max(counters.maxQuoteAgeMs ?? 0, item.quoteAgeMs);
-    }
-  }
-  return result;
-}
 export function createObservationReports(directory: string, jobsDirectory?: string, now: () => number = Date.now) {
   const root = resolve(directory);
   async function read(path: string, limit: number, charge?: (size: number) => void) {

@@ -15,6 +15,10 @@
     "./paper-validation-status": {
       "types": "./dist/paper-validation-status.d.ts",
       "import": "./dist/paper-validation-status.js"
+    },
+    "./observation-evidence": {
+      "types": "./dist/observation-evidence.d.ts",
+      "import": "./dist/observation-evidence.js"
     }
   },
   "scripts": {
@@ -39,7 +43,8 @@
     "backtest:experiment": "tsx src/backtest-experiment-run.ts",
     "backtest:experiment:review": "tsx src/backtest-experiment-review-run.ts",
     "paper:validation:status": "node --import tsx src/paper-validation-status-run.ts",
-    "paper:run:diagnostics": "node --import tsx src/paper-run-diagnostics-run.ts"
+    "paper:run:diagnostics": "node --import tsx src/paper-run-diagnostics-run.ts",
+    "readonly:process:check": "node --import tsx src/readonly-process-check-run.ts"
   },
   "dependencies": {
     "@hth/contracts": "workspace:*",
