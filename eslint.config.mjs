@@ -23,7 +23,16 @@ const basePatterns = [
 ];
 
 export default tseslint.config(
-  { ignores: ['**/node_modules/**', '**/dist/**', '**/coverage/**', '**/*.tsbuildinfo'] },
+  {
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/coverage/**',
+      '**/*.tsbuildinfo',
+      '.local-data/**',
+      '.pnpm-store/**',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
