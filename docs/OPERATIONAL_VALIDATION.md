@@ -199,3 +199,11 @@ journal의 10개 순서와 각 완료 후 다음 시작까지의 30초 간격, S
 이후 별도 명시적 새 broker 연결에서 같은 잠금을 다시 획득하고 국내 1회 관측을 수행했다. 리포트 `80744b69-62e3-4b33-8ab5-99d75660b2bf`은 completed·healthy 1·오류 0과 최종 hash 검증을 통과했고, 진행 중 요청과 취소 뒤 추가 요청은 모두 0이었다. 원본 URL query/응답·인증 값을 기록하지 않았으며 실제 계좌·주문 API는 호출하지 않았다. 두 Paper 계좌의 전후 snapshot hash는 같았다.
 
 private 근거는 `.local-data/readonly-lifecycle/74cfd0aa-939c-4808-93b3-1791bc0970dc/result.json`과 기존 관측 리포트 두 건이다. 이 점검은 source/transport 취소 후 새 인스턴스 연결의 제한된 실제 증거다. HTTP 서버가 요청을 처리했는지 판별하거나 OS 프로세스 재시작·전체 세션 경계·토큰 만료/장시간 갱신·장애 자동 복구를 검증한 것은 아니다. 자동 재시도 루프나 Paper 재개를 추가하지 않았다.
+
+### 2026-11-03 대시보드 개발을 위한 미국 고정 빌드 분리
+
+미국의 실행 전 프로세스는 취소 결과 CANCELLED/runStarted=false를 확인한 후, 같은 build hash·같은 계좌 version/정지 epoch/CAS를 사용하는 한 번의 절차로 교체했다. 새 batch는 .local-data/paper-validation-batches/27bc5361-9032-4c3e-b7c2-8d536d045d9c/, 고정 공개 산출물/의존성은 .local-data/paper-validation-builds/c98339a7-8c10-49ff-ab29-790512f05302/다. 기존 build hash와 계좌 제어 값의 일치를 확인했으며 11/3 23:35 시작 조건 검사·최대60 tick·자동 재시도 금지는 유지한다. 원래 서버의 키/환경파일/계좌 자료를 복사하지 않았다.
+
+새 웹 조회는 별도 owner·loopback·기본 비활성 설정과 공통 strict DTO로 검토했다. 조회는 파일만 읽고 broker·DB·worker·대사 재실행을 호출하지 않는다. [구현·검증·설정](PAPER_VALIDATION_WEB.md)을 따른다. 이 웹 기능의 배포나 조회를 Paper 실행/체결 완료 증거로 사용하지 않는다.
+
+현재 로컬 서버 전용 `.env.paper-preparation`에 읽기 전용 조회 설정을 명시하고 API watcher만 정상 재시작했다. 기존 웹 5173/API 4000을 유지했고 임시 합성 화면용 5193은 종료했다. 실제 서비스에서 health와 `/paper` 200·비로그인 401·외부 Origin 403·소유자 인증 configured=true를 확인했다. 실제 저장 자료의 양성 HTTP 직렬화는 네트워크 바인딩 없는 fixture 인증 app.inject 경로에서 검사했으며 실제 소유자 브라우저 로그인을 대신했다고 주장하지 않는다. 원본 계좌/경로/키 노출이 없고 국내 실행을 60 tick/incomplete로 유지함을 확인했다.

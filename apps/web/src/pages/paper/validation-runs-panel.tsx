@@ -112,8 +112,8 @@ export function ValidationRunsPanel() {
         </button>
       </div>
       <p className="mt-2 text-xs leading-6 text-slate-400">
-        실행 종료 기록과 저장된 대사 증거를 확인합니다. 종료 기록이 없으면 현재 실행 여부는 미확인입니다. 대사 결과는
-        저장된 판단이며 조회에서 다시 계산하지 않습니다.
+        상단 연결 원장과 별도인 국내·미국 실행의 저장 기록입니다. 종료 기록이 없으면 현재 실행 여부는 미확인입니다. 대사
+        결과는 저장된 판단이며 조회에서 다시 계산하지 않습니다.
       </p>
       {query.isPending && (
         <p role="status" className="mt-4 text-xs">
