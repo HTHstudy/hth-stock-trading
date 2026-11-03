@@ -2,7 +2,14 @@ import { constants } from 'node:fs';
 import { lstat, open, opendir, realpath } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { z } from 'zod';
-import { observationJobSchema, paperReviewArtifactSchema, paperReviewCheckpointSchema } from '@hth/contracts';
+import {
+  observationJobSchema,
+  paperReviewArtifactSchema,
+  paperReviewCheckpointSchema,
+  paperValidationCheckNames,
+  paperValidationRunSchema,
+  paperValidationStatusSchema,
+} from '@hth/contracts';
 import { contentHash } from '@hth/database';
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
@@ -81,32 +88,7 @@ const resultSchema = z
   .strict()
   .refine((value) => value.runningTicks === undefined || value.runningTicks <= value.completedTicks);
 
-const visibleChecks = new Set([
-  'checkpoints',
-  'comparable',
-  'beforeIntegrity',
-  'afterIntegrity',
-  'intervalEvidence',
-  'priorFillsPreserved',
-  'priorEventsPreserved',
-  'priorIntentsPreserved',
-  'configurationStable',
-  'stopped',
-  'leaseReleased',
-  'noOpenIntents',
-  'noActiveReservations',
-  'stoppedBaseline',
-  'workerCycle',
-  'intentPath',
-  'diagnosticsRecorded',
-  'fillPath',
-  'externalChanges',
-  'cashMatchesFills',
-  'positionsMatchFills',
-  'ownershipMatchesFills',
-  'manualHoldingsPreserved',
-  'costBasisReplay',
-]);
+const visibleChecks = new Set<string>(paperValidationCheckNames);
 
 function checkpoint(input: unknown) {
   if (input === null) return null;
@@ -183,7 +165,7 @@ export function summarizePaperValidation(
   const clockUnverified =
     times.some((time) => time > BigInt(now + 1000) * 1000n) ||
     times.some((time, index) => index > 0 && time < times[index - 1]!);
-  return {
+  return paperValidationRunSchema.parse({
     id,
     market: request.market,
     startsAt: request.startsAt,
@@ -207,7 +189,7 @@ export function summarizePaperValidation(
     canResume: false,
     processLivenessChecked: false,
     ledgerReviewRecomputed: false,
-  };
+  });
 }
 
 export function createPaperValidationStatus(directory: string, now: () => number = Date.now) {
@@ -280,7 +262,7 @@ export function createPaperValidationStatus(directory: string, now: () => number
             rejectedCount++;
           }
         }
-        return {
+        return paperValidationStatusSchema.parse({
           service: 'paper-validation-status',
           asOf: new Date(asOf).toISOString(),
           availability: 'available',
@@ -289,10 +271,10 @@ export function createPaperValidationStatus(directory: string, now: () => number
           limited,
           executionEnabled: false,
           canResume: false,
-        };
+        });
       } catch (error) {
         const missing = error instanceof Error && 'code' in error && error.code === 'ENOENT';
-        return {
+        return paperValidationStatusSchema.parse({
           service: 'paper-validation-status',
           asOf: new Date(asOf).toISOString(),
           availability: missing ? 'not-recorded' : 'unavailable',
@@ -301,8 +283,10 @@ export function createPaperValidationStatus(directory: string, now: () => number
           limited,
           executionEnabled: false,
           canResume: false,
-        };
+        });
       }
     },
   };
 }
+
+export type PaperValidationStatusReader = ReturnType<typeof createPaperValidationStatus>;

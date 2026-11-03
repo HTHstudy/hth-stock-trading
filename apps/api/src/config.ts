@@ -27,6 +27,10 @@ const configSchema = z
       .enum(['true', 'false'])
       .default('false')
       .transform((value) => value === 'true'),
+    PAPER_VALIDATION_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
     PAPER_PREPARATION_ENABLED: z
       .enum(['true', 'false'])
       .default('false')
@@ -51,7 +55,10 @@ const configSchema = z
         message: 'Local container mode requires production artifacts on IPv4 loopback',
       });
     if (
-      (config.DASHBOARD_ENABLED || config.PAPER_DASHBOARD_ENABLED || config.PAPER_PREPARATION_ENABLED) &&
+      (config.DASHBOARD_ENABLED ||
+        config.PAPER_DASHBOARD_ENABLED ||
+        config.PAPER_PREPARATION_ENABLED ||
+        config.PAPER_VALIDATION_ENABLED) &&
       !config.OWNER_PASSWORD_HASH
     )
       context.addIssue({
@@ -59,7 +66,10 @@ const configSchema = z
         message: 'Owner authentication must be configured before enabling dashboards',
       });
     if (
-      (config.DASHBOARD_ENABLED || config.PAPER_DASHBOARD_ENABLED || config.PAPER_PREPARATION_ENABLED) &&
+      (config.DASHBOARD_ENABLED ||
+        config.PAPER_DASHBOARD_ENABLED ||
+        config.PAPER_PREPARATION_ENABLED ||
+        config.PAPER_VALIDATION_ENABLED) &&
       ((config.NODE_ENV === 'production' && !config.LOCAL_CONTAINER_MODE) ||
         !['127.0.0.1', 'localhost', '::1'].includes(config.API_HOST))
     ) {

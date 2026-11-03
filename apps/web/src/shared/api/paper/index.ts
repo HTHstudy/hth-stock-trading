@@ -6,7 +6,10 @@ import { getEquityHistory } from './endpoints/get-equity-history';
 import { getDiagnostics } from './endpoints/get-diagnostics';
 import { getPreparation } from './endpoints/get-preparation';
 
+import { getValidationRuns } from './endpoints/get-validation-runs';
+
 export const PAPER_API = {
+  validationRuns: getValidationRuns,
   preparation: getPreparation,
   diagnostics: getDiagnostics,
   get: getPaper,

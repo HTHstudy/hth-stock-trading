@@ -1,3 +1,4 @@
+import { createPaperValidationStatus } from '@hth/worker/paper-validation-status';
 import { createWatchlistStore, environmentWatchlist } from './watchlist-store.js';
 import { createApp } from './app.js';
 import { createOwnerAuth } from './owner-auth.js';
@@ -101,6 +102,11 @@ async function main() {
       ? createWorkerStatus(fileURLToPath(new URL('../../../.local-data/runtime', import.meta.url)))
       : undefined,
     preparation,
+    localAccess && config.PAPER_VALIDATION_ENABLED
+      ? createPaperValidationStatus(
+          fileURLToPath(new URL('../../../.local-data/paper-validation-runs', import.meta.url)),
+        )
+      : undefined,
   );
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {

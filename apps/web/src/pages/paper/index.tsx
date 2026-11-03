@@ -9,6 +9,7 @@ import { StrategyHistory } from './strategy-history';
 import { EquityHistory } from './equity-history';
 import { Diagnostics } from './diagnostics';
 import { PreparationPanel } from './preparation-panel';
+import { ValidationRunsPanel } from './validation-runs-panel';
 
 const queryKey = ['paper-dashboard'] as const;
 const buttonFocus = 'focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal-300';
@@ -74,6 +75,7 @@ export function PaperPage() {
         </div>
       </header>
       <PreparationPanel />
+      <ValidationRunsPanel />
       <p className="my-5 rounded-xl border border-amber-300/15 bg-amber-300/5 px-5 py-4 text-xs leading-6 text-amber-100">
         {!snapshot
           ? '연결된 모의 계좌의 출처와 실행 상태를 조회합니다.'

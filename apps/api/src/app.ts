@@ -1,4 +1,5 @@
 import {
+  paperValidationStatusSchema,
   paperStrategyHistorySchema,
   paperEquityHistorySchema,
   observationJobsSchema,
@@ -19,6 +20,7 @@ import {
   paperStrategyAcknowledgementSchema,
 } from '@hth/contracts';
 import Fastify from 'fastify';
+import type { PaperValidationStatusReader } from '@hth/worker/paper-validation-status';
 import { z } from 'zod';
 import type { DashboardService } from './dashboard-service.js';
 import type { BacktestReports } from './backtest-reports.js';
@@ -41,6 +43,7 @@ export function createApp(
   watchlist?: WatchlistStore,
   workerStatus?: WorkerStatusReader,
   preparation?: PaperPreparationDashboardReader,
+  validation?: PaperValidationStatusReader,
 ) {
   const app = Fastify({
     logger: {
@@ -107,6 +110,15 @@ export function createApp(
       return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
     if (!workerStatus) return reply.code(503).send({ error: { code: 'WORKER_STATUS_UNAVAILABLE' } });
     return workerStatusSchema.parse(await workerStatus.get());
+  });
+  app.get('/v1/paper/validation-runs', async (request, reply) => {
+    if (!z.object({}).strict().safeParse(request.query).success)
+      return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (!validation) return reply.code(503).send({ error: { code: 'PAPER_VALIDATION_STATUS_UNAVAILABLE' } });
+    const status = paperValidationStatusSchema.parse(await validation.list());
+    if (status.availability === 'unavailable')
+      return reply.code(503).send({ error: { code: 'PAPER_VALIDATION_STATUS_UNAVAILABLE' } });
+    return status;
   });
   app.get('/v1/paper/preparation', async (request, reply) => {
     if (!z.object({}).strict().safeParse(request.query).success)

@@ -1,3 +1,9 @@
+export {
+  paperValidationStatusSchema,
+  paperValidationRunSchema,
+  paperValidationCheckNames,
+} from './paper-validation-status.js';
+export type { PaperValidationStatus, PaperValidationRun } from './paper-validation-status.js';
 import { z } from 'zod';
 export {
   paperReviewSnapshotSchema,

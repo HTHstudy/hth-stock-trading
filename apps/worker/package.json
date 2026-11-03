@@ -11,6 +11,10 @@
     "./paper-preparation-query": {
       "types": "./dist/paper-preparation-query.d.ts",
       "import": "./dist/paper-preparation-query.js"
+    },
+    "./paper-validation-status": {
+      "types": "./dist/paper-validation-status.d.ts",
+      "import": "./dist/paper-validation-status.js"
     }
   },
   "scripts": {
