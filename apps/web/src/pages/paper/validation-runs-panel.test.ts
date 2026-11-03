@@ -159,7 +159,7 @@ it('완료 기록이 있어도 시각 불확실 경고를 우선하고 완료 �
   expect(render(snapshot({ runs: [completed] }))).toContain('text-teal-200');
   const html = render(snapshot({ runs: [{ ...completed, clock: 'unverified' }] }));
   expect(html).toContain('시각 불확실 · 결과 해석 주의');
-  expect(html.indexOf('시각 불확실')).toBeLessThan(html.indexOf('종료 기록: 완료'));
+  expect(html.indexOf('시각 불확실')).toBeLessThan(html.indexOf('실행: 60회 실행 완료'));
   expect(html).not.toContain('text-teal-200');
 });
 it('상한과 제외 수를 실패 횟수와 구분하고 두 시장의 오류·정리 문제를 표시한다', () => {
@@ -196,4 +196,74 @@ it('캐시가 없으면 조회 중 상태만 표시한다', () => {
   expect(html).toContain('저장된 실행 기록을 조회하고 있습니다');
   expect(html).not.toContain('증거 묶음');
   expect(fetch).not.toHaveBeenCalled();
+});
+
+it('60회 실행 완료와 주문·체결 검증 미완료를 접힌 요약에서 함께 표시한다', () => {
+  const html = render(
+    snapshot({ runs: [run({ runningTicks: 60, checks: { intentPath: 'unverified', fillPath: 'unverified' } })] }),
+  );
+  const summary = html.match(/<summary[^>]*>([\s\S]*?)<\/summary>/)?.[1];
+  expect(summary).toContain('실행: 60회 실행 완료');
+  expect(summary).toContain('검증: 대사 미완료');
+  expect(summary).toContain('text-teal-200');
+  expect(summary).toContain('text-amber-100');
+  expect(html).toContain('주문 의도 검증 미완료');
+  expect(html).toContain('모의 체결 검증 미완료');
+});
+it('실행 보고가 부족하거나 조기 종료된 기록을 60회 실행 완료로 표시하지 않는다', () => {
+  for (const record of [run(), run({ resultState: 'execution-ended-early', runningTicks: 60 })]) {
+    const html = render(snapshot({ runs: [record] }));
+    expect(html).not.toContain('실행: 60회 실행 완료');
+    expect(html).not.toContain('text-teal-200');
+  }
+});
+it('60회 실행 뒤 대사 문제가 발견되면 실행 완료와 문제를 각각 표시한다', () => {
+  const html = render(
+    snapshot({ runs: [run({ resultState: 'review-issues-found', verdict: 'issues-found', runningTicks: 60 })] }),
+  );
+  const summary = html.match(/<summary[^>]*>([\s\S]*?)<\/summary>/)?.[1];
+  expect(summary).toContain('실행: 60회 실행 완료');
+  expect(summary).toContain('검증: 대사 문제 발견');
+});
+
+it('실행 구간 진단의 신호·단계·사유를 주문 체결과 구분하고 누락·검증 불가를 숨기지 않는다', () => {
+  const diagnostics = {
+    availability: 'available' as const,
+    recordedBatches: 2,
+    recordedReports: 3,
+    actions: { BUY: 1, SELL: 0, HOLD: 1, unevaluated: 1 },
+    stages: { strategy: 2, data: 1 },
+    reasons: [
+      { code: 'NO_CROSS' as const, count: 1 },
+      { code: 'QUOTE_STALE' as const, count: 1 },
+    ],
+  };
+  const html = render(snapshot({ runs: [run({ diagnostics })] }));
+  expect(html).toContain('이 실행 구간의 전략 진단');
+  expect(html).toContain('매수 신호 1');
+  expect(html).toContain('관망 1');
+  expect(html).toContain('신호 평가 전 단계 1');
+  expect(html).toContain('이동평균 교차 없음: 1건');
+  expect(html).toContain('시세 지연: 1건');
+  expect(html).toContain('입력 데이터 검증 단계: 1건');
+  expect(html).toContain('신호가 있어도 예약·체결을 뜻하지 않습니다');
+  expect(render(snapshot())).toContain('연결된 진단 자료 없음');
+  expect(
+    render(
+      snapshot({
+        runs: [
+          run({
+            diagnostics: {
+              availability: 'unavailable',
+              recordedBatches: 0,
+              recordedReports: 0,
+              actions: { BUY: 0, SELL: 0, HOLD: 0, unevaluated: 0 },
+              stages: {},
+              reasons: [],
+            },
+          }),
+        ],
+      }),
+    ),
+  ).toContain('진단 자료 검증 불가');
 });

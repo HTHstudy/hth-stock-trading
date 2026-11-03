@@ -12,6 +12,8 @@ import {
 } from '@hth/contracts';
 import { contentHash } from '@hth/database';
 
+import { summarizeRunDiagnostics, unavailableRunDiagnostics } from './paper-run-diagnostics.js';
+
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const count = z.number().int().min(0).max(5000);
 const requestSchema = z
@@ -100,7 +102,7 @@ function checkpoint(input: unknown) {
 
 export function summarizePaperValidation(
   id: string,
-  input: { request: unknown; result: unknown; before: unknown; after: unknown; review: unknown },
+  input: { request: unknown; result: unknown; before: unknown; after: unknown; review: unknown; diagnostics?: unknown },
   now: number,
 ) {
   z.uuid().parse(id);
@@ -165,6 +167,15 @@ export function summarizePaperValidation(
   const clockUnverified =
     times.some((time) => time > BigInt(now + 1000) * 1000n) ||
     times.some((time, index) => index > 0 && time < times[index - 1]!);
+  let diagnostics = null;
+  if (input.diagnostics !== undefined && input.diagnostics !== null) {
+    try {
+      if (!before || !after) throw new Error('INVALID_DIAGNOSTICS');
+      diagnostics = summarizeRunDiagnostics(input.diagnostics, before, after);
+    } catch {
+      diagnostics = unavailableRunDiagnostics();
+    }
+  }
   return paperValidationRunSchema.parse({
     id,
     market: request.market,
@@ -185,6 +196,7 @@ export function summarizePaperValidation(
       : null,
     observedCounts: review?.report.evidence ?? null,
     stoppedAndCleaned: result?.stoppedAndCleaned ?? null,
+    diagnostics,
     executionEnabled: false,
     canResume: false,
     processLivenessChecked: false,
@@ -255,9 +267,12 @@ export function createPaperValidationStatus(directory: string, now: () => number
             const before = await read(folder, 'before.json', 32 * 1048576);
             const after = await read(folder, 'after.json', 32 * 1048576);
             const review = await read(folder, 'review.json', 1048576);
+            const diagnostics = await read(folder, 'diagnostics.json', 8 * 1048576).catch(() => ({ invalid: true }));
             if ((await realpath(folder)) !== join(canonical, entry.name) || (await realpath(root)) !== canonical)
               throw new Error('INVALID_EVIDENCE');
-            runs.push(summarizePaperValidation(entry.name, { request, result, before, after, review }, asOf));
+            runs.push(
+              summarizePaperValidation(entry.name, { request, result, before, after, review, diagnostics }, asOf),
+            );
           } catch {
             rejectedCount++;
           }

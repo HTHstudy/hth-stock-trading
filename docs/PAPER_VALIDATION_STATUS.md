@@ -26,6 +26,8 @@ corepack pnpm paper:validation:status
 
 조회는 대사의 계산을 재실행하지 않으므로 `ledgerReviewRecomputed=false`, PID를 검사하지 않으므로 `processLivenessChecked=false`다. `linked-review`는 저장된 schema·checksum·checkpoint 연결 검사이며 모든 hash를 재계산한 위조나 원천 데이터 진위를 인증하지 않는다. 모든 결과에서 executionEnabled/canResume는 false다. 상태 조회 결과로 worker나 거래를 자동 시작하지 않는다.
 
+선택적 `diagnostics.json`은 [구간 진단 계약](PAPER_RUN_DIAGNOSTICS.md)의 before/after hash·scope·진단 이벤트 전체 집합·batch hash를 검증한 뒤 집계만 제공한다. 진단 파일 오류는 실행 기록 자체를 숨기지 않고 별도 unavailable로 표시한다. 조회가 DB에 연결하거나 파일을 생성하지 않는다.
+
 대사 보고서 자체의 검사/한계는 [Paper 실행 전후 검토](PAPER_RUN_REVIEW.md), 실제 일회성 실행 기록은 [운영 검증](OPERATIONAL_VALIDATION.md)을 따른다. 브라우저 조회는 [소유자 인증·loopback 계약](PAPER_VALIDATION_WEB.md)으로 연결하며 조회 helper를 직접 외부 입력에 노출하지 않는다.
 
 서버 소유자만 증거 디렉터리를 작성할 수 있는 로컬 환경을 전제로 한다. 사전/사후 realpath와 최종 파일 O_NOFOLLOW 검사는 OS의 openat 같은 원자적 디렉터리 고정이 아니다. 악의적인 동일 권한 프로세스가 부모 디렉터리를 교체하는 경쟁까지 차단한다고 보장하지 않는다. 다른 사용자·비신뢰 프로세스가 쓸 수 있는 디렉터리나 권한이 높은 계정의 대리 조회로 사용하지 않는다. 외부 입력을 받는 서비스로 연결하기 전에는 해당 경계를 별도로 재검토한다.

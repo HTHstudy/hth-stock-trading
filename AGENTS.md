@@ -79,3 +79,5 @@ worker 서비스는 [운영 정책](docs/WORKER_SERVICE.md)을 따른다. 기본
 
 - 저장된 Paper 실행 상태 CLI는 `docs/PAPER_VALIDATION_STATUS.md`를 따른다. 고정 root/UUID의 요청·종료·checkpoint·대사만 읽고 계좌/원본 원장·로그·경로·PID를 출력하지 않는다. 요청이나 기한 경과로 프로세스 생존·실패·실행 권한을 추정하지 않는다. ledgerReviewRecomputed/processLivenessChecked/canResume 경계를 유지한다. 서버 소유자만 쓰는 로컬 자료 전용이며 웹 조회는 `docs/PAPER_VALIDATION_WEB.md`의 기본 비활성·owner/loopback·서버 고정 루트·빈 query·strict DTO를 적용하고 조회를 실행/재개로 확장하지 않는다.
 - 승인된 일회성 Paper 실행이 build hash를 고정한 채 시작을 기다리면 그 프로세스가 참조하는 dist를 검증/커밋 hook의 빌드로 덮어쓰지 않는다. 동일 hash의 공개 산출물/의존성 복사본으로 분리할 때는 키·환경파일·계좌 자료를 복사하지 않고 기존 계좌 제어/CAS·실행 전 취소·동일 hash를 검증한다. 독립 worktree에서 검증·커밋하고 소스만 반영한다. 고정 build 검사·계좌 version/epoch·lease CAS를 우회하거나 실패를 자동 재시도로 바꾸지 않는다.
+
+- 실행 구간 진단은 `docs/PAPER_RUN_DIAGNOSTICS.md`를 따른다. 저장 before/after와 이벤트 집합 전체를 연결하고 마지막 진단·보고 수를 전체 tick 판단으로 확대하지 않는다. 읽기 전용 capture만 파일을 만들며 HTTP 조회는 재평가/DB 접근/파일 생성을 하지 않는다.

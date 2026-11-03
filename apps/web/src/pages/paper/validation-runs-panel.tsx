@@ -2,14 +2,13 @@ import { useEffect, useReducer } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { PaperValidationRun } from '@hth/contracts';
 import { PAPER_API } from '@shared/api/paper';
+import { RunDiagnostics } from './run-diagnostics';
 import { formatTime } from '@shared/lib/format';
 import {
   validationCheckLabels,
   validationCodeLabels,
   validationEvidenceLabels,
-  validationResultLabels,
   validationRunPresentation,
-  validationVerdictLabels,
 } from './validation-runs-model';
 
 function ValidationRun({ run }: { run: PaperValidationRun }) {
@@ -17,10 +16,12 @@ function ValidationRun({ run }: { run: PaperValidationRun }) {
   return (
     <article className="mt-3 rounded-xl border border-slate-700/70 p-4 text-xs leading-6">
       <details>
-        <summary
-          className={`cursor-pointer font-semibold ${presentation.className} focus-visible:outline-2 focus-visible:outline-teal-300`}
-        >
-          {presentation.label} ·{' '}
+        <summary className="cursor-pointer font-semibold focus-visible:outline-2 focus-visible:outline-teal-300">
+          {run.clock === 'unverified' && <span className="block text-amber-100">시각 불확실 · 결과 해석 주의</span>}
+          <span className={presentation.execution.className}>{presentation.execution.label}</span>
+          {' · '}
+          <span className={presentation.review.className}>{presentation.review.label}</span>
+          {' · '}
           {run.finishedAt
             ? formatTime(run.finishedAt)
             : run.startsAt
@@ -32,7 +33,6 @@ function ValidationRun({ run }: { run: PaperValidationRun }) {
             기록 시각 또는 시간 순서를 검증하지 못했습니다. 완료 기록도 검증 완료로 해석하지 않습니다.
           </p>
         )}
-        {run.clock === 'unverified' && run.resultState && <p>{validationResultLabels[run.resultState]}</p>}
         <p className="break-all text-slate-500">증거 묶음 {run.id}</p>
         <p>
           시작 예정 {run.startsAt ? formatTime(run.startsAt) : '기록 없음'} · 기한 {formatTime(run.deadline)}
@@ -51,9 +51,9 @@ function ValidationRun({ run }: { run: PaperValidationRun }) {
           {run.stoppedAndCleaned === null ? '미확인' : run.stoppedAndCleaned ? '정지·정리 기록 있음' : '미완료 기록'}
         </p>
         <p>증거 수준: {validationEvidenceLabels[run.evidence]}</p>
-        <p className={run.verdict === 'consistent-observed-state' ? 'text-slate-300' : 'text-amber-100'}>
-          {run.verdict ? validationVerdictLabels[run.verdict] : '대사 기록 없음 · 미검증'}
-        </p>
+        <p className={presentation.review.className}>{presentation.review.label}</p>
+        {run.checks?.intentPath === 'unverified' && <p className="text-amber-100">주문 의도 검증 미완료</p>}
+        {run.checks?.fillPath === 'unverified' && <p className="text-amber-100">모의 체결 검증 미완료</p>}
         {run.code && <p className="text-amber-100">종료 사유: {validationCodeLabels[run.code]}</p>}
         {run.observedCounts && (
           <p>
@@ -62,6 +62,7 @@ function ValidationRun({ run }: { run: PaperValidationRun }) {
             {run.observedCounts.leaseAcquisitions} · 해제 {run.observedCounts.leaseReleases}
           </p>
         )}
+        <RunDiagnostics diagnostics={run.diagnostics} />
         <details className="mt-2 text-slate-400">
           <summary className="cursor-pointer">저장된 검증 체크</summary>
           <ul>
@@ -113,7 +114,7 @@ export function ValidationRunsPanel() {
       </div>
       <p className="mt-2 text-xs leading-6 text-slate-400">
         상단 연결 원장과 별도인 국내·미국 실행의 저장 기록입니다. 종료 기록이 없으면 현재 실행 여부는 미확인입니다. 대사
-        결과는 저장된 판단이며 조회에서 다시 계산하지 않습니다.
+        결과는 저장된 판단이며 조회에서 다시 계산하지 않습니다. 실행 완료와 검증 완료는 별도로 표시합니다.
       </p>
       {query.isPending && (
         <p role="status" className="mt-4 text-xs">

@@ -1,13 +1,5 @@
 import type { PaperValidationRun } from '@hth/contracts';
 
-export const validationResultLabels = {
-  completed: '종료 기록: 완료',
-  'completed-with-incomplete-review': '종료 기록: 대사 미완료',
-  'execution-ended-early': '종료 기록: 조기 종료',
-  'review-issues-found': '종료 기록: 대사 문제 발견',
-  'stopped-before-run-or-failed': '종료 기록: 시작 전 정지 또는 실패',
-} satisfies Record<NonNullable<PaperValidationRun['resultState']>, string>;
-
 export const validationCodeLabels = {
   CANCELLED: '취소 기록',
   BROKER_LEASE_BUSY: '읽기 전용 연결 소유권 사용 중',
@@ -72,12 +64,32 @@ export const validationVerdictLabels = {
 } satisfies Record<NonNullable<PaperValidationRun['verdict']>, string>;
 
 export function validationRunPresentation(run: PaperValidationRun) {
-  if (run.clock === 'unverified') return { label: '시각 불확실 · 결과 해석 주의', className: 'text-amber-100' };
-  if (run.state === 'awaiting-result') return { label: '종료 기록 없음', className: 'text-amber-100' };
-  const complete =
-    run.resultState === 'completed' && run.verdict === 'consistent-observed-state' && run.stoppedAndCleaned === true;
+  const uncertain = run.clock === 'unverified';
+  const fullRun =
+    run.state === 'terminal-recorded' &&
+    (run.resultState === 'completed' ||
+      run.resultState === 'completed-with-incomplete-review' ||
+      run.resultState === 'review-issues-found') &&
+    run.completedTicks === 60 &&
+    run.runningTicks === 60;
+  const executionLabel =
+    run.state === 'awaiting-result'
+      ? '실행: 종료 기록 없음'
+      : fullRun
+        ? '실행: 60회 실행 완료'
+        : run.resultState === 'execution-ended-early'
+          ? '실행: 조기 종료'
+          : run.resultState === 'stopped-before-run-or-failed'
+            ? '실행: 시작 전 정지 또는 실패'
+            : '실행: 종료 기록 있음 · 완료 기준 미충족';
   return {
-    label: run.resultState ? validationResultLabels[run.resultState] : '종료 결과 미확인',
-    className: complete ? 'text-teal-200' : 'text-amber-100',
+    execution: {
+      label: executionLabel,
+      className: fullRun && !uncertain ? 'text-teal-200' : 'text-amber-100',
+    },
+    review: {
+      label: run.verdict ? `검증: ${validationVerdictLabels[run.verdict]}` : '검증: 대사 기록 없음 · 미검증',
+      className: run.verdict === 'consistent-observed-state' && !uncertain ? 'text-teal-200' : 'text-amber-100',
+    },
   };
 }

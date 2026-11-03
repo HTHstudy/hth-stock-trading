@@ -265,3 +265,14 @@ it('CLI는 키/DB 없이 고정 루트만 조회하고 경로 옵션을 거부�
   ).rejects.toMatchObject({ stderr: expect.stringContaining('CONFIGURATION_INVALID') });
   expect(await readdir(root)).toEqual(before);
 }, 30000);
+
+it('진단 자료의 누락과 변조를 구분하고 진단 오류로 실행 종료 기록을 숨기지 않는다', async () => {
+  const root = await directory(),
+    f = fixture();
+  const folder = await save(root, f);
+  expect((await createPaperValidationStatus(root, () => now).list()).runs[0]?.diagnostics).toBeNull();
+  await writeFile(join(folder, 'diagnostics.json'), '{');
+  const result = await createPaperValidationStatus(root, () => now).list();
+  expect(result.rejectedCount).toBe(0);
+  expect(result.runs[0]).toMatchObject({ completedTicks: 60, diagnostics: { availability: 'unavailable' } });
+});

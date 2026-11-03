@@ -52,7 +52,8 @@
     "test:unit": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker build && vitest run --exclude '**/*.integration.test.ts'",
     "backtest:experiment": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker backtest:experiment",
     "backtest:experiment:review": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker backtest:experiment:review",
-    "paper:validation:status": "corepack pnpm --filter @hth/worker paper:validation:status"
+    "paper:validation:status": "corepack pnpm --filter @hth/worker paper:validation:status",
+    "paper:run:diagnostics": "corepack pnpm --filter @hth/worker paper:run:diagnostics"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

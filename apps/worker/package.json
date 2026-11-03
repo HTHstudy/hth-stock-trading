@@ -38,7 +38,8 @@
     "paper:review": "tsx src/paper-review-run.ts",
     "backtest:experiment": "tsx src/backtest-experiment-run.ts",
     "backtest:experiment:review": "tsx src/backtest-experiment-review-run.ts",
-    "paper:validation:status": "node --import tsx src/paper-validation-status-run.ts"
+    "paper:validation:status": "node --import tsx src/paper-validation-status-run.ts",
+    "paper:run:diagnostics": "node --import tsx src/paper-run-diagnostics-run.ts"
   },
   "dependencies": {
     "@hth/contracts": "workspace:*",

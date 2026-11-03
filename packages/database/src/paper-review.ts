@@ -1,6 +1,10 @@
-import { eq, sql, asc } from 'drizzle-orm';
+import { eq, sql, asc, and } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { paperReviewSnapshotSchema } from '@hth/contracts';
+import {
+  paperReviewSnapshotSchema,
+  paperReviewCheckpointSchema,
+  paperRunDiagnosticsArtifactSchema,
+} from '@hth/contracts';
 import type { PaperDataSource } from '@hth/contracts';
 import { contentHash, normalizeDecimal } from './content-hash.js';
 import * as tables from './schema.js';
@@ -8,6 +12,73 @@ import * as tables from './schema.js';
 const key = (value: string) => contentHash(value);
 export function createPaperReviewStore(db: NodePgDatabase<typeof tables>, connectionString: string) {
   return {
+    async captureDiagnostics(accountId: string, beforeInput: unknown, afterInput: unknown) {
+      const before = paperReviewCheckpointSchema.parse(beforeInput),
+        after = paperReviewCheckpointSchema.parse(afterInput);
+      if (
+        !/^paper-market-[A-Za-z0-9._:-]{1,70}$/.test(accountId) ||
+        contentHash(before.snapshot) !== before.hash ||
+        contentHash(after.snapshot) !== after.hash
+      )
+        throw new Error('PAPER_REVIEW_SCOPE_INVALID');
+      return db.transaction(
+        async (tx) => {
+          await tx.execute(sql`SET LOCAL statement_timeout = '3s'`);
+          const identity = await tx.execute<{ name: string; role: string; as_of: string }>(
+            sql`SELECT current_database() AS name, current_user AS role, to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS as_of`,
+          );
+          const info = identity.rows[0]!;
+          if (info.name !== 'hth_readonly_test' || info.role !== 'hth_test')
+            throw new Error('PAPER_REVIEW_DATABASE_INVALID');
+          const target = new URL(connectionString);
+          const scope = contentHash({
+            accountId,
+            source: 'toss-readonly',
+            host: target.hostname === 'localhost' ? '127.0.0.1' : target.hostname,
+            port: target.port || '5432',
+            database: info.name,
+            role: info.role,
+          });
+          const [account] = await tx.select().from(tables.paperAccounts).where(eq(tables.paperAccounts.id, accountId));
+          if (
+            !account ||
+            account.mode !== 'paper' ||
+            account.dataSource !== 'toss-readonly' ||
+            before.snapshot.scope !== scope ||
+            after.snapshot.scope !== scope ||
+            before.snapshot.source !== 'toss-readonly' ||
+            after.snapshot.source !== 'toss-readonly'
+          )
+            throw new Error('PAPER_REVIEW_SCOPE_INVALID');
+          const prior = new Set(before.snapshot.events.map((event) => event.key));
+          const expected = new Set(
+            after.snapshot.events
+              .filter((event) => event.kind === 'STRATEGY_DIAGNOSED' && !prior.has(event.key))
+              .map((event) => event.key),
+          );
+          const rows = await tx
+            .select({ id: tables.paperEvents.id, details: tables.paperEvents.details })
+            .from(tables.paperEvents)
+            .where(and(eq(tables.paperEvents.accountId, accountId), eq(tables.paperEvents.kind, 'STRATEGY_DIAGNOSED')))
+            .orderBy(asc(tables.paperEvents.createdAt), asc(tables.paperEvents.id))
+            .limit(5001);
+          if (rows.length > 5000) throw new Error('PAPER_REVIEW_LIMIT_EXCEEDED');
+          const body = {
+            formatVersion: 'paper-run-diagnostics-v1',
+            beforeHash: before.hash,
+            afterHash: after.hash,
+            scope,
+            capturedAt: info.as_of,
+            events: rows
+              .filter((row) => expected.has(contentHash(row.id)))
+              .map((row) => ({ key: contentHash(row.id), batch: row.details.batch, batchHash: row.details.batchHash })),
+          };
+          if (body.events.length !== expected.size) throw new Error('PAPER_REVIEW_DIAGNOSTICS_MISSING');
+          return paperRunDiagnosticsArtifactSchema.parse({ ...body, hash: contentHash(body) });
+        },
+        { isolationLevel: 'repeatable read', accessMode: 'read only' },
+      );
+    },
     async capture(accountId: string, source: Exclude<PaperDataSource, 'unverified'>) {
       if (!/^[A-Za-z0-9._:-]{1,100}$/.test(accountId)) throw new Error('PAPER_REVIEW_SCOPE_INVALID');
       return db.transaction(

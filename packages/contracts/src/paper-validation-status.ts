@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { paperRunDiagnosticsSummarySchema } from './paper-run-diagnostics.js';
 import { paperReviewReportSchema } from './paper-review.js';
 
 export const paperValidationCheckNames = [
@@ -77,6 +78,7 @@ export const paperValidationRunSchema = z
     verdict: z.enum(['issues-found', 'incomplete', 'consistent-observed-state']).nullable(),
     checks: z.partialRecord(z.enum(paperValidationCheckNames), z.enum(['passed', 'failed', 'unverified'])).nullable(),
     observedCounts: paperReviewReportSchema.shape.evidence,
+    diagnostics: paperRunDiagnosticsSummarySchema.nullable().optional(),
     stoppedAndCleaned: z.boolean().nullable(),
     executionEnabled: z.literal(false),
     canResume: z.literal(false),

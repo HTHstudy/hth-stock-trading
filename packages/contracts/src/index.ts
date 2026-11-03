@@ -201,3 +201,6 @@ export const processHealthSchema = z.object({
 });
 
 export type ProcessHealth = z.infer<typeof processHealthSchema>;
+
+export { paperRunDiagnosticsArtifactSchema, paperRunDiagnosticsSummarySchema } from './paper-run-diagnostics.js';
+export type { PaperRunDiagnosticsArtifact, PaperRunDiagnosticsSummary } from './paper-run-diagnostics.js';
