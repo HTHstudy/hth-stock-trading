@@ -191,3 +191,11 @@ journal의 10개 순서와 각 완료 후 다음 시작까지의 30초 간격, S
 결과는 `.local-data/paper-validation-runs/ac391fc5-e1ef-4121-a10d-0fb9d0bb6e2a/`의 request, preflight, before/after, review, result JSON에 보관했다. 추가 읽기 전용 진단 조회의 마지막 보고는 HOLD/NO_CROSS, 종료 봉 74개, 설정 revision 일치였다. 조회 시점에는 stale=true이며 이를 현재 시세/신호로 표시하지 않는다. 마지막 진단을 모든 tick의 세부 판단 이력으로 추정하지 않는다. 진단 요약 조회 전후 snapshot hash가 같았다.
 
 미국의 승인된 오늘 23:35 일회성 절차는 별개다. 이번 개발의 빌드·테스트·커밋은 독립 worktree에서 수행해 기존 대기 실행의 고정 산출물을 유지한다. 원래 디렉터리에는 검증된 소스만 반영하고 고정 build hash의 변경/실행 조건 검사를 우회하지 않는다. 실제 주문·마이그레이션·기존 자산 변경은 하지 않았다.
+
+### 2026-11-03 실제 source/transport 취소·명시적 새 연결 점검
+
+국내 정규장에 기존 client/DB 잠금 안에서 읽기 전용 source 수집을 시작하고, 현재가 fetch Promise가 아직 pending일 때 수명 취소를 전달했다. 진행 중 fetch가 취소 뒤 정리됐으며 pendingAtCleanup=0·requestsAfterAbort=0과 기존 잠금 해제를 확인했다. 취소 리포트 `7b635490-a418-4aef-9193-786a572e13d7`은 cancelled, 기록 1회·CANCELLED 오류 1·healthy 0이며 최종 hash를 검증했다. 계획된 취소 증거를 정상 시세 수집 횟수에 합산하지 않는다.
+
+이후 별도 명시적 새 broker 연결에서 같은 잠금을 다시 획득하고 국내 1회 관측을 수행했다. 리포트 `80744b69-62e3-4b33-8ab5-99d75660b2bf`은 completed·healthy 1·오류 0과 최종 hash 검증을 통과했고, 진행 중 요청과 취소 뒤 추가 요청은 모두 0이었다. 원본 URL query/응답·인증 값을 기록하지 않았으며 실제 계좌·주문 API는 호출하지 않았다. 두 Paper 계좌의 전후 snapshot hash는 같았다.
+
+private 근거는 `.local-data/readonly-lifecycle/74cfd0aa-939c-4808-93b3-1791bc0970dc/result.json`과 기존 관측 리포트 두 건이다. 이 점검은 source/transport 취소 후 새 인스턴스 연결의 제한된 실제 증거다. HTTP 서버가 요청을 처리했는지 판별하거나 OS 프로세스 재시작·전체 세션 경계·토큰 만료/장시간 갱신·장애 자동 복구를 검증한 것은 아니다. 자동 재시도 루프나 Paper 재개를 추가하지 않았다.
