@@ -51,7 +51,8 @@
     "prepare": "husky",
     "test:unit": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker build && vitest run --exclude '**/*.integration.test.ts'",
     "backtest:experiment": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker backtest:experiment",
-    "backtest:experiment:review": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker backtest:experiment:review"
+    "backtest:experiment:review": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker backtest:experiment:review",
+    "paper:validation:status": "corepack pnpm --filter @hth/worker paper:validation:status"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

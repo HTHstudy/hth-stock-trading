@@ -76,3 +76,6 @@
 - 로컬 Docker 기반은 `docs/LOCAL_OPERATIONS.md`를 따른다. 기존 개발 Compose/DB와 별도 프로젝트·볼륨을 사용하고 기본 worker는 idle이다. root env/키/로컬 데이터를 이미지나 새 볼륨으로 자동 복사하지 않는다. api/web의 네트워크 수명 공유 때문에 교체는 함께 수행하며, 조회 경계를 forwarded IP 신뢰로 우회하지 않는다.
 
 worker 서비스는 [운영 정책](docs/WORKER_SERVICE.md)을 따른다. 기본 idle, Paper resume=false, 관측 UUID 영구 소비, 자동 재시도 금지, 단일 상태 파일 작성자를 유지한다. 상태 heartbeat를 시장 데이터 신선도나 거래 권한으로 해석하지 않는다.
+
+- 저장된 Paper 실행 상태 CLI는 `docs/PAPER_VALIDATION_STATUS.md`를 따른다. 고정 root/UUID의 요청·종료·checkpoint·대사만 읽고 계좌/원본 원장·로그·경로·PID를 출력하지 않는다. 요청이나 기한 경과로 프로세스 생존·실패·실행 권한을 추정하지 않는다. ledgerReviewRecomputed/processLivenessChecked/canResume 경계를 유지한다. 서버 소유자만 쓰는 로컬 자료 전용이며 외부 입력을 받는 API로 바로 확장하지 않는다.
+- 승인된 일회성 Paper 실행이 build hash를 고정한 채 시작을 기다리면 원래 dist를 검증/커밋 hook의 빌드로 덮어쓰지 않는다. 독립 worktree에서 검증·커밋하고 소스만 반영한다. 고정 build 검사·계좌 version/epoch·lease CAS를 우회하거나 실패를 자동 재시도로 바꾸지 않는다.
