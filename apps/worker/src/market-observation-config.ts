@@ -18,6 +18,7 @@ export function parseMarketObservationConfig(args: string[], environment: Record
         output: { type: 'string' },
         'regular-only': { type: 'boolean', default: false },
         'share-dashboard': { type: 'boolean', default: false },
+        'token-lifecycle': { type: 'boolean', default: false },
         'start-at': { type: 'string' },
       },
     });
@@ -32,13 +33,14 @@ export function parseMarketObservationConfig(args: string[], environment: Record
     if (broker && (broker.CANDLE_INTERVAL !== '1m' || broker.CANDLE_MAX_PAGES !== 1))
       throw new Error('INVALID_CANDLE_SETTINGS');
     if (
-      (values['share-dashboard'] && !broker) ||
+      ((values['share-dashboard'] || values['token-lifecycle']) && !broker) ||
       (values['start-at'] && !values['regular-only']) ||
       (values['regular-only'] && (!broker || new Set(instruments.map((item) => item.market)).size !== 1))
     )
       throw new Error('INVALID_SESSION_SETTINGS');
     return {
       shareDashboard: values['share-dashboard'],
+      tokenLifecycle: values['token-lifecycle'],
       startAt: values['start-at'] === undefined ? null : z.iso.datetime({ offset: true }).parse(values['start-at']),
       regularMarket: values['regular-only'] ? instruments[0]!.market : null,
       source: values.demo ? ('synthetic-only' as const) : ('toss-readonly' as const),

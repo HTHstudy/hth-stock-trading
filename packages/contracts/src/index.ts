@@ -204,3 +204,11 @@ export type ProcessHealth = z.infer<typeof processHealthSchema>;
 
 export { paperRunDiagnosticsArtifactSchema, paperRunDiagnosticsSummarySchema } from './paper-run-diagnostics.js';
 export type { PaperRunDiagnosticsArtifact, PaperRunDiagnosticsSummary } from './paper-run-diagnostics.js';
+
+export {
+  tokenLifecycleTriggerSchema,
+  tokenLifecycleEventSchema,
+  tokenLifecycleSnapshotSchema,
+  observationTokenLifecycleSchema,
+} from './token-lifecycle.js';
+export type { TokenLifecycleTrigger, TokenLifecycleEvent, TokenLifecycleSnapshot } from './token-lifecycle.js';

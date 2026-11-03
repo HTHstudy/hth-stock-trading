@@ -1,6 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, open, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { observationTokenLifecycleSchema, tokenLifecycleSnapshotSchema } from '@hth/contracts';
+import { contentHash } from '@hth/database';
+import { writeReviewArtifact } from './paper-review-files.js';
 import { observationRecordSchema, observationFailureCode } from './market-observation.js';
 import type { ObservationConfig, ObservationSummary } from './market-observation.js';
 
@@ -33,6 +36,19 @@ export async function createObservationFiles(parent: string, config: Observation
   return {
     id,
     directory,
+    async recordTokenLifecycle(value: unknown) {
+      if (closed || manifest.source !== 'toss-readonly') throw new Error('TOKEN_LIFECYCLE_RECORD_INVALID');
+      const body = {
+        formatVersion: 'observation-token-lifecycle-v1',
+        runId: id,
+        source: 'toss-readonly',
+        manifestHash: contentHash(manifest),
+        snapshot: tokenLifecycleSnapshotSchema.parse(value),
+      };
+      const artifact = observationTokenLifecycleSchema.parse({ ...body, hash: contentHash(body) });
+      if (Buffer.byteLength(JSON.stringify(artifact, null, 2)) > 128 * 1024) throw new Error('TOKEN_LIFECYCLE_LIMIT');
+      await writeReviewArtifact(join(directory, 'token-lifecycle.json'), artifact);
+    },
     async record(value: unknown) {
       if (closed) throw new Error('OBSERVATION_FILES_CLOSED');
       const line = `${JSON.stringify(observationRecordSchema.parse(value))}\n`;

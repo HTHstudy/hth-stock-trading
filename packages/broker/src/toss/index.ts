@@ -1,5 +1,5 @@
 import { currencySchema, instantSchema, marketSchema } from '@hth/contracts';
-import type { Candle, Currency, InstrumentId, Market } from '@hth/contracts';
+import type { Candle, Currency, InstrumentId, Market, TokenLifecycleSnapshot } from '@hth/contracts';
 import { z } from 'zod';
 import type { CandleQuery, MarketDay, MarketSession, ReadonlyBroker } from '../index.js';
 import { BrokerError } from '../errors.js';
@@ -150,10 +150,13 @@ function mapDay(
   };
 }
 
-export function createTossReadonlyBroker(options: TossOptions): ReadonlyBroker {
+export type TossReadonlyBroker = ReadonlyBroker & { readTokenLifecycle(): TokenLifecycleSnapshot };
+
+export function createTossReadonlyBroker(options: TossOptions): TossReadonlyBroker {
   const transport = createTransport(options);
   return {
     id: 'toss',
+    readTokenLifecycle: transport.readTokenLifecycle,
     async listAccounts() {
       const data = await transport.get('/api/v1/accounts', 'ACCOUNT', accountsDto);
       return data.result.map((account) => ({ reference: String(account.accountSeq), type: account.accountType }));

@@ -43,9 +43,10 @@ async function main() {
     const collect = async (leaseSignal: AbortSignal) => {
       const lifetime = new AbortController();
       const signal = AbortSignal.any([shutdown.signal, leaseSignal, lifetime.signal]);
+      let broker: ReturnType<typeof createTossReadonlyBroker> | null = null;
       let sharing: Awaited<ReturnType<typeof shareDashboardBroker>> | undefined;
       try {
-        const broker = config.broker
+        broker = config.broker
           ? createTossReadonlyBroker({
               clientId: config.broker.TOSS_CLIENT_ID,
               clientSecret: config.broker.TOSS_CLIENT_SECRET,
@@ -94,6 +95,7 @@ async function main() {
       } finally {
         lifetime.abort();
         await sharing?.close();
+        if (config.tokenLifecycle && broker) await output.recordTokenLifecycle(broker.readTokenLifecycle());
       }
     };
     const summary =

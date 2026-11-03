@@ -51,3 +51,16 @@ it('live와 관측 범위를 벗어나는 캔들 설정을 거부한다', () => 
   expect(() => parseMarketObservationConfig([], { ...env, CANDLE_INTERVAL: '1d' })).toThrow();
   expect(() => parseMarketObservationConfig([], { ...env, CANDLE_MAX_PAGES: '5' })).toThrow();
 });
+
+it('토큰 계측 파일은 명시적 실제 관측에서만 허용하며 기본 비활성이다', () => {
+  const env = {
+    TOSS_CLIENT_ID: 'fixture',
+    TOSS_CLIENT_SECRET: 'fixture',
+    DATABASE_URL: 'postgresql://localhost/unused',
+  };
+  expect(parseMarketObservationConfig([], env).tokenLifecycle).toBe(false);
+  expect(parseMarketObservationConfig(['--token-lifecycle'], env).tokenLifecycle).toBe(true);
+  expect(() => parseMarketObservationConfig(['--demo', '--token-lifecycle'], {})).toThrow(
+    'MARKET_OBSERVATION_CONFIGURATION_INVALID',
+  );
+});

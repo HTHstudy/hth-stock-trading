@@ -1,5 +1,7 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import type { z } from 'zod';
+import type { TokenLifecycleTrigger, TokenLifecycleEvent } from '@hth/contracts';
+import { createTokenLifecycle, lifecycleTimestamp } from './token-lifecycle.js';
 import { BrokerError } from '../errors.js';
 import { tokenDto } from './dto.js';
 
@@ -52,6 +54,8 @@ export function createTransport(options: TossOptions) {
   const fetcher = options.fetch ?? fetch;
   const now = options.now ?? Date.now;
   const random = options.random ?? Math.random;
+  const lifecycle = createTokenLifecycle(now);
+  let nextTokenTrigger: TokenLifecycleTrigger = 'initial';
   const wait =
     options.wait ??
     (async (milliseconds: number) => {
@@ -153,32 +157,69 @@ export function createTransport(options: TossOptions) {
     return new BrokerError(code, status, requestId);
   }
 
-  async function issueToken() {
+  async function issueToken(trigger: TokenLifecycleTrigger) {
+    checkCancelled();
+    const attempt = lifecycle.start(trigger);
     const issuedAt = now();
-    const body = new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: options.clientId,
-      client_secret: options.clientSecret,
-    });
-    const { response, payload } = await send(
-      '/oauth2/token',
-      { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body },
-      'AUTH',
-    );
-    if (!response.ok) throw failure(response);
-    const parsed = tokenDto.safeParse(payload);
-    if (!parsed.success) throw new BrokerError('INVALID_RESPONSE');
-    const ttl = parsed.data.expires_in * 1000;
-    const refreshAt = issuedAt + ttl - Math.min(60_000, ttl * 0.1);
-    if (refreshAt <= now()) throw new BrokerError('AUTHENTICATION_FAILED');
-    token = { value: parsed.data.access_token, refreshAt };
-    return token.value;
+    try {
+      const body = new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: options.clientId,
+        client_secret: options.clientSecret,
+      });
+      const { response, payload } = await send(
+        '/oauth2/token',
+        { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body },
+        'AUTH',
+      );
+      checkCancelled();
+      if (!response.ok) throw failure(response);
+      const parsed = tokenDto.safeParse(payload);
+      if (!parsed.success) throw new BrokerError('INVALID_RESPONSE');
+      const ttl = parsed.data.expires_in * 1000;
+      const refreshAt = issuedAt + ttl - Math.min(60_000, ttl * 0.1);
+      if (refreshAt <= now()) throw new BrokerError('AUTHENTICATION_FAILED');
+      token = { value: parsed.data.access_token, refreshAt };
+      nextTokenTrigger = 'expiry';
+      lifecycle.record({
+        attempt,
+        trigger,
+        phase: 'succeeded',
+        at: lifecycleTimestamp(now()),
+        expiresInSeconds: parsed.data.expires_in,
+        validityBaseAt: lifecycleTimestamp(issuedAt),
+        refreshAt: lifecycleTimestamp(refreshAt),
+        expiresAt: lifecycleTimestamp(issuedAt + ttl),
+      });
+      return token.value;
+    } catch (error) {
+      if (error instanceof BrokerError && error.code === 'CANCELLED') {
+        lifecycle.record({ attempt, trigger, phase: 'cancelled', at: lifecycleTimestamp(now()), code: 'CANCELLED' });
+      } else {
+        const allowed = new Set([
+          'INVALID_RESPONSE',
+          'AUTHENTICATION_FAILED',
+          'PERMISSION_DENIED',
+          'RATE_LIMITED',
+          'UPSTREAM_REJECTED',
+          'UPSTREAM_UNAVAILABLE',
+          'NETWORK_ERROR',
+          'TIMEOUT',
+        ]);
+        const code =
+          error instanceof BrokerError && allowed.has(error.code)
+            ? (error.code as Extract<TokenLifecycleEvent, { phase: 'failed' }>['code'])
+            : 'UNKNOWN';
+        lifecycle.record({ attempt, trigger, phase: 'failed', at: lifecycleTimestamp(now()), code });
+      }
+      throw error;
+    }
   }
 
   async function getToken() {
     checkCancelled();
     if (token && token.refreshAt > now()) return token.value;
-    pendingToken ??= issueToken();
+    pendingToken ??= issueToken(token ? 'expiry' : nextTokenTrigger);
     const pending = pendingToken;
     try {
       return await pending;
@@ -224,7 +265,10 @@ export function createTransport(options: TossOptions) {
         return parsed.data;
       }
       if (response.status === 401 && !refreshed && attempt < 2) {
-        if (token?.value === accessToken) token = undefined;
+        if (token?.value === accessToken) {
+          token = undefined;
+          nextTokenTrigger = 'unauthorized';
+        }
         refreshed = true;
         continue;
       }
@@ -244,5 +288,5 @@ export function createTransport(options: TossOptions) {
     throw new BrokerError('UPSTREAM_UNAVAILABLE');
   }
 
-  return { get };
+  return { get, readTokenLifecycle: lifecycle.read };
 }

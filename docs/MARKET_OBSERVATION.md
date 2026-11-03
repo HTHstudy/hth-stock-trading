@@ -49,6 +49,8 @@ corepack pnpm market:observe --symbols=US:AAPL --samples=60 --interval-seconds=6
 
 진행 중 broker 요청/재시도 대기 정리가 끝나야 토큰 잠금을 해제한다. 따라서 10초는 수집 결과를 기다리는 한도이며 종료 정리까지 반드시 10초에 끝난다는 뜻은 아니다. SIGINT/SIGTERM도 통신 취소·정리 후 종료하며 SIGKILL/전원 종료에는 완료 리포트를 보장하지 않는다.
 
+실제 관측에서 명시적 `--token-lifecycle` 옵션을 주면 [토큰 수명 계측](TOKEN_LIFECYCLE.md)을 별도 private 파일로 보관한다. 기본 비활성이며 HTTP/IPC에 노출하지 않고, 기존 결과·정리·실행 권한을 대체하지 않는다.
+
 ## 관측 결과
 
 각 종목에 정상(healthy)·확인된 정규장 밖/휴장(closed)·차단(blocked)을 기록한다. 휴장이어도 시세 시각 누락·오래된 캔들·환율 만료 등의 사유를 제거하지 않는다. 캘린더 미확인/만료는 정상 휴장으로 취급하지 않는다. quote 시각이 이전 최댓값보다 뒤로 가면 차단하며 회복 여부를 이후 관측에서도 비교한다.
