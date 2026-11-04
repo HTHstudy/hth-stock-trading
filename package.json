@@ -58,7 +58,9 @@
     "paper:validation:preflight": "corepack pnpm --filter @hth/worker paper:validation:preflight",
     "readonly:validation:plan": "corepack pnpm --filter @hth/worker readonly:validation:plan",
     "readonly:supervise": "corepack pnpm --filter @hth/worker readonly:supervise",
-    "readonly:supervision:status": "corepack pnpm --filter @hth/worker readonly:supervision:status"
+    "readonly:supervision:status": "corepack pnpm --filter @hth/worker readonly:supervision:status",
+    "paper:reservation:closure": "corepack pnpm --filter @hth/worker paper:reservation:closure",
+    "paper:validation:owned": "corepack pnpm --filter @hth/worker paper:validation:owned"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
