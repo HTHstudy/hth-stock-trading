@@ -31,3 +31,5 @@ corepack pnpm paper:validation:status
 대사 보고서 자체의 검사/한계는 [Paper 실행 전후 검토](PAPER_RUN_REVIEW.md), 실제 일회성 실행 기록은 [운영 검증](OPERATIONAL_VALIDATION.md)을 따른다. 브라우저 조회는 [소유자 인증·loopback 계약](PAPER_VALIDATION_WEB.md)으로 연결하며 조회 helper를 직접 외부 입력에 노출하지 않는다.
 
 서버 소유자만 증거 디렉터리를 작성할 수 있는 로컬 환경을 전제로 한다. 사전/사후 realpath와 최종 파일 O_NOFOLLOW 검사는 OS의 openat 같은 원자적 디렉터리 고정이 아니다. 악의적인 동일 권한 프로세스가 부모 디렉터리를 교체하는 경쟁까지 차단한다고 보장하지 않는다. 다른 사용자·비신뢰 프로세스가 쓸 수 있는 디렉터리나 권한이 높은 계정의 대리 조회로 사용하지 않는다. 외부 입력을 받는 서비스로 연결하기 전에는 해당 경계를 별도로 재검토한다.
+
+계획 파일 누락/내용 hash 불일치/고정 입력 오류는 공통 허용 코드를 사용한다. 내부 resourcesHash는 공개 DTO로 내보내지 않는다. 11월 3일의 일반 중단 코드는 원본대로 두며 [사전 점검 조사](PAPER_VALIDATION_PREFLIGHT.md)에 확인된 원인을 기록했다.

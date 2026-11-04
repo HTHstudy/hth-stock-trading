@@ -2,7 +2,7 @@
 
 ## 현재 단계
 
-2026-11-03 완료 증거 기준으로 국내·미국 정규장 읽기 전용 관측은 각각 60/60 healthy·오류/차단/공백 0을 확인했다. 국내 실제 시세 Paper는 60 running tick을 마치고 정지·lease/예약 정리를 확인했으나 의도/체결 0건으로 대사는 incomplete다. 구간에 연결된 저장 진단 22건은 모두 HOLD/NO_CROSS였다. 미국 Paper는 11월 3일 23:35 KST 별도 일회성 실행을 기다리며 실행 완료 증거는 아직 없다. 아래 과거 기록은 당시 상태로 보존한다.
+2026-11-03 완료 증거 기준으로 국내·미국 정규장 읽기 전용 관측은 각각 60/60 healthy·오류/차단/공백 0을 확인했다. 국내 실제 시세 Paper는 60 running tick을 마치고 정지·lease/예약 정리를 확인했으나 의도/체결 0건으로 대사는 incomplete다. 구간에 연결된 저장 진단 22건은 모두 HOLD/NO_CROSS였다. 미국 Paper는 11월 3일 23:35 KST 사전 점검에서 계획 입력 누락으로 중단됐고 실행 tick은 0이다. 11월 4일 원인 재현과 읽기 전용 수정 점검을 완료했으며 새 재개/예약은 하지 않았다. 아래 과거 기록은 당시 상태로 보존한다.
 
 2026-10-30 관측 대기 중 [오프라인 Paper 준비](PAPER_OFFLINE_PREPARATION.md)를 완료했다. 새 전용 DB의 국내·미국 가상 계좌만 정지 상태로 생성했고 broker/worker를 실행하지 않았다. 정지 부팅·설정 해시·재시작 보존·백업 복원은 시장 데이터 검증과 별도 증거다.
 
@@ -213,3 +213,7 @@ private 근거는 `.local-data/readonly-lifecycle/74cfd0aa-939c-4808-93b3-1791bc
 ### 11월 3일 별도 OS 프로세스 종료·새 연결 검증
 
 [프로세스 검증기](READONLY_PROCESS_CHECK.md)를 실제 읽기 전용으로 1회 실행했다. 첫 자식은 관측 1회 후 SIGTERM 정상 취소/exit 0, 다른 자식은 새 연결 1회 completed/exit 0이었다. 강제 종료 없이 각 terminal/journal/hash·계측 연결을 확인했고 준비 KR/US Paper checkpoint는 조회 시각을 제외하고 같았다. 두 관측 모두 closed 1인 국내 정규장 밖 기록이며 장시간/정규장 품질 검증으로 합산하지 않는다. 토큰은 각 initial 성공 1회로 만료 갱신은 미검증이다. 실제 실행 증거·제약은 링크 문서와 private UUID 폴더에 보존한다. 미국 23:35 예약을 변경하지 않았다.
+
+### 11월 4일 미국 사전 점검 실패 조사·수정
+
+미국의 `3bbd7ebb-cd47-43df-b2a9-37abffffc81c`은 account-preflight에서 runStarted=false·0 tick으로 중단됐다. 고정 코드 복사본에 examples 계획 JSON이 없어 PAPER_MARKET_PLAN_INVALID가 발생했고 허용 코드에서 빠져 일반 미완료로 기록된 구성 오류였다. 같은 고정 모듈로 DB 없는 재현을 확인한 뒤 별도 hash 고정 계획의 절대 경로를 전달해 읽기 전용 점검이 통과했다. 준비 KR/US 원장은 전후 hash가 같았다. [고정 입력/실행기 수정과 제한](PAPER_VALIDATION_PREFLIGHT.md)을 따르며 이전 실패 결과를 성공으로 바꾸거나 새 Paper 실행을 시작하지 않았다.
