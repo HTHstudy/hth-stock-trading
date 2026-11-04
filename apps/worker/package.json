@@ -47,7 +47,8 @@
     "readonly:process:check": "node --import tsx src/readonly-process-check-run.ts",
     "paper:validation:preflight": "node --import tsx src/paper-validation-preflight-run.ts",
     "readonly:validation:plan": "node --import tsx src/readonly-validation-plan-run.ts",
-    "readonly:supervise": "node dist/readonly-observation-supervisor-run.js"
+    "readonly:supervise": "node dist/readonly-observation-supervisor-run.js",
+    "readonly:supervision:status": "node dist/readonly-supervision-status-run.js"
   },
   "dependencies": {
     "@hth/contracts": "workspace:*",
