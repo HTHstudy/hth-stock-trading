@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { expect, it } from 'vitest';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+// Several real pnpm/ESLint/Vitest hook invocations run sequentially here.
 it('pre-commit은 포맷·관련 테스트 오류를 차단하고 pre-push 검사는 없다', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'hth-hook-test-'));
   const remote = await mkdtemp(join(tmpdir(), 'hth-hook-remote-'));
@@ -80,4 +81,4 @@ it('pre-commit은 포맷·관련 테스트 오류를 차단하고 pre-push 검�
     await rm(directory, { recursive: true, force: true });
     await rm(remote, { recursive: true, force: true });
   }
-}, 30000);
+}, 60000);

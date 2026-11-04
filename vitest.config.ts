@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
+import { availableParallelism } from 'node:os';
 
 export default defineConfig({
   resolve: {
@@ -10,6 +11,8 @@ export default defineConfig({
     },
   },
   test: {
+    // CLI tests spawn Node and Git children too; leave room for their deadlines.
+    maxWorkers: Math.min(4, availableParallelism()),
     environment: 'node',
     include: ['apps/**/*.test.ts', 'packages/**/*.test.ts', 'infra/**/*.test.ts'],
     clearMocks: true,
