@@ -1,6 +1,10 @@
 import { expect, it } from 'vitest';
 import type { MarketCalendar } from '@hth/contracts';
-import { requireObservationSession, waitForObservationStart } from './market-observation-start.js';
+import {
+  requireObservationSession,
+  requireObservationBoundary,
+  waitForObservationStart,
+} from './market-observation-start.js';
 
 it('대기는 짧은 구간으로 나누고 예정 시각 뒤 수집을 허용한다', async () => {
   let clock = Date.parse('2026-10-29T13:33:00Z');
@@ -60,4 +64,19 @@ it('신선한 캘린더의 현재 정규장에 수집 예산이 모두 들어갈
     expect(() =>
       requireObservationSession({ ...calendar, today }, 'US', settings, Date.parse('2026-10-29T13:35:00Z')),
     ).toThrow('OBSERVATION_SESSION_UNAVAILABLE');
+});
+
+it('예상 경계는 같은 시장의 공식 regular 시작/종료와 정확히 일치해야 한다', () => {
+  expect(() => requireObservationBoundary(calendar, 'US', day.sessions[0]!.endsAt)).not.toThrow();
+  for (const boundary of ['2026-10-29T19:59:59Z', 'not-a-date'])
+    expect(() => requireObservationBoundary(calendar, 'US', boundary)).toThrow('OBSERVATION_SESSION_UNAVAILABLE');
+  expect(() => requireObservationBoundary(calendar, 'KR', day.sessions[0]!.endsAt)).toThrow();
+  const unknown = { ...day, sessionsKnown: false };
+  expect(() =>
+    requireObservationBoundary(
+      { today: unknown, previousBusinessDay: unknown, nextBusinessDay: unknown },
+      'US',
+      day.sessions[0]!.endsAt,
+    ),
+  ).toThrow();
 });

@@ -20,6 +20,7 @@ export function parseMarketObservationConfig(args: string[], environment: Record
         'share-dashboard': { type: 'boolean', default: false },
         'token-lifecycle': { type: 'boolean', default: false },
         'start-at': { type: 'string' },
+        'expected-session-boundary': { type: 'string' },
       },
     });
     const instruments = parseReadonlySymbols(
@@ -35,10 +36,16 @@ export function parseMarketObservationConfig(args: string[], environment: Record
     if (
       ((values['share-dashboard'] || values['token-lifecycle']) && !broker) ||
       (values['start-at'] && !values['regular-only']) ||
+      (values['expected-session-boundary'] &&
+        (!broker || values['regular-only'] || new Set(instruments.map((item) => item.market)).size !== 1)) ||
       (values['regular-only'] && (!broker || new Set(instruments.map((item) => item.market)).size !== 1))
     )
       throw new Error('INVALID_SESSION_SETTINGS');
     return {
+      expectedSessionBoundary:
+        values['expected-session-boundary'] === undefined
+          ? null
+          : z.iso.datetime({ offset: true }).parse(values['expected-session-boundary']),
       shareDashboard: values['share-dashboard'],
       tokenLifecycle: values['token-lifecycle'],
       startAt: values['start-at'] === undefined ? null : z.iso.datetime({ offset: true }).parse(values['start-at']),

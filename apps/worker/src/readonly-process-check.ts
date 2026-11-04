@@ -335,3 +335,12 @@ export async function runReadonlyProcessCheck(
   await writeReviewArtifact(join(directory, 'result.json'), { ...result, hash: contentHash(result) });
   return result;
 }
+
+// Internal worker reuse: bounded evidence reads and handles for children we own.
+export {
+  boundedText as readObservationText,
+  runFolder as findObservationFolder,
+  fingerprint as fingerprintObservationBuild,
+  managed as manageObservationChild,
+  within as waitWithin,
+};

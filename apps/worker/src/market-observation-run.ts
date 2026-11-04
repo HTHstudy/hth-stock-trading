@@ -6,7 +6,11 @@ import { createObservationFiles } from './market-observation-files.js';
 import { runMarketObservation, observationFailureCode } from './market-observation.js';
 import { createPaperMarketSource } from './paper-market-source.js';
 import { createPaperSyntheticSource } from './paper-synthetic-source.js';
-import { requireObservationSession, waitForObservationStart } from './market-observation-start.js';
+import {
+  requireObservationSession,
+  requireObservationBoundary,
+  waitForObservationStart,
+} from './market-observation-start.js';
 import { shareDashboardBroker } from './shared-dashboard-broker.js';
 
 async function main() {
@@ -53,6 +57,10 @@ async function main() {
               signal,
             })
           : null;
+        if (config.expectedSessionBoundary && broker) {
+          const market = instruments[0]!.market;
+          requireObservationBoundary(await broker.getMarketCalendar(market), market, config.expectedSessionBoundary);
+        }
         if (config.regularMarket && broker) {
           const calendar = await broker.getMarketCalendar(config.regularMarket);
           if (config.startAt && Date.now() - Date.parse(config.startAt) > 120_000)

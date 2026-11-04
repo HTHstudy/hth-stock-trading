@@ -64,3 +64,20 @@ it('토큰 계측 파일은 명시적 실제 관측에서만 허용하며 기본
     'MARKET_OBSERVATION_CONFIGURATION_INVALID',
   );
 });
+
+it('세션 경계 확인은 실제 단일 시장만 허용하고 정규장 전용 실행과 혼합하지 않는다', () => {
+  const env = {
+    TOSS_CLIENT_ID: 'fixture',
+    TOSS_CLIENT_SECRET: 'fixture',
+    DATABASE_URL: 'postgresql://localhost/unused',
+  };
+  expect(
+    parseMarketObservationConfig(['--symbols=US:AAPL', '--expected-session-boundary=2026-11-04T21:00:00Z'], env),
+  ).toMatchObject({ expectedSessionBoundary: '2026-11-04T21:00:00Z' });
+  for (const args of [
+    ['--demo', '--expected-session-boundary=2026-11-04T21:00:00Z'],
+    ['--regular-only', '--symbols=US:AAPL', '--expected-session-boundary=2026-11-04T21:00:00Z'],
+    ['--symbols=US:AAPL', '--expected-session-boundary=tomorrow'],
+  ])
+    expect(() => parseMarketObservationConfig(args, env)).toThrow();
+});

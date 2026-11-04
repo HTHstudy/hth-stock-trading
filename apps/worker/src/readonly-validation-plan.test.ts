@@ -87,3 +87,17 @@ it('CLI 미리보기는 서버 환경파일 없이 동작하고 실행 옵션을
     execFileSync(process.execPath, [cli, '--kind=expiry', '--kind=session'], { env: {}, stdio: 'pipe' }),
   ).toThrow();
 });
+
+it('계획에 예약 시각 자체를 남겨 다른 예약을 같은 내용으로 hash 고정하지 않는다', () => {
+  const a = planReadonlyValidation({
+    ...expiry,
+    reservedWindows: [{ startsAt: '2026-11-04T19:00:00Z', endsAt: '2026-11-04T20:00:00Z' }],
+  });
+  const b = planReadonlyValidation({
+    ...expiry,
+    reservedWindows: [{ startsAt: '2026-11-04T18:00:00Z', endsAt: '2026-11-04T19:00:00Z' }],
+  });
+  expect(a.state).toBe('prepared');
+  expect(b.state).toBe('prepared');
+  expect(a.reservedWindows).not.toEqual(b.reservedWindows);
+});

@@ -61,6 +61,10 @@ export function planReadonlyValidation(input: unknown) {
     httpRequestCountKnown: false,
     blockers,
     reservedWindowCount: value.reservedWindows.length,
+    reservedWindows: value.reservedWindows.map((window) => ({
+      startsAt: new Date(window.startsAt).toISOString(),
+      endsAt: new Date(window.endsAt).toISOString(),
+    })),
     observedTtlSeconds: value.kind === 'expiry' ? value.observedTtlSeconds : null,
     boundaryAt: value.kind === 'session' ? value.boundaryAt : null,
     regularOnly: false,

@@ -38,3 +38,21 @@ export function requireObservationSession(
   )
     throw new Error('OBSERVATION_SESSION_UNAVAILABLE');
 }
+
+export function requireObservationBoundary(calendar: MarketCalendar, market: Market, boundaryAt: string) {
+  const target = Date.parse(boundaryAt);
+  const days = [calendar.previousBusinessDay, calendar.today, calendar.nextBusinessDay];
+  if (
+    !Number.isFinite(target) ||
+    !days.some(
+      (day) =>
+        day.market === market &&
+        day.sessionsKnown &&
+        day.sessions.some(
+          (session) =>
+            session.type === 'regular' && [session.startsAt, session.endsAt].some((at) => Date.parse(at) === target),
+        ),
+    )
+  )
+    throw new Error('OBSERVATION_SESSION_UNAVAILABLE');
+}
