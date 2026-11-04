@@ -45,7 +45,8 @@
     "paper:validation:status": "node --import tsx src/paper-validation-status-run.ts",
     "paper:run:diagnostics": "node --import tsx src/paper-run-diagnostics-run.ts",
     "readonly:process:check": "node --import tsx src/readonly-process-check-run.ts",
-    "paper:validation:preflight": "node --import tsx src/paper-validation-preflight-run.ts"
+    "paper:validation:preflight": "node --import tsx src/paper-validation-preflight-run.ts",
+    "readonly:validation:plan": "node --import tsx src/readonly-validation-plan-run.ts"
   },
   "dependencies": {
     "@hth/contracts": "workspace:*",

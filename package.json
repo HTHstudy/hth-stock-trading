@@ -55,7 +55,8 @@
     "paper:validation:status": "corepack pnpm --filter @hth/worker paper:validation:status",
     "paper:run:diagnostics": "corepack pnpm --filter @hth/worker paper:run:diagnostics",
     "readonly:process:check": "corepack pnpm --filter @hth/worker readonly:process:check",
-    "paper:validation:preflight": "corepack pnpm --filter @hth/worker paper:validation:preflight"
+    "paper:validation:preflight": "corepack pnpm --filter @hth/worker paper:validation:preflight",
+    "readonly:validation:plan": "corepack pnpm --filter @hth/worker readonly:validation:plan"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
