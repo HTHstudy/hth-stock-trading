@@ -44,7 +44,8 @@
     "backtest:experiment:review": "tsx src/backtest-experiment-review-run.ts",
     "paper:validation:status": "node --import tsx src/paper-validation-status-run.ts",
     "paper:run:diagnostics": "node --import tsx src/paper-run-diagnostics-run.ts",
-    "readonly:process:check": "node --import tsx src/readonly-process-check-run.ts"
+    "readonly:process:check": "node --import tsx src/readonly-process-check-run.ts",
+    "paper:validation:preflight": "node --import tsx src/paper-validation-preflight-run.ts"
   },
   "dependencies": {
     "@hth/contracts": "workspace:*",

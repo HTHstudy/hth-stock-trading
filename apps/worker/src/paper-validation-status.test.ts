@@ -276,3 +276,29 @@ it('진단 자료의 누락과 변조를 구분하고 진단 오류로 실행 �
   expect(result.rejectedCount).toBe(0);
   expect(result.runs[0]).toMatchObject({ completedTicks: 60, diagnostics: { availability: 'unavailable' } });
 });
+
+it('계획 오류 코드를 유지하고 고정 입력 hash를 조회 DTO에 노출하지 않는다', () => {
+  const f = fixture();
+  const result = {
+    formatVersion: 'authorized-paper-validation-result-v1',
+    market: 'US',
+    state: 'stopped-before-run-or-failed',
+    resumeRequested: true,
+    maxTicks: 60,
+    completedTicks: 0,
+    finishedAt: '2026-11-03T01:15:02Z',
+    executionEnabled: false,
+    automaticRetry: false,
+    code: 'PAPER_MARKET_PLAN_INVALID',
+  };
+  const input = {
+    request: { ...f.request, market: 'US', prerequisite: 'us-2026-11-02', resourcesHash: 'a'.repeat(64) },
+    result,
+    before: null,
+    after: null,
+    review: null,
+  };
+  const output = summarizePaperValidation(f.id, input, now);
+  expect(output.code).toBe('PAPER_MARKET_PLAN_INVALID');
+  expect(JSON.stringify(output)).not.toContain('resourcesHash');
+});

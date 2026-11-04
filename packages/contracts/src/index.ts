@@ -212,3 +212,5 @@ export {
   observationTokenLifecycleSchema,
 } from './token-lifecycle.js';
 export type { TokenLifecycleTrigger, TokenLifecycleEvent, TokenLifecycleSnapshot } from './token-lifecycle.js';
+
+export { paperValidationFailureCodeSchema } from './paper-validation-status.js';

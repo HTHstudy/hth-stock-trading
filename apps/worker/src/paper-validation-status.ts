@@ -7,6 +7,7 @@ import {
   paperReviewArtifactSchema,
   paperReviewCheckpointSchema,
   paperValidationCheckNames,
+  paperValidationFailureCodeSchema,
   paperValidationRunSchema,
   paperValidationStatusSchema,
 } from '@hth/contracts';
@@ -27,6 +28,7 @@ const requestSchema = z
     maxTicks: z.literal(60),
     buildHash: hash,
     expectedControlHash: hash.nullable().optional(),
+    resourcesHash: hash.optional(),
     automaticRetry: z.literal(false),
     executionEnabled: z.literal(false),
   })
@@ -62,30 +64,7 @@ const resultSchema = z
     phase: z
       .enum(['waiting', 'account-preflight', 'daily-review', 'stopped-observation', 'authorized-paper-run'])
       .optional(),
-    code: z
-      .enum([
-        'CANCELLED',
-        'BROKER_LEASE_BUSY',
-        'BROKER_LEASE_LOST',
-        'PAPER_TRADING_DAY_REVIEW_REQUIRED',
-        'PAPER_WORKER_DATA_NOT_READY',
-        'PAPER_OBSERVATION_STALE',
-        'PAPER_CONTROL_CHANGED',
-        'PAPER_BUILD_CHANGED',
-        'PAPER_VERSION_CONFLICT',
-        'PAPER_DAY_REVIEW_NOT_REQUIRED',
-        'PAPER_TRADING_DAY_REVIEW_NOT_REQUIRED',
-        'PAPER_MARKET_STRATEGIES_INVALID',
-        'PREREQUISITE_FAILED',
-        'PREREQUISITE_UNVERIFIED',
-        'START_MISSED',
-        'PAPER_PREFLIGHT_FAILED',
-        'PAPER_ACCOUNT_NOT_PRISTINE',
-        'PAPER_CONFIGURATION_CHANGED',
-        'PAPER_CLEANUP_INCOMPLETE',
-        'PAPER_VALIDATION_NOT_COMPLETED',
-      ])
-      .optional(),
+    code: paperValidationFailureCodeSchema.optional(),
   })
   .strict()
   .refine((value) => value.runningTicks === undefined || value.runningTicks <= value.completedTicks);

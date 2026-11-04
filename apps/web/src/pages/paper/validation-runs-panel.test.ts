@@ -267,3 +267,24 @@ it('실행 구간 진단의 신호·단계·사유를 주문 체결과 구분하
     ),
   ).toContain('진단 자료 검증 불가');
 });
+
+it('검증 계획 파일 오류를 실행 실패 사유로 표시하고 완료로 승격하지 않는다', () => {
+  const html = render(
+    snapshot({
+      runs: [
+        run({
+          resultState: 'stopped-before-run-or-failed',
+          code: 'PAPER_MARKET_PLAN_INVALID',
+          evidence: 'request-only',
+          verdict: null,
+          checks: null,
+          observedCounts: null,
+          completedTicks: 0,
+          runningTicks: null,
+        }),
+      ],
+    }),
+  );
+  expect(html).toContain('검증 계획 파일 읽기 또는 형식 오류');
+  expect(html).not.toContain('실행: 60회 실행 완료');
+});
