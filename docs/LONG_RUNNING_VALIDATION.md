@@ -60,7 +60,7 @@ corepack pnpm readonly:validation:plan --kind=expiry \
 
 계획 창은 최대 36시간, 샘플은 최대 10,000회다. 예산 부족이나 예약 겹침은 `state=blocked`/exit 2이며 잘못된 입력은 안전한 코드/exit 1로 끝난다. 순수 함수는 최대 100개 예약 구간, CLI는 한 구간을 명시적으로 받는다. 예약 목록을 자동 조회하지 않으므로 입력하지 않은 예약·외부 프로그램은 검사하지 못한다. `prepared`는 산술 검사 결과이며 실제 시작 가능·예약·운용 승인이 아니다. 모든 출력은 `scheduled=false`, `executionEnabled=false`, `canResume=false`다.
 
-현재 `market:observe`의 `--start-at`은 regular-only와만 조합되며 전체 절차의 절대 종료 기한을 강제하지 않는다. 따라서 위 계획을 그대로 실행 명령으로 바꾸지 않는다. 다음 구현은 별도 deadline supervisor다. 절대 시각 대기·시작 누락 거부·동일 broker 잠금·소유 자식의 정상 종료/정리·강제 종료의 실패 처리·고정 입력과 빌드 검증을 연결해야 한다. 이 도구는 `requiresDeadlineSupervisor=true`로 그 미구현 조건을 표시한다. 만료 갱신 관측은 하루 이상 같은 client 잠금을 점유하므로 그 구간의 다른 Paper/관측 예약을 따로 배제하고 투자 현황은 소유자의 공유 IPC를 사용해야 한다.
+현재 `market:observe`의 `--start-at`은 regular-only와만 조합되며 전체 절차의 절대 종료 기한을 강제하지 않는다. 따라서 위 계획을 그대로 실행 명령으로 바꾸지 않는다. [유한 관측 감독기](READONLY_SUPERVISOR.md)를 별도로 구현했다. 절대 시각 대기·시작 누락 거부·동일 broker 잠금·소유 자식의 정상 종료/정리·강제 종료의 실패 처리·계획과 빌드 hash 검증을 연결한다. 이 도구는 `requiresDeadlineSupervisor=true`로 별도 감독기를 요구함을 표시한다. 만료 갱신 관측은 하루 이상 같은 client 잠금을 점유하므로 그 구간의 다른 Paper/관측 예약을 따로 배제하고 투자 현황은 소유자의 공유 IPC를 사용해야 한다.
 
 ## 경계별 통과에 필요한 실제 증거
 
