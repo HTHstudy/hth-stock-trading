@@ -79,11 +79,64 @@ function checkpoint(input: unknown) {
   return value;
 }
 
-export function summarizePaperValidation(
-  id: string,
-  input: { request: unknown; result: unknown; before: unknown; after: unknown; review: unknown; diagnostics?: unknown },
-  now: number,
-) {
+type PaperValidationEvidenceInput = {
+  request: unknown;
+  result: unknown;
+  before: unknown;
+  after: unknown;
+  review: unknown;
+  diagnostics?: unknown;
+};
+
+/** Classification only: never grants an exception to reservation checks. */
+export function auditPaperValidationRecord(id: string, input: PaperValidationEvidenceInput, now: number) {
+  const report = (
+    classification:
+      | 'invalid-id'
+      | 'request-missing-or-null'
+      | 'request-invalid'
+      | 'result-invalid'
+      | 'before-invalid'
+      | 'after-invalid'
+      | 'review-invalid'
+      | 'linked-evidence-invalid'
+      | 'status-readable',
+  ) => ({
+    formatVersion: 'paper-reservation-audit-v1' as const,
+    classification,
+    statusReadable: classification === 'status-readable',
+    canIgnoreReservation: false as const,
+    processLivenessChecked: false as const,
+    ledgerReviewRecomputed: false as const,
+    executionEnabled: false as const,
+    canResume: false as const,
+  });
+  if (!z.uuid().safeParse(id).success) return report('invalid-id');
+  // The filesystem status reader maps ENOENT to null. An in-memory null cannot
+  // distinguish a missing file from a JSON null; do not invent that evidence.
+  if (input.request === null || input.request === undefined) return report('request-missing-or-null');
+  if (!requestSchema.safeParse(input.request).success) return report('request-invalid');
+  if (input.result !== null && !resultSchema.safeParse(input.result).success) return report('result-invalid');
+  for (const name of ['before', 'after'] as const) {
+    try {
+      checkpoint(input[name]);
+    } catch {
+      return report(name === 'before' ? 'before-invalid' : 'after-invalid');
+    }
+  }
+  if (input.review !== null && !paperReviewArtifactSchema.safeParse(input.review).success)
+    return report('review-invalid');
+  try {
+    summarizePaperValidation(id, input, now);
+    return report('status-readable');
+  } catch {
+    // Includes cross-file linkage, checksum and semantic checks. Never return
+    // Zod paths/messages or the original error, which may contain private data.
+    return report('linked-evidence-invalid');
+  }
+}
+
+export function summarizePaperValidation(id: string, input: PaperValidationEvidenceInput, now: number) {
   z.uuid().parse(id);
   const request = requestSchema.parse(input.request);
   const result = input.result === null ? null : resultSchema.parse(input.result);

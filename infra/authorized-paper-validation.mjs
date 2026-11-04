@@ -208,8 +208,6 @@ async function main() {
     runStarted = false;
   let result = { state: 'incomplete', resumeRequested: true, maxTicks: 60, completedTicks: 0 };
   try {
-    if (!/^[a-f0-9]{64}$/.test(expectedBuild ?? '') || (await fingerprint()) !== expectedBuild)
-      throw new Error('PAPER_BUILD_CHANGED');
     await writeReviewArtifact(resolve(directory, 'request.json'), {
       formatVersion: 'authorized-paper-validation-v1',
       market,
@@ -224,6 +222,10 @@ async function main() {
       automaticRetry: false,
       executionEnabled: false,
     });
+    // Preserve the validated request before the second, race-sensitive build check.
+    // A build change here must leave a linked failure rather than only a result file.
+    if (!/^[a-f0-9]{64}$/.test(expectedBuild ?? '') || (await fingerprint()) !== expectedBuild)
+      throw new Error('PAPER_BUILD_CHANGED');
     emit({ state: 'waiting-for-prerequisite', startsAt, prerequisite });
     const jobs = createObservationJobs(resolve(root, '.local-data/scheduled-observations'));
     const reports = createObservationReports(

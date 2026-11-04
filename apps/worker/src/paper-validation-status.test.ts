@@ -9,7 +9,11 @@ import { afterEach, expect, it } from 'vitest';
 import type { PaperReviewSnapshot } from '@hth/contracts';
 import { contentHash } from '@hth/database';
 import { paperReviewCheckpoint, reviewPaperCheckpoints } from './paper-review.js';
-import { createPaperValidationStatus, summarizePaperValidation } from './paper-validation-status.js';
+import {
+  auditPaperValidationRecord,
+  createPaperValidationStatus,
+  summarizePaperValidation,
+} from './paper-validation-status.js';
 
 const roots: string[] = [];
 const now = Date.parse('2026-11-03T01:30:00Z');
@@ -99,6 +103,64 @@ async function save(root: string, f: ReturnType<typeof fixture>) {
     await writeFile(join(folder, `${name}.json`), JSON.stringify(f[name]));
   return folder;
 }
+
+it('요청 없는 종료 기록을 분류해도 예약 검증 제외를 해제하지 않는다', async () => {
+  const f = fixture();
+  const input = {
+    request: null,
+    result: { ...f.result, state: 'stopped-before-run-or-failed', completedTicks: 0, runStarted: false },
+    before: null,
+    after: null,
+    review: null,
+  };
+  expect(auditPaperValidationRecord(f.id, input, now)).toEqual({
+    formatVersion: 'paper-reservation-audit-v1',
+    classification: 'request-missing-or-null',
+    statusReadable: false,
+    canIgnoreReservation: false,
+    processLivenessChecked: false,
+    ledgerReviewRecomputed: false,
+    executionEnabled: false,
+    canResume: false,
+  });
+  expect(() => summarizePaperValidation(f.id, input, now)).toThrow();
+  const root = await directory();
+  const folder = join(root, f.id);
+  await mkdir(folder);
+  const original = JSON.stringify(input.result);
+  await writeFile(join(folder, 'result.json'), original);
+  expect(await createPaperValidationStatus(root, () => now).list()).toMatchObject({
+    rejectedCount: 1,
+    runs: [],
+    canResume: false,
+  });
+  expect(await readdir(folder)).toEqual(['result.json']);
+  expect(await readFile(join(folder, 'result.json'), 'utf8')).toBe(original);
+});
+
+it('고정 분류만 반환하고 오류 메시지·동적 필드·원본 값을 노출하지 않는다', () => {
+  const f = fixture();
+  for (const component of ['request', 'result', 'before', 'after', 'review'] as const) {
+    const output = auditPaperValidationRecord(f.id, { ...f, [component]: { PRIVATE_SECRET: 'PRIVATE_VALUE' } }, now);
+    expect(output.classification).toBe(`${component}-invalid`);
+    expect(output.canIgnoreReservation).toBe(false);
+    expect(JSON.stringify(output)).not.toMatch(/PRIVATE_SECRET|PRIVATE_VALUE|issues|message|path/);
+  }
+  expect(auditPaperValidationRecord('PRIVATE_ID', f, now).classification).toBe('invalid-id');
+});
+
+it('개별 형식이 유효해도 연결이 깨진 기록은 거부하고 유효한 조회도 예외 승인이 아니다', () => {
+  const f = fixture();
+  const broken = { ...f, result: { ...f.result, market: 'US' } };
+  expect(auditPaperValidationRecord(f.id, broken, now).classification).toBe('linked-evidence-invalid');
+  expect(auditPaperValidationRecord(f.id, f, now)).toMatchObject({
+    classification: 'status-readable',
+    statusReadable: true,
+    canIgnoreReservation: false,
+    processLivenessChecked: false,
+    canResume: false,
+  });
+});
 
 it('연결된 대사 증거를 표시하고 체결 없는 미완료를 성공으로 바꾸지 않는다', () => {
   const f = fixture();
