@@ -95,3 +95,17 @@ it('유효한 입력이 있어도 만료된 실행 기한과 잘못된 옵션은
     ).rejects.toThrow();
   expect(await readdir(root)).toEqual(before);
 }, 20000);
+
+it('소유자가 생성할 run-id는 실제 실행에서만 허용하고 경로와 조회 모드 혼합은 거부한다', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'paper-run-id-'));
+  roots.push(root);
+  for (const flags of [
+    ['--run-id=../../other'],
+    ['--run-id=not-a-uuid', '--run', '--resume-authorized'],
+    ['--run-id=12345678-1234-4234-8234-123456789012', '--run', '--resume-authorized', '--fingerprint'],
+  ])
+    await expect(
+      execute(process.execPath, [script, '--market=US', ...flags], { cwd: root, env: {}, timeout: 10000 }),
+    ).rejects.toMatchObject({ stderr: expect.stringContaining('PAPER_PREFLIGHT_FAILED') });
+  expect(await readdir(root)).toEqual([]);
+}, 20000);

@@ -73,8 +73,11 @@ export async function runReadonlySupervisor(
     throw new Error('SUPERVISOR_BUILD_CHANGED');
   const checkReservations = async () => {
     if (config.source !== 'market') return;
-    const status = await createPaperValidationStatus(join(root, '.local-data/paper-validation-runs'), now).list();
-    if (status.availability === 'unavailable' || status.limited || status.rejectedCount > 0)
+    const status = await createPaperValidationStatus(
+      join(root, '.local-data/paper-validation-runs'),
+      now,
+    ).checkReservations();
+    if (status.availability === 'unavailable' || status.limited || status.unresolvedCount > 0)
       throw new Error('SUPERVISOR_RESERVATIONS_UNVERIFIED');
     if (
       status.runs.some(

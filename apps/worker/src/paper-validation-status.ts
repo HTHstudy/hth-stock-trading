@@ -1,73 +1,24 @@
 import { constants } from 'node:fs';
 import { lstat, open, opendir, realpath } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
 import {
-  observationJobSchema,
   paperReviewArtifactSchema,
   paperReviewCheckpointSchema,
   paperValidationCheckNames,
-  paperValidationFailureCodeSchema,
   paperValidationRunSchema,
   paperValidationStatusSchema,
 } from '@hth/contracts';
 import { contentHash } from '@hth/database';
 
+import { createPaperReservationClosures } from './paper-reservation-closure-store.js';
+
 import { summarizeRunDiagnostics, unavailableRunDiagnostics } from './paper-run-diagnostics.js';
 
-const hash = z.string().regex(/^[a-f0-9]{64}$/);
-const count = z.number().int().min(0).max(5000);
-const requestSchema = z
-  .object({
-    formatVersion: z.literal('authorized-paper-validation-v1'),
-    market: z.enum(['KR', 'US']),
-    prerequisite: observationJobSchema.shape.id,
-    startsAt: z.iso.datetime({ offset: true }).nullable(),
-    deadline: z.iso.datetime({ offset: true }),
-    resumeRequested: z.literal(true),
-    maxTicks: z.literal(60),
-    buildHash: hash,
-    expectedControlHash: hash.nullable().optional(),
-    resourcesHash: hash.optional(),
-    automaticRetry: z.literal(false),
-    executionEnabled: z.literal(false),
-  })
-  .strict()
-  .refine(
-    (value) =>
-      value.prerequisite.startsWith(value.market.toLowerCase() + '-') &&
-      (value.startsAt === null || Date.parse(value.startsAt) < Date.parse(value.deadline)),
-  );
-const resultSchema = z
-  .object({
-    formatVersion: z.literal('authorized-paper-validation-result-v1'),
-    market: z.enum(['KR', 'US']),
-    state: z.enum([
-      'completed',
-      'completed-with-incomplete-review',
-      'execution-ended-early',
-      'review-issues-found',
-      'stopped-before-run-or-failed',
-    ]),
-    resumeRequested: z.literal(true),
-    maxTicks: z.literal(60),
-    completedTicks: z.number().int().min(0).max(60),
-    runningTicks: z.number().int().min(0).max(60).optional(),
-    verdict: z.enum(['issues-found', 'incomplete', 'consistent-observed-state']).optional(),
-    stoppedAndCleaned: z.boolean().nullable().optional(),
-    intents: count.optional(),
-    fills: count.optional(),
-    finishedAt: z.iso.datetime({ offset: true }),
-    executionEnabled: z.literal(false),
-    automaticRetry: z.literal(false),
-    runStarted: z.boolean().optional(),
-    phase: z
-      .enum(['waiting', 'account-preflight', 'daily-review', 'stopped-observation', 'authorized-paper-run'])
-      .optional(),
-    code: paperValidationFailureCodeSchema.optional(),
-  })
-  .strict()
-  .refine((value) => value.runningTicks === undefined || value.runningTicks <= value.completedTicks);
+import {
+  paperValidationRequestSchema as requestSchema,
+  paperValidationResultSchema as resultSchema,
+} from './paper-validation-record-schema.js';
 
 const visibleChecks = new Set<string>(paperValidationCheckNames);
 
@@ -238,102 +189,131 @@ export function summarizePaperValidation(id: string, input: PaperValidationEvide
 
 export function createPaperValidationStatus(directory: string, now: () => number = Date.now) {
   const root = resolve(directory);
-  return {
-    async list() {
-      const asOf = now();
-      const runs: ReturnType<typeof summarizePaperValidation>[] = [];
-      let rejectedCount = 0,
-        scanned = 0,
-        bytes = 0,
-        limited = false;
-      try {
-        const info = await lstat(root);
-        if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('INVALID_ROOT');
-        const canonical = await realpath(root);
-        const read = async (folder: string, name: string, limit: number): Promise<unknown> => {
-          let file;
-          try {
-            file = await open(join(folder, name), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
-          } catch (error) {
-            if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return null;
-            throw error;
-          }
-          try {
-            const stat = await file.stat();
-            if (!stat.isFile() || stat.size > limit) throw new Error('INVALID_EVIDENCE');
-            if (bytes + stat.size > 64 * 1048576) {
-              limited = true;
-              throw new Error('SCAN_LIMIT');
-            }
-            const chunks: Buffer[] = [];
-            let size = 0;
-            for await (const part of file.createReadStream({ autoClose: false, start: 0, end: limit })) {
-              const chunk = part as Buffer;
-              size += chunk.length;
-              bytes += chunk.length;
-              if (bytes > 64 * 1048576) limited = true;
-              if (size > limit || limited) throw new Error('INVALID_EVIDENCE');
-              chunks.push(chunk);
-            }
-            return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown;
-          } finally {
-            await file.close();
-          }
-        };
-        for await (const entry of await opendir(root)) {
-          if (++scanned > 100 || runs.length >= 50 || limited) {
+  async function scan(onRejected?: (id: string) => Promise<void>) {
+    const asOf = now();
+    const runs: ReturnType<typeof summarizePaperValidation>[] = [];
+    let rejectedCount = 0,
+      scanned = 0,
+      bytes = 0,
+      limited = false;
+    try {
+      const info = await lstat(root);
+      if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('INVALID_ROOT');
+      const canonical = await realpath(root);
+      const read = async (folder: string, name: string, limit: number): Promise<unknown> => {
+        let file;
+        try {
+          file = await open(join(folder, name), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+        } catch (error) {
+          if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return null;
+          throw error;
+        }
+        try {
+          const stat = await file.stat();
+          if (!stat.isFile() || stat.size > limit) throw new Error('INVALID_EVIDENCE');
+          if (bytes + stat.size > 64 * 1048576) {
             limited = true;
-            break;
+            throw new Error('SCAN_LIMIT');
           }
-          if (!z.uuid().safeParse(entry.name).success) continue;
-          try {
-            const folder = join(root, entry.name);
-            if (
-              !entry.isDirectory() ||
-              entry.isSymbolicLink() ||
-              (await realpath(folder)) !== join(canonical, entry.name)
-            )
-              throw new Error('INVALID_EVIDENCE');
-            const request = await read(folder, 'request.json', 16384);
-            const result = await read(folder, 'result.json', 16384);
-            const before = await read(folder, 'before.json', 32 * 1048576);
-            const after = await read(folder, 'after.json', 32 * 1048576);
-            const review = await read(folder, 'review.json', 1048576);
-            const diagnostics = await read(folder, 'diagnostics.json', 8 * 1048576).catch(() => ({ invalid: true }));
-            if ((await realpath(folder)) !== join(canonical, entry.name) || (await realpath(root)) !== canonical)
-              throw new Error('INVALID_EVIDENCE');
-            runs.push(
-              summarizePaperValidation(entry.name, { request, result, before, after, review, diagnostics }, asOf),
-            );
-          } catch {
-            rejectedCount++;
+          const chunks: Buffer[] = [];
+          let size = 0;
+          for await (const part of file.createReadStream({ autoClose: false, start: 0, end: limit })) {
+            const chunk = part as Buffer;
+            size += chunk.length;
+            bytes += chunk.length;
+            if (bytes > 64 * 1048576) limited = true;
+            if (size > limit || limited) throw new Error('INVALID_EVIDENCE');
+            chunks.push(chunk);
+          }
+          return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown;
+        } finally {
+          await file.close();
+        }
+      };
+      for await (const entry of await opendir(root)) {
+        if (++scanned > 100 || runs.length >= 50 || limited) {
+          limited = true;
+          break;
+        }
+        if (!z.uuid().safeParse(entry.name).success) continue;
+        try {
+          const folder = join(root, entry.name);
+          if (
+            !entry.isDirectory() ||
+            entry.isSymbolicLink() ||
+            (await realpath(folder)) !== join(canonical, entry.name)
+          )
+            throw new Error('INVALID_EVIDENCE');
+          const request = await read(folder, 'request.json', 16384);
+          const result = await read(folder, 'result.json', 16384);
+          const before = await read(folder, 'before.json', 32 * 1048576);
+          const after = await read(folder, 'after.json', 32 * 1048576);
+          const review = await read(folder, 'review.json', 1048576);
+          const diagnostics = await read(folder, 'diagnostics.json', 8 * 1048576).catch(() => ({ invalid: true }));
+          if ((await realpath(folder)) !== join(canonical, entry.name) || (await realpath(root)) !== canonical)
+            throw new Error('INVALID_EVIDENCE');
+          runs.push(
+            summarizePaperValidation(entry.name, { request, result, before, after, review, diagnostics }, asOf),
+          );
+        } catch {
+          rejectedCount++;
+          if (onRejected) {
+            try {
+              await onRejected(entry.name);
+            } catch {
+              /* Unresolved records stay blocking. */
+            }
           }
         }
-        return paperValidationStatusSchema.parse({
-          service: 'paper-validation-status',
-          asOf: new Date(asOf).toISOString(),
-          availability: 'available',
-          runs,
-          rejectedCount,
-          limited,
-          executionEnabled: false,
-          canResume: false,
-        });
-      } catch (error) {
-        const missing = error instanceof Error && 'code' in error && error.code === 'ENOENT';
-        return paperValidationStatusSchema.parse({
-          service: 'paper-validation-status',
-          asOf: new Date(asOf).toISOString(),
-          availability: missing ? 'not-recorded' : 'unavailable',
-          runs: [],
-          rejectedCount,
-          limited,
-          executionEnabled: false,
-          canResume: false,
-        });
       }
+      return paperValidationStatusSchema.parse({
+        service: 'paper-validation-status',
+        asOf: new Date(asOf).toISOString(),
+        availability: 'available',
+        runs,
+        rejectedCount,
+        limited,
+        executionEnabled: false,
+        canResume: false,
+      });
+    } catch (error) {
+      const missing = error instanceof Error && 'code' in error && error.code === 'ENOENT';
+      return paperValidationStatusSchema.parse({
+        service: 'paper-validation-status',
+        asOf: new Date(asOf).toISOString(),
+        availability: missing ? 'not-recorded' : 'unavailable',
+        runs: [],
+        rejectedCount,
+        limited,
+        executionEnabled: false,
+        canResume: false,
+      });
+    }
+  }
+  return {
+    list: () => scan(),
+    async checkReservations() {
+      const closures = createPaperReservationClosures(dirname(dirname(root)), now);
+      const before = await closures.audit(),
+        rejectedIds: string[] = [];
+      const status = await scan(async (id) => {
+        rejectedIds.push(id);
+      });
+      const after = await closures.audit();
+      const stable = contentHash(before) === contentHash(after);
+      const valid = new Set(stable ? after.verified.map((item) => item.runId) : []);
+      const retiredCount = rejectedIds.filter((id) => valid.has(id)).length;
+      const unresolved = new Set([...rejectedIds.filter((id) => !valid.has(id)), ...after.invalidIds]);
+      return {
+        ...status,
+        availability: !stable || after.availability === 'unavailable' ? ('unavailable' as const) : status.availability,
+        limited: status.limited || before.limited || after.limited,
+        retiredCount,
+        unresolvedCount: unresolved.size + after.unknownCount,
+      };
     },
   };
 }
 
-export type PaperValidationStatusReader = ReturnType<typeof createPaperValidationStatus>;
+// HTTP consumers receive only the historical, read-only list contract.
+export type PaperValidationStatusReader = Pick<ReturnType<typeof createPaperValidationStatus>, 'list'>;

@@ -10,6 +10,7 @@ async function main() {
     options: {
       market: { type: 'string' },
       'build-root': { type: 'string' },
+      'run-id': { type: 'string' },
       'build-hash': { type: 'string' },
       run: { type: 'boolean' },
       'resume-authorized': { type: 'boolean' },
@@ -64,6 +65,16 @@ async function main() {
     hash.update(await readFile(new URL(import.meta.url)));
     return hash.digest('hex');
   }
+  if (
+    values['run-id'] &&
+    (!values.run ||
+      !values['resume-authorized'] ||
+      values.fingerprint ||
+      values['verify-inputs'] ||
+      values['selfcheck-control'] ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(values['run-id']))
+  )
+    throw new Error('PAPER_PREFLIGHT_FAILED');
   if (values.fingerprint) {
     console.log(await fingerprint());
     process.exit(0);
@@ -190,8 +201,10 @@ async function main() {
   const { createObservationJobs } = await load('apps/api/dist/observation-jobs.js');
   const { createObservationReports } = await load('apps/api/dist/observation-reports.js');
   const { writeReviewArtifact } = await load('apps/worker/dist/paper-review-files.js');
-  const directory = resolve(root, '.local-data/paper-validation-runs', randomUUID());
-  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const runRoot = resolve(root, '.local-data/paper-validation-runs');
+  await mkdir(runRoot, { recursive: true, mode: 0o700 });
+  const directory = resolve(runRoot, values['run-id'] ?? randomUUID());
+  await mkdir(directory, { mode: 0o700 });
   const emit = (value) =>
     console.log(JSON.stringify({ service: 'authorized-paper-validation', market, ...value, executionEnabled: false }));
   const control = new AbortController();
