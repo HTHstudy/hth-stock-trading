@@ -217,3 +217,7 @@ private 근거는 `.local-data/readonly-lifecycle/74cfd0aa-939c-4808-93b3-1791bc
 ### 11월 4일 미국 사전 점검 실패 조사·수정
 
 미국의 `3bbd7ebb-cd47-43df-b2a9-37abffffc81c`은 account-preflight에서 runStarted=false·0 tick으로 중단됐다. 고정 코드 복사본에 examples 계획 JSON이 없어 PAPER_MARKET_PLAN_INVALID가 발생했고 허용 코드에서 빠져 일반 미완료로 기록된 구성 오류였다. 같은 고정 모듈로 DB 없는 재현을 확인한 뒤 별도 hash 고정 계획의 절대 경로를 전달해 읽기 전용 점검이 통과했다. 준비 KR/US 원장은 전후 hash가 같았다. [고정 입력/실행기 수정과 제한](PAPER_VALIDATION_PREFLIGHT.md)을 따르며 이전 실패 결과를 성공으로 바꾸거나 새 Paper 실행을 시작하지 않았다.
+
+### 11월 4일 미국 재검증 준비 완료
+
+10:00 KST에 수정 코드의 공개 빌드/의존성 복사본·별도 고정 계획·계좌 제어 조건을 새 UUID에 보관했다. 읽기 전용 준비 검사와 선행 관측 최종 hash 검증이 통과했고 KR/US Paper 원장은 전후 동일했다. 동일 broker 잠금 안에서 조회한 공식 캘린더에 따라 후보 시간을 11월 4일 23:35~11월 5일 00:00 KST로 정했다. 일일 기준 적용·정지 시세 관측·Paper 재개·예약은 하지 않았다. 새 계획은 prepared-not-started이며 실행 시 만료된 날짜 검토를 재생성하고 계좌/입력/세션을 다시 검증해야 한다. [준비 증거·fingerprint·후속 절차](US_PAPER_REVALIDATION_PLAN.md)를 따른다.
