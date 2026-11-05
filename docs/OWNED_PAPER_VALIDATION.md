@@ -18,3 +18,5 @@ SIGTERM/INT는 CLI AbortController로 전달한다. 래퍼는 자신의 자식�
 검증은 가짜 launcher와 synthetic ChildProcess만 사용한다. 실제 runner·broker·DB를 시작하지 않는다. package script·runner run-id 지원·폐쇄 검증기 연결은 main 작업에서 담당한다.
 
 등록된 명령은 `corepack pnpm paper:validation:owned`이며 기본 미리보기다. CLI는 모듈 위치로 workspace root를 고정하므로 pnpm filter의 cwd에 의존하지 않는다. CLI의 기본 모드는 paper이고 명시적 live는 거부한다. 실제 실행 인수는 위 명시적 조건과 원래 runner의 모든 고정 입력/시각/제어 검증을 충족해야 한다. `paper:reservation:closure`와의 연결/한계는 [예약 정리 절차](PAPER_RESERVATION_CLOSURE.md)를 따른다.
+
+봉 준비 개선 후에는 session-start/session-end를 함께 전달한다. `--build-root`를 명시하면 그 코드 root의 고정 runner 경로를 사용하고, 환경파일/작업/증거는 원래 workspace에 유지한다. 자세한 계산·제약은 [Paper 봉 준비](PAPER_WARMUP.md)를 따른다.
