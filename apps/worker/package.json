@@ -19,6 +19,10 @@
     "./observation-evidence": {
       "types": "./dist/observation-evidence.d.ts",
       "import": "./dist/observation-evidence.js"
+    },
+    "./backtest-comparison": {
+      "types": "./dist/backtest-comparison.d.ts",
+      "import": "./dist/backtest-comparison.js"
     }
   },
   "scripts": {

@@ -1,4 +1,7 @@
+import { compareBacktestReports } from '@hth/worker/backtest-comparison';
 import {
+  backtestCostPairSchema,
+  reportHashSchema,
   paperValidationStatusSchema,
   paperStrategyHistorySchema,
   paperEquityHistorySchema,
@@ -74,6 +77,7 @@ export function createApp(
     const privateRoute = [
       '/v1/dashboard',
       '/v1/backtests',
+      '/v1/backtest-comparison',
       '/v1/paper',
       '/v1/observations',
       '/v1/watchlist',
@@ -305,6 +309,23 @@ export function createApp(
       },
     ),
   );
+
+  app.get('/v1/backtest-comparison', async (request, reply) => {
+    const query = z.object({ left: reportHashSchema, right: reportHashSchema }).strict().safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (!reports) return reply.code(503).send({ error: { code: 'BACKTEST_REPORTS_DISABLED' } });
+    let pair;
+    try {
+      pair = await Promise.all([reports.get(query.data.left), reports.get(query.data.right)]);
+    } catch {
+      return reply.code(404).send({ error: { code: 'REPORT_NOT_FOUND' } });
+    }
+    try {
+      return backtestCostPairSchema.parse(compareBacktestReports(pair[0], pair[1]));
+    } catch {
+      return reply.code(503).send({ error: { code: 'BACKTEST_COMPARISON_UNAVAILABLE' } });
+    }
+  });
 
   app.get('/v1/backtests', async (_request, reply) => {
     if (!reports) return reply.code(503).send({ error: { code: 'BACKTEST_REPORTS_DISABLED' } });

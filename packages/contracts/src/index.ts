@@ -214,3 +214,6 @@ export {
 export type { TokenLifecycleTrigger, TokenLifecycleEvent, TokenLifecycleSnapshot } from './token-lifecycle.js';
 
 export { paperValidationFailureCodeSchema } from './paper-validation-status.js';
+
+export { backtestCostPairSchema } from './backtest-cost-pair.js';
+export type { BacktestCostPair } from './backtest-cost-pair.js';
