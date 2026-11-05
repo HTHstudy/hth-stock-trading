@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { PaperEvidence } from '@hth/contracts';
-import { prepareStrategyData } from '@hth/trading';
+import type { Candle, MarketCalendar, PaperEvidence } from '@hth/contracts';
+import { movingAverageCross, prepareStrategyData } from '@hth/trading';
 import { createHarness } from '../../../packages/broker/test/harness.js';
 import { createPaperMarketSource } from './paper-market-source.js';
 
@@ -160,5 +160,169 @@ describe('실제 시세용 Paper source (네트워크 없는 fixture)', () => {
     await expect(source([], signal())).rejects.toThrow();
     expect(() => createPaperMarketSource(broker, 6)).toThrow('INVALID_PAGE_LIMIT');
     expect(metadata).not.toHaveBeenCalled();
+  });
+});
+
+// Synthetic normalized broker data, not historical quotes or an API recording.
+function usOpeningFixture(elapsedMinutes: number) {
+  const instrument = instruments[1];
+  const opening = Date.parse('2026-11-04T14:30:00Z');
+  const observed = opening + elapsedMinutes * 60_000;
+  const observedAt = new Date(observed).toISOString();
+  const candles: Candle[] = Array.from({ length: elapsedMinutes }, (_, index) => ({
+    instrument,
+    interval: '1m',
+    timestamp: new Date(opening + (index + 1) * 60_000).toISOString(),
+    tradingDate: '2026-11-04',
+    open: '100',
+    high: '100',
+    low: '100',
+    close: '100',
+    volume: '10',
+    currency: 'USD',
+    adjusted: false,
+    source: 'toss',
+    isClosed: false,
+  }));
+  const day = (date: string) => ({
+    market: 'US' as const,
+    tradingDate: date,
+    sessionsKnown: true,
+    sessions: [{ type: 'regular' as const, startsAt: `${date}T14:30:00Z`, endsAt: `${date}T21:00:00Z` }],
+  });
+  const calendar: MarketCalendar = {
+    today: day('2026-11-04'),
+    previousBusinessDay: day('2026-11-03'),
+    nextBusinessDay: day('2026-11-05'),
+  };
+  const broker = {
+    getInstruments: vi
+      .fn()
+      .mockResolvedValue([{ id: instrument, currency: 'USD', status: 'ACTIVE', nxtSupported: null }]),
+    getQuotes: vi.fn().mockResolvedValue([{ instrument, currency: 'USD', price: '100', timestamp: observedAt }]),
+    getMarketCalendar: vi.fn().mockResolvedValue(calendar),
+    getExchangeRate: vi.fn().mockResolvedValue({
+      baseCurrency: 'USD',
+      quoteCurrency: 'KRW',
+      validFrom: '2026-11-04T00:00:00Z',
+      validUntil: '2026-11-05T00:00:00Z',
+    }),
+    getCandles: vi.fn().mockResolvedValue({ candles, nextBefore: null }),
+  } satisfies Parameters<typeof createPaperMarketSource>[0];
+  const prepareAt = (entry: PaperEvidence, asOf = observedAt) =>
+    prepareStrategyData({
+      ...entry.marketData,
+      instrument,
+      quoteTimestamp: asOf,
+      quoteObservedAt: asOf,
+      accountAvailable: true,
+      accountObservedAt: asOf,
+      asOf,
+    });
+  return { instrument, opening, observed, observedAt, candles, broker, prepareAt };
+}
+
+describe('미국 현재 정규장 분봉 warm-up (합성 fixture)', () => {
+  it.each([
+    [5, 4, 'WARMUP'],
+    [21, 20, 'WARMUP'],
+    [22, 21, 'NO_CROSS'],
+    [25, 24, 'NO_CROSS'],
+  ])('개장 %i분: 종료 후 60초 재관측한 %i개만 전략에 전달한다', async (minutes, closed, reason) => {
+    const fixture = usOpeningFixture(minutes);
+    const source = createPaperMarketSource(fixture.broker, 1, () => fixture.observed);
+    const [entry] = (await source([fixture.instrument], signal())) as PaperEvidence[];
+    expect(fixture.broker.getCandles).toHaveBeenCalledExactlyOnceWith({
+      instrument: fixture.instrument,
+      interval: '1m',
+      count: 200,
+      adjusted: false,
+    });
+    expect(entry!.marketData.candles).toEqual(fixture.candles);
+    expect(entry!.marketData.candles.every((candle) => !candle.isClosed)).toBe(true);
+    const prepared = fixture.prepareAt(entry!);
+    expect(prepared.ready).toBe(true);
+    expect(prepared.blockers).toEqual([]);
+    expect(prepared.candles).toHaveLength(closed);
+    expect(prepared.candles.every((candle) => candle.isClosed)).toBe(true);
+    expect(prepared.assessments.at(-1)).toMatchObject({ status: 'pending', reason: 'BAR_NOT_SETTLED' });
+    expect(
+      prepared.candles.every(
+        (candle) => Date.parse(candle.timestamp) - 60_000 >= fixture.opening && candle.tradingDate === '2026-11-04',
+      ),
+    ).toBe(true);
+    expect(
+      movingAverageCross.evaluate(
+        {
+          instrument: fixture.instrument,
+          evaluatedAt: fixture.observedAt,
+          closedCandles: prepared.candles,
+          ownedQuantity: '0',
+        },
+        { fastPeriod: 5, slowPeriod: 20 },
+      ),
+    ).toEqual({ action: 'HOLD', reason });
+    // Policy assessment must not mutate raw source evidence.
+    expect(entry!.marketData.candles.every((candle) => !candle.isClosed)).toBe(true);
+  });
+
+  it('일찍 관측한 봉을 시간이 지났다는 이유로 승격하지 않고 60초 뒤 새 source 수집이 필요하다', async () => {
+    const fixture = usOpeningFixture(21);
+    let observed = fixture.observed;
+    const source = createPaperMarketSource(fixture.broker, 1, () => observed);
+    const [early] = (await source([fixture.instrument], signal())) as PaperEvidence[];
+    observed += 60_000;
+    const later = new Date(observed).toISOString();
+    const unreobserved = fixture.prepareAt(early!, later);
+    expect(unreobserved.candles).toHaveLength(20);
+    expect(unreobserved.assessments.at(-1)).toMatchObject({ status: 'pending', reason: 'BAR_NOT_REOBSERVED' });
+    const [fresh] = (await source([fixture.instrument], signal())) as PaperEvidence[];
+    expect(fixture.prepareAt(fresh!, later).candles).toHaveLength(21);
+    expect(fixture.broker.getCandles).toHaveBeenCalledTimes(2);
+    expect(fresh!.marketData.candles.every((candle) => !candle.isClosed)).toBe(true);
+  });
+
+  it('명시적 두 페이지 수집도 25분 입력을 잘라내거나 경계 봉을 확정하지 않는다', async () => {
+    const fixture = usOpeningFixture(25);
+    const boundary = fixture.candles[12]!;
+    fixture.broker.getCandles
+      .mockResolvedValueOnce({ candles: fixture.candles.slice(12).toReversed(), nextBefore: boundary.timestamp })
+      .mockResolvedValueOnce({ candles: fixture.candles.slice(0, 13).toReversed(), nextBefore: null });
+    const source = createPaperMarketSource(fixture.broker, 2, () => fixture.observed);
+    const [entry] = (await source([fixture.instrument], signal())) as PaperEvidence[];
+    expect(fixture.broker.getCandles).toHaveBeenCalledTimes(2);
+    expect(fixture.broker.getCandles).toHaveBeenNthCalledWith(2, {
+      instrument: fixture.instrument,
+      interval: '1m',
+      count: 200,
+      adjusted: false,
+      before: boundary.timestamp,
+    });
+    expect(entry!.marketData.candles).toEqual(fixture.candles);
+    expect(fixture.prepareAt(entry!).candles).toHaveLength(24);
+    expect(entry!.marketData.candles.every((candle) => !candle.isClosed)).toBe(true);
+  });
+
+  it('개장 25분이어도 제공되지 않은 분봉을 채워 warm-up을 통과시키지 않는다', async () => {
+    const fixture = usOpeningFixture(25);
+    fixture.broker.getCandles.mockResolvedValue({ candles: fixture.candles.slice(4), nextBefore: null });
+    const source = createPaperMarketSource(fixture.broker, 1, () => fixture.observed);
+    const [entry] = (await source([fixture.instrument], signal())) as PaperEvidence[];
+    expect(entry!.marketData.candles).toHaveLength(21);
+    const prepared = fixture.prepareAt(entry!);
+    expect(prepared.ready).toBe(true);
+    expect(prepared.candles).toHaveLength(20);
+    expect(
+      movingAverageCross.evaluate(
+        {
+          instrument: fixture.instrument,
+          evaluatedAt: fixture.observedAt,
+          closedCandles: prepared.candles,
+          ownedQuantity: '0',
+        },
+        { fastPeriod: 5, slowPeriod: 20 },
+      ),
+    ).toEqual({ action: 'HOLD', reason: 'WARMUP' });
+    expect(fixture.broker.getCandles).toHaveBeenCalledTimes(1);
   });
 });
