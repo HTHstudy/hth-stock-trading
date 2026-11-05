@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { backtestArtifactSchema, historicalRequestSchema, movingAverageBacktestConfigSchema } from '@hth/contracts';
 import { contentHash } from '@hth/database';
+import { compareBacktestCosts } from './backtest-cost-comparison.js';
 import { parseExperimentManifest } from './backtest-experiment.js';
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
@@ -91,8 +92,21 @@ export function reviewBacktestExperiment(input: unknown, manifestInput: unknown)
       fail();
     pairs.add(pair);
   }
+  const rows = payload.runs.map((run) => ({
+    dataset: run.dataset,
+    role: run.role,
+    variant: run.variant,
+    currency: run.artifact.report.currency,
+    request: run.artifact.report.datasetRequest,
+    config: run.config,
+    configHash: run.configHash,
+    reportHash: run.artifact.reportHash,
+    tradePathObserved: run.tradePathObserved,
+    unfilledAtEnd: run.artifact.report.signals.filter((signal) => signal.status === 'UNFILLED_END').length,
+    metrics: run.artifact.report.metrics,
+  }));
   return {
-    formatVersion: 'backtest-experiment-review-v1',
+    formatVersion: 'backtest-experiment-review-v2',
     resultHash,
     manifestHash: payload.manifestHash,
     artifactIntegrityVerified: true,
@@ -101,18 +115,7 @@ export function reviewBacktestExperiment(input: unknown, manifestInput: unknown)
     pointInTime: false,
     strategySelected: false,
     executionEnabled: false,
-    rows: payload.runs.map((run) => ({
-      dataset: run.dataset,
-      role: run.role,
-      variant: run.variant,
-      currency: run.artifact.report.currency,
-      request: run.artifact.report.datasetRequest,
-      config: run.config,
-      configHash: run.configHash,
-      reportHash: run.artifact.reportHash,
-      tradePathObserved: run.tradePathObserved,
-      unfilledAtEnd: run.artifact.report.signals.filter((signal) => signal.status === 'UNFILLED_END').length,
-      metrics: run.artifact.report.metrics,
-    })),
+    rows,
+    costComparisons: compareBacktestCosts(rows),
   };
 }

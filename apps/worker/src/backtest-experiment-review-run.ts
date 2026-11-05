@@ -19,6 +19,7 @@ async function main() {
       service: 'backtest-experiment-review',
       resultHash: review.resultHash,
       rows: review.rows.length,
+      costComparisons: review.costComparisons.length,
       artifactIntegrityVerified: true,
       engineReexecuted: false,
       executionEnabled: false,

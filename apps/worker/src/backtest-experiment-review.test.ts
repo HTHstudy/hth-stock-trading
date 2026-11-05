@@ -46,6 +46,8 @@ it('저장된 결과의 관계와 hash를 검증하고 재실행·데이터 재�
   const { manifest, result } = fixture();
   const review = reviewBacktestExperiment(result, manifest);
   expect(review).toMatchObject({
+    formatVersion: 'backtest-experiment-review-v2',
+    costComparisons: [],
     resultHash: result.resultHash,
     artifactIntegrityVerified: true,
     datasetFilesReverified: false,
@@ -120,7 +122,12 @@ it('입력 dataset 파일과 키/DB가 없어도 검토 CLI를 실행하고 기�
     ];
     const options = { cwd: folder, env: { TRADING_MODE: 'paper' }, timeout: 10000 };
     const { stdout } = await promisify(execFile)(process.execPath, args, options);
-    expect(JSON.parse(stdout)).toMatchObject({ rows: 1, artifactIntegrityVerified: true, engineReexecuted: false });
+    expect(JSON.parse(stdout)).toMatchObject({
+      rows: 1,
+      costComparisons: 0,
+      artifactIntegrityVerified: true,
+      engineReexecuted: false,
+    });
     const before = await readFile(join(folder, 'review.json'), 'utf8');
     await expect(promisify(execFile)(process.execPath, args, options)).rejects.toMatchObject({
       stderr: expect.stringContaining('EXPERIMENT_RESULT_EXISTS'),
@@ -130,3 +137,29 @@ it('입력 dataset 파일과 키/DB가 없어도 검토 CLI를 실행하고 기�
     await rm(folder, { recursive: true, force: true });
   }
 }, 30000);
+
+it('검증한 조합만 비용 대조에 연결하고 변조된 결과에서 비교를 생성하지 않는다', () => {
+  const dataset = createBacktestDemo();
+  const exported = { id: randomUUID(), contentHash: contentHash(dataset), dataset };
+  const { manifest } = fixture();
+  manifest.datasets[0]!.contentHash = exported.contentHash;
+  const stress = structuredClone(manifest.variants[0]!);
+  stress.id = 'higher-cost';
+  stress.config.execution.buyFeeBps = '20';
+  stress.config.execution.sellFeeBps = '30';
+  stress.config.execution.slippageBps = '10';
+  manifest.variants.push(stress);
+  const result = runBacktestExperiment(manifest, [exported]);
+  const review = reviewBacktestExperiment(result, manifest);
+  expect(review.costComparisons).toHaveLength(1);
+  expect(review.costComparisons[0]).toMatchObject({
+    dataset: 'research',
+    lowerCostVariant: 'base',
+    higherCostVariant: 'higher-cost',
+    lowerReportHash: result.runs[0]!.artifact.reportHash,
+    higherReportHash: result.runs[1]!.artifact.reportHash,
+  });
+  const changed = structuredClone(result);
+  changed.runs[1]!.artifact.report.metrics.totalFees = '0';
+  expect(() => reviewBacktestExperiment(rehash(changed), manifest)).toThrow('EXPERIMENT_RESULT_INVALID');
+});
