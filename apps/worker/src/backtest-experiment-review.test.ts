@@ -46,7 +46,7 @@ it('저장된 결과의 관계와 hash를 검증하고 재실행·데이터 재�
   const { manifest, result } = fixture();
   const review = reviewBacktestExperiment(result, manifest);
   expect(review).toMatchObject({
-    formatVersion: 'backtest-experiment-review-v2',
+    formatVersion: 'backtest-experiment-review-v3',
     costComparisons: [],
     resultHash: result.resultHash,
     artifactIntegrityVerified: true,
@@ -158,6 +158,9 @@ it('검증한 조합만 비용 대조에 연결하고 변조된 결과에서 비
     higherCostVariant: 'higher-cost',
     lowerReportHash: result.runs[0]!.artifact.reportHash,
     higherReportHash: result.runs[1]!.artifact.reportHash,
+    changedCostFields: ['buyFeeBps', 'sellFeeBps', 'slippageBps'],
+    sameFillTimingAndQuantity: true,
+    sameSignalDecisions: true,
   });
   const changed = structuredClone(result);
   changed.runs[1]!.artifact.report.metrics.totalFees = '0';

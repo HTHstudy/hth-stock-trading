@@ -106,7 +106,7 @@ export function reviewBacktestExperiment(input: unknown, manifestInput: unknown)
     metrics: run.artifact.report.metrics,
   }));
   return {
-    formatVersion: 'backtest-experiment-review-v2',
+    formatVersion: 'backtest-experiment-review-v3',
     resultHash,
     manifestHash: payload.manifestHash,
     artifactIntegrityVerified: true,
@@ -116,6 +116,14 @@ export function reviewBacktestExperiment(input: unknown, manifestInput: unknown)
     strategySelected: false,
     executionEnabled: false,
     rows,
-    costComparisons: compareBacktestCosts(rows),
+    costComparisons: compareBacktestCosts(
+      rows.map((row, index) => ({
+        ...row,
+        executionEvidence: {
+          fills: payload.runs[index]!.artifact.report.fills,
+          signals: payload.runs[index]!.artifact.report.signals,
+        },
+      })),
+    ),
   };
 }

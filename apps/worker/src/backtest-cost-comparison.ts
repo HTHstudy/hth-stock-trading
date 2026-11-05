@@ -2,6 +2,8 @@ import { Decimal } from 'decimal.js';
 import type { z } from 'zod';
 import type { backtestArtifactSchema, movingAverageBacktestConfigSchema } from '@hth/contracts';
 
+type BacktestReport = z.infer<typeof backtestArtifactSchema>['report'];
+
 export type MovingAverageBacktestConfig = z.infer<typeof movingAverageBacktestConfigSchema>;
 export type BacktestCostComparisonRow = {
   dataset: string;
@@ -9,7 +11,8 @@ export type BacktestCostComparisonRow = {
   variant: string;
   config: MovingAverageBacktestConfig;
   reportHash: string;
-  metrics: z.infer<typeof backtestArtifactSchema>['report']['metrics'];
+  metrics: BacktestReport['metrics'];
+  executionEvidence?: Pick<BacktestReport, 'fills' | 'signals'>;
 };
 export type BacktestCostComparison = {
   dataset: string;
@@ -23,6 +26,9 @@ export type BacktestCostComparison = {
   lowerFillCount: number;
   higherFillCount: number;
   sameFillCount: boolean;
+  changedCostFields: (typeof costFields)[number][];
+  sameFillTimingAndQuantity: boolean | null;
+  sameSignalDecisions: boolean | null;
   interpretation: 'MODELED_COST_SCENARIO_COMPARISON';
 };
 
@@ -42,6 +48,28 @@ function groupKey(row: BacktestCostComparisonRow): string {
     new Money(execution.quantity).toString(),
     new Money(execution.priceTick).toString(),
   ]);
+}
+
+function compareExecutionEvidence(lower: BacktestCostComparisonRow, higher: BacktestCostComparisonRow) {
+  const a = lower.executionEvidence,
+    b = higher.executionEvidence;
+  if (!a || !b) return { sameFillTimingAndQuantity: null, sameSignalDecisions: null };
+  const observed =
+    a.fills.length + b.fills.length > 0 &&
+    a.fills.length === lower.metrics.fillCount &&
+    b.fills.length === higher.metrics.fillCount;
+  const timing = (fills: BacktestReport['fills']) =>
+    fills.map(({ signalIndex, action, timestamp, barTimestamp, quantity }) => ({
+      signalIndex,
+      action,
+      timestamp,
+      barTimestamp,
+      quantity,
+    }));
+  return {
+    sameFillTimingAndQuantity: observed ? JSON.stringify(timing(a.fills)) === JSON.stringify(timing(b.fills)) : null,
+    sameSignalDecisions: JSON.stringify(a.signals) === JSON.stringify(b.signals),
+  };
 }
 
 /** Validated review rows only; scenario deltas do not establish fee-only causality
@@ -79,6 +107,10 @@ export function compareBacktestCosts(rows: readonly BacktestCostComparisonRow[])
           lowerFillCount: lower.metrics.fillCount,
           higherFillCount: higher.metrics.fillCount,
           sameFillCount: lower.metrics.fillCount === higher.metrics.fillCount,
+          changedCostFields: costFields.filter(
+            (field) => !new Money(lower.config.execution[field]).eq(higher.config.execution[field]),
+          ),
+          ...compareExecutionEvidence(lower, higher),
           interpretation: 'MODELED_COST_SCENARIO_COMPARISON',
         });
       }
