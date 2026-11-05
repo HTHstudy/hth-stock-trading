@@ -19,6 +19,8 @@ async function main() {
       'selfcheck-control': { type: 'boolean' },
       prerequisite: { type: 'string' },
       'start-at': { type: 'string' },
+      'session-start': { type: 'string' },
+      'session-end': { type: 'string' },
       deadline: { type: 'string' },
       resources: { type: 'string' },
       'resources-hash': { type: 'string' },
@@ -175,6 +177,23 @@ async function main() {
     (market === 'US' && !startsAt)
   )
     throw new Error('PAPER_PREFLIGHT_FAILED');
+  const { planPaperWarmup, assessPaperWarmup } = await load('apps/worker/dist/paper-warmup.js');
+  const { readPaperMarketPlan, verifyPaperMarketPlan } = await load('apps/worker/dist/paper-market-plan.js');
+  const pinnedPlan = verifyPaperMarketPlan(await readPaperMarketPlan(resource.planPath), resource.planHash);
+  let warmupTiming;
+  try {
+    warmupTiming = planPaperWarmup({
+      parameters: pinnedPlan.strategy.parameters,
+      sessionStartsAt: values['session-start'],
+      sessionEndsAt: values['session-end'],
+      requestedStartAt: startsAt ?? new Date().toISOString(),
+      deadline: values.deadline,
+    });
+  } catch {
+    throw new Error('PAPER_PREFLIGHT_FAILED');
+  }
+  if (warmupTiming.blockers.includes('WARMUP_TIME_TOO_EARLY')) throw new Error('PAPER_STRATEGY_WARMUP_INSUFFICIENT');
+  if (warmupTiming.state !== 'prepared') throw new Error('PAPER_PREFLIGHT_FAILED');
   if (!/^[a-f0-9]{64}$/.test(expectedBuild ?? '') || (await fingerprint()) !== expectedBuild)
     throw new Error('PAPER_BUILD_CHANGED');
   try {
@@ -235,6 +254,7 @@ async function main() {
       automaticRetry: false,
       executionEnabled: false,
     });
+    await writeReviewArtifact(resolve(directory, 'warmup-plan.json'), warmupTiming);
     // Preserve the validated request before the second, race-sensitive build check.
     // A build change here must leave a linked failure rather than only a result file.
     if (!/^[a-f0-9]{64}$/.test(expectedBuild ?? '') || (await fingerprint()) !== expectedBuild)
@@ -399,7 +419,9 @@ async function main() {
     )
       throw new Error('PAPER_PREFLIGHT_FAILED');
     const stored = await db.paper.readStrategies(entry.accountId);
-    const instruments = stored.map((x) => x.definition.instrument);
+    const activeStored = stored.filter((strategy) => strategy.enabled);
+    if (!activeStored.length) throw new Error('PAPER_CONFIGURATION_CHANGED');
+    const instruments = activeStored.map((x) => x.definition.instrument);
     let lastFrames;
     const statuses = [];
     const runPhase = async (resume, ticks) => {
@@ -465,8 +487,38 @@ async function main() {
         asOf: current.asOf,
       }),
     );
+    const warmup = assessPaperWarmup(
+      activeStored.map((strategy) => ({
+        instrument: strategy.definition.instrument,
+        parameters: strategy.definition.parameters,
+      })),
+      prepared.map((data, index) => ({
+        instrument: lastFrames[index].quote.instrument,
+        dataReady: data.ready,
+        closedCandles: data.candles.length,
+      })),
+    );
+    const sessionMatches = lastFrames.every((frame) =>
+      [
+        frame.marketData.calendar?.previousBusinessDay,
+        frame.marketData.calendar?.today,
+        frame.marketData.calendar?.nextBusinessDay,
+      ].some(
+        (day) =>
+          day?.sessionsKnown &&
+          day.sessions.some(
+            (s) =>
+              s.type === 'regular' &&
+              Date.parse(s.startsAt) === Date.parse(warmupTiming.sessionStartsAt) &&
+              Date.parse(s.endsAt) === Date.parse(warmupTiming.sessionEndsAt),
+          ),
+      ),
+    );
     await writeReviewArtifact(resolve(directory, 'preflight-evidence.json'), {
       session,
+      warmupTiming,
+      warmup,
+      sessionMatches,
       ready: prepared.map((x) => ({
         ready: x.ready,
         blockers: x.blockers,
@@ -478,13 +530,13 @@ async function main() {
     });
     if (
       !clean(observed.snapshot) ||
-      prepared.some(
-        (x) => !x.ready || x.candles.length < Math.max(...stored.map((s) => s.definition.parameters.slowPeriod)) + 1,
-      ) ||
+      !sessionMatches ||
+      prepared.some((x) => !x.ready) ||
       statuses.length !== 1 ||
       statuses[0].state !== 'paused'
     )
       throw new Error('PAPER_PREFLIGHT_FAILED');
+    if (!warmup.ready) throw new Error('PAPER_STRATEGY_WARMUP_INSUFFICIENT');
     if (
       observed.snapshot.limitsHash !== initial.snapshot.limitsHash ||
       observed.snapshot.strategyHash !== initial.snapshot.strategyHash
@@ -571,6 +623,7 @@ await main().catch((error) => {
       'PAPER_MARKET_PLAN_HASH_MISMATCH',
       'PAPER_VALIDATION_RESOURCE_INVALID',
       'PAPER_PREFLIGHT_FAILED',
+      'PAPER_STRATEGY_WARMUP_INSUFFICIENT',
       'PAPER_BUILD_CHANGED',
       'PAPER_CONTROL_CHANGED',
     ].includes(error.message)

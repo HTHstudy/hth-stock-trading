@@ -15,6 +15,8 @@ const stringFlags = [
   'build-hash',
   'prerequisite',
   'start-at',
+  'session-start',
+  'session-end',
   'deadline',
   'resources',
   'resources-hash',
@@ -48,7 +50,9 @@ export function parseOwnedPaperValidation(args: string[], environment: Record<st
   const inspect = ['fingerprint', 'verify-inputs', 'selfcheck-control'].some((key) => values[key]);
   if (inspect && (execute || values.run || values['resume-authorized'])) throw fail();
   if (execute && !['KR', 'US'].includes(String(values.market))) throw fail();
-  return { execute, runnerArgs: args.filter((argument) => argument !== '--execute') };
+  const buildRoot = values['build-root'];
+  if (buildRoot !== undefined && typeof buildRoot !== 'string') throw fail();
+  return { execute, buildRoot, runnerArgs: args.filter((argument) => argument !== '--execute') };
 }
 
 type Dependencies = {
@@ -112,8 +116,10 @@ export async function runOwnedPaperValidation(args: string[], dependencies: Depe
     runId = uuid(),
     nonce = uuid();
   if (new Set([id, runId, nonce]).size !== 3) throw fail();
-  const runner = join(root, 'infra/authorized-paper-validation.mjs');
-  if ((await realpath(join(root, 'infra'))) !== join(root, 'infra')) throw fail();
+  const codeRoot = config.buildRoot ?? root;
+  if (!isAbsolute(codeRoot) || (await realpath(codeRoot)) !== codeRoot) throw fail();
+  const runner = join(codeRoot, 'infra/authorized-paper-validation.mjs');
+  if ((await realpath(join(codeRoot, 'infra'))) !== join(codeRoot, 'infra')) throw fail();
   const actualArgs = [runner, ...config.runnerArgs, `--run-id=${runId}`];
   const launch = ownedPaperLaunchSchema.parse({
     formatVersion: 'owned-paper-launch-v1',

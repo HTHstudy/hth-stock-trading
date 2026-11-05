@@ -245,3 +245,17 @@ describe('owned Paper process evidence', () => {
     expect(launch).not.toHaveBeenCalled();
   });
 });
+
+it('고정 build-root의 runner를 사용해도 환경/작업/증거 root는 원래 workspace에 둔다', async () => {
+  const f = await fixture(),
+    code = await fixture();
+  const work = runOwnedPaperValidation([...args, `--build-root=${code.root}`], f.dependencies);
+  await eventuallyLaunched(f.launch);
+  const call = f.launch.mock.calls[0]!;
+  expect(call[1][0]).toBe(join(code.root, 'infra/authorized-paper-validation.mjs'));
+  expect(call[2].cwd).toBe(f.root);
+  f.child.emit('close', 1, null);
+  await work;
+  expect((await artifacts(f.root)).launch.runnerHash).toHaveLength(64);
+  await expect(readdir(join(code.root, '.local-data'))).rejects.toMatchObject({ code: 'ENOENT' });
+});

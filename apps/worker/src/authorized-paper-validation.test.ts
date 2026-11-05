@@ -109,3 +109,35 @@ it('소유자가 생성할 run-id는 실제 실행에서만 허용하고 경로�
     ).rejects.toMatchObject({ stderr: expect.stringContaining('PAPER_PREFLIGHT_FAILED') });
   expect(await readdir(root)).toEqual([]);
 }, 20000);
+
+it('개장 5분 뒤 예약은 키·DB·대기·실행 기록 생성 전에 warmup 부족으로 거부한다', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'paper-warmup-early-'));
+  roots.push(root);
+  const plan = defaultPaperMarketPlan({ market: 'US', symbol: 'AAPL' }),
+    source = join(root, 'source.json');
+  await writeFile(source, JSON.stringify(plan));
+  const pinned = await createPaperValidationResources(join(root, 'inputs'), 'US', source, contentHash(plan));
+  const session = Math.ceil((Date.now() + 3600000) / 60000) * 60000;
+  const before = await readdir(root);
+  await expect(
+    execute(
+      process.execPath,
+      [
+        script,
+        '--market=US',
+        `--build-root=${resolve('.')}`,
+        '--run',
+        '--resume-authorized',
+        '--prerequisite=us-2026-11-05',
+        `--resources=${pinned.directory}`,
+        `--resources-hash=${pinned.resourcesHash}`,
+        `--session-start=${new Date(session).toISOString()}`,
+        `--session-end=${new Date(session + 390 * 60000).toISOString()}`,
+        `--start-at=${new Date(session + 5 * 60000).toISOString()}`,
+        `--deadline=${new Date(session + 30 * 60000).toISOString()}`,
+      ],
+      { cwd: root, env: {}, timeout: 10000 },
+    ),
+  ).rejects.toMatchObject({ stderr: expect.stringContaining('PAPER_STRATEGY_WARMUP_INSUFFICIENT') });
+  expect(await readdir(root)).toEqual(before);
+}, 20000);

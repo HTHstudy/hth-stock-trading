@@ -17,6 +17,7 @@ export const validationCodeLabels = {
   PREREQUISITE_UNVERIFIED: '사전 조건 미검증',
   START_MISSED: '시작 예정 시각 놓침',
   PAPER_PREFLIGHT_FAILED: '시작 전 점검 불충족',
+  PAPER_STRATEGY_WARMUP_INSUFFICIENT: '전략 계산에 필요한 확정 봉 부족',
   PAPER_ACCOUNT_NOT_PRISTINE: '초기 계좌 상태와 차이 있음',
   PAPER_CONFIGURATION_CHANGED: '설정 변경',
   PAPER_CLEANUP_INCOMPLETE: '종료 정리 미완료',

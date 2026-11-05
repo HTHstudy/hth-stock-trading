@@ -74,6 +74,35 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it('새 확정 봉 부족 기록을 일반 사전 점검 실패와 구분하고 재개나 완료로 표시하지 않는다', () => {
+  const fetch = vi.fn(() => {
+    throw new Error('Unexpected network');
+  });
+  vi.stubGlobal('fetch', fetch);
+  const stopped = run({
+    market: 'US',
+    resultState: 'stopped-before-run-or-failed',
+    evidence: 'request-only',
+    verdict: null,
+    checks: null,
+    observedCounts: null,
+    completedTicks: 0,
+    runningTicks: null,
+  });
+  const html = render(snapshot({ runs: [{ ...stopped, code: 'PAPER_STRATEGY_WARMUP_INSUFFICIENT' }] }));
+  expect(html).toContain('종료 사유: 전략 계산에 필요한 확정 봉 부족');
+  expect(html).toContain('실행: 시작 전 정지 또는 실패');
+  expect(html).toContain('검증: 대사 기록 없음 · 미검증');
+  expect(html).not.toContain('시작 전 점검 불충족');
+  expect(html).not.toContain('실행: 60회 실행 완료');
+  expect(html).not.toContain('text-teal-200');
+  expect(html).not.toContain('재개하기');
+  const historical = render(snapshot({ runs: [{ ...stopped, code: 'PAPER_PREFLIGHT_FAILED' }] }));
+  expect(historical).toContain('종료 사유: 시작 전 점검 불충족');
+  expect(historical).not.toContain('전략 계산에 필요한 확정 봉 부족');
+  expect(fetch).not.toHaveBeenCalled();
+});
+
 it('저장 fixture만 SSR하고 조회나 broker 연결을 시작하지 않는다', () => {
   const fetch = vi.fn(() => {
     throw new Error('Unexpected network');

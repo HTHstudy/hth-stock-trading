@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { expect, it } from 'vitest';
-import { paperValidationRunSchema, paperValidationStatusSchema } from './paper-validation-status.js';
+import {
+  paperValidationFailureCodeSchema,
+  paperValidationRunSchema,
+  paperValidationStatusSchema,
+} from './paper-validation-status.js';
 
 function row() {
   return {
@@ -27,6 +31,28 @@ function row() {
     ledgerReviewRecomputed: false,
   };
 }
+it('확정 봉 부족과 일반 사전 점검 실패 코드를 구분하고 알 수 없는 코드는 거부한다', () => {
+  for (const code of ['PAPER_STRATEGY_WARMUP_INSUFFICIENT', 'PAPER_PREFLIGHT_FAILED']) {
+    expect(paperValidationFailureCodeSchema.parse(code)).toBe(code);
+    const saved = paperValidationRunSchema.parse({
+      ...row(),
+      market: 'US',
+      state: 'terminal-recorded',
+      resultState: 'stopped-before-run-or-failed',
+      finishedAt: '2026-11-03T01:00:00Z',
+      completedTicks: 0,
+      code,
+      stoppedAndCleaned: true,
+    });
+    expect(saved.code).toBe(code);
+    expect(saved.canResume).toBe(false);
+    expect(saved.executionEnabled).toBe(false);
+  }
+  expect(paperValidationFailureCodeSchema.safeParse('PAPER_STRATEGY_WARMUP_NOT_READY').success).toBe(false);
+  expect(paperValidationRunSchema.safeParse({ ...row(), code: 'PAPER_STRATEGY_WARMUP_INSUFFICIENT' }).success).toBe(
+    false,
+  );
+});
 it('종료 없는 요청과 기한 경과를 실행/실패로 승격하지 않고 읽기 전용 계약을 유지한다', () => {
   const value = row();
   expect(paperValidationRunSchema.parse(value)).toEqual(value);
