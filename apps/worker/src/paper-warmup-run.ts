@@ -35,8 +35,8 @@ try {
       parameters: { fastPeriod: Number(values['fast-period']), slowPeriod: Number(values['slow-period']) },
       sessionStartsAt: values['session-start'],
       sessionEndsAt: values['session-end'],
-      ...(values['start-at'] ? { requestedStartAt: values['start-at'] } : {}),
-      ...(values.deadline ? { deadline: values.deadline } : {}),
+      ...(values['start-at'] !== undefined ? { requestedStartAt: values['start-at'] } : {}),
+      ...(values.deadline !== undefined ? { deadline: values.deadline } : {}),
     });
     console.info(JSON.stringify(result));
     if (result.state === 'blocked') process.exitCode = 2;

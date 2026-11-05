@@ -14,14 +14,15 @@ it('미국 개장 5분 뒤의 확정봉 4개 실패를 예약 전에 잡고 25�
     requiredCandles: 21,
     theoreticalClosedCandlesAtStart: 4,
     earliestEligibleAt: '2026-11-05T14:52:00.000Z',
-    recommendedStartAt: '2026-11-05T14:55:00.000Z',
-    blockers: ['WARMUP_TIME_TOO_EARLY'],
+    warmupRecommendedStartAt: '2026-11-05T14:55:00.000Z',
+    recommendedStartAt: '2026-11-05T15:05:00.000Z',
+    blockers: expect.arrayContaining(['WARMUP_TIME_TOO_EARLY']),
   });
   expect(planPaperWarmup(session)).toMatchObject({
     state: 'prepared',
-    startsAt: '2026-11-05T14:55:00.000Z',
-    deadline: '2026-11-05T15:20:00.000Z',
-    theoreticalClosedCandlesAtStart: 24,
+    startsAt: '2026-11-05T15:05:00.000Z',
+    deadline: '2026-11-05T15:30:00.000Z',
+    theoreticalClosedCandlesAtStart: 34,
     actualCandlesVerified: false,
     scheduled: false,
     executionEnabled: false,
@@ -31,12 +32,13 @@ it('미국 개장 5분 뒤의 확정봉 4개 실패를 예약 전에 잡고 25�
 it('봉 재관측 60초 경계와 전략별 필요 수를 반영한다', () => {
   expect(planPaperWarmup({ ...session, requestedStartAt: '2026-11-05T14:51:59.999Z' }).state).toBe('blocked');
   expect(planPaperWarmup({ ...session, requestedStartAt: '2026-11-05T14:52:00Z' })).toMatchObject({
-    state: 'prepared',
+    state: 'blocked',
     theoreticalClosedCandlesAtStart: 21,
+    blockers: ['TRADING_DAY_BOUNDARY'],
   });
   expect(planPaperWarmup({ ...session, parameters: { fastPeriod: 2, slowPeriod: 5 } })).toMatchObject({
     requiredCandles: 6,
-    recommendedStartAt: '2026-11-05T14:40:00.000Z',
+    warmupRecommendedStartAt: '2026-11-05T14:40:00.000Z',
   });
   expect(planPaperWarmup({ ...session, sessionStartsAt: '2026-11-05T14:30:30Z' }).earliestEligibleAt).toBe(
     '2026-11-05T14:53:00.000Z',
@@ -102,4 +104,33 @@ it('CLI는 키/DB 없는 계획만 만들고 실제 실행 옵션을 거부한�
   expect(() =>
     execFileSync(process.execPath, [cli, '--session-start=x', '--session-start=y'], { env: {}, stdio: 'pipe' }),
   ).toThrow();
+});
+
+it('한국 자정과 미국 20시 거래일 전환을 실행 창 전체에서 회피하고 일일 손실 정책을 바꾸지 않는다', () => {
+  expect(planPaperWarmup(session)).toMatchObject({
+    state: 'prepared',
+    dayBoundaryAdjusted: true,
+    startsAt: '2026-11-05T15:05:00.000Z',
+    deadline: '2026-11-05T15:30:00.000Z',
+    dailyDatesAtStart: { KRW: '2026-11-06', USD: '2026-11-05' },
+  });
+  expect(planPaperWarmup({ ...session, requestedStartAt: '2026-11-05T14:55:00Z' }).blockers).toContain(
+    'TRADING_DAY_BOUNDARY',
+  );
+  expect(
+    planPaperWarmup({ ...session, requestedStartAt: '2026-11-05T14:52:00Z', deadline: '2026-11-05T14:59:00Z' })
+      .blockers,
+  ).toContain('PROCEDURE_BUDGET_TOO_SHORT');
+  const kr = {
+    ...session,
+    parameters: { fastPeriod: 5, slowPeriod: 46 },
+    sessionStartsAt: '2026-11-05T00:00:00Z',
+    sessionEndsAt: '2026-11-05T06:30:00Z',
+  };
+  expect(planPaperWarmup(kr)).toMatchObject({
+    state: 'prepared',
+    warmupRecommendedStartAt: '2026-11-05T00:51:00.000Z',
+    startsAt: '2026-11-05T01:05:00.000Z',
+    dailyDatesAtStart: { KRW: '2026-11-05', USD: '2026-11-05' },
+  });
 });

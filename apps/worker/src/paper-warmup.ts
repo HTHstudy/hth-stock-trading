@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { movingAverageConfigSchema } from '@hth/contracts';
-import { marketDataPolicy } from '@hth/trading';
+import { marketDataPolicy, marketTradingDate } from '@hth/trading';
 import { contentHash } from '@hth/database';
 
 const instrument = z.strictObject({ market: z.enum(['KR', 'US']), symbol: z.string().regex(/^[A-Z0-9.-]{1,40}$/) });
@@ -30,25 +30,56 @@ export function planPaperWarmup(input: unknown) {
   const minute = 60000,
     firstFullIntervalStartsAt = Math.ceil(start / minute) * minute;
   const eligible = firstFullIntervalStartsAt + requiredCandles * minute + marketDataPolicy.settlementDelayMs;
-  const recommended = eligible + 180000;
+  const warmupRecommended = eligible + 180000;
+  const dates = (time: number) => ({ KRW: marketTradingDate(time, 'KR'), USD: marketTradingDate(time, 'US') });
+  const sameDates = (a: number, b: number) => contentHash(dates(a)) === contentHash(dates(b));
+  const defaultProcedureBudgetMs = 25 * minute,
+    minimumProcedureBudgetMs = 12 * minute,
+    dayBoundaryBufferMs = 5 * minute;
+  let recommended = warmupRecommended;
+  // Both currency day baselines are checked by the existing ledger, even for a single-market strategy.
+  for (let attempt = 0; attempt < 3 && !sameDates(recommended, recommended + defaultProcedureBudgetMs); attempt++) {
+    let low = recommended,
+      high = recommended + defaultProcedureBudgetMs;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (sameDates(recommended, middle)) low = middle + 1;
+      else high = middle;
+    }
+    recommended = low + dayBoundaryBufferMs;
+  }
   const requested = value.requestedStartAt ? Date.parse(value.requestedStartAt) : recommended;
-  const deadline = value.deadline ? Date.parse(value.deadline) : requested + 25 * minute;
+  const deadline = value.deadline ? Date.parse(value.deadline) : requested + defaultProcedureBudgetMs;
   const theoreticalClosedCandles = Math.max(
     0,
     Math.floor((Math.min(requested - marketDataPolicy.settlementDelayMs, end) - firstFullIntervalStartsAt) / minute),
   );
-  const blockers: Array<'WARMUP_TIME_TOO_EARLY' | 'OUTSIDE_SESSION' | 'DEADLINE_OUTSIDE_SESSION'> = [];
+  const blockers: Array<
+    | 'WARMUP_TIME_TOO_EARLY'
+    | 'OUTSIDE_SESSION'
+    | 'DEADLINE_OUTSIDE_SESSION'
+    | 'TRADING_DAY_BOUNDARY'
+    | 'PROCEDURE_BUDGET_TOO_SHORT'
+  > = [];
   if (requested < eligible) blockers.push('WARMUP_TIME_TOO_EARLY');
   if (requested < start || requested >= end) blockers.push('OUTSIDE_SESSION');
   if (deadline <= requested || deadline >= end || deadline - requested > 30 * minute)
     blockers.push('DEADLINE_OUTSIDE_SESSION');
+  if (deadline - requested < minimumProcedureBudgetMs) blockers.push('PROCEDURE_BUDGET_TOO_SHORT');
+  if (!sameDates(requested, deadline)) blockers.push('TRADING_DAY_BOUNDARY');
   const body = {
-    formatVersion: 'paper-warmup-plan-v1' as const,
+    formatVersion: 'paper-warmup-plan-v2' as const,
     parameters: value.parameters,
     requiredCandles,
     policyVersion: marketDataPolicy.version,
     settlementDelayMs: marketDataPolicy.settlementDelayMs,
     schedulingBufferMs: 180000,
+    defaultProcedureBudgetMs,
+    minimumProcedureBudgetMs,
+    dayBoundaryBufferMs,
+    warmupRecommendedStartAt: new Date(warmupRecommended).toISOString(),
+    dayBoundaryAdjusted: recommended !== warmupRecommended,
+    dailyDatesAtStart: dates(requested),
     sessionStartsAt: new Date(start).toISOString(),
     sessionEndsAt: new Date(end).toISOString(),
     earliestEligibleAt: new Date(eligible).toISOString(),
