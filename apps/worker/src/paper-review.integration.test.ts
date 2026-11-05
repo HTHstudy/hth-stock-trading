@@ -16,7 +16,7 @@ import { runPaperReview } from './paper-review-runtime.js';
 const plan = paperRehearsalPlanSchema.parse(
   JSON.parse(readFileSync(new URL('../../../examples/paper-rehearsal-plan.json', import.meta.url), 'utf8')),
 );
-describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper capture → 합성 부분 체결 → 비교 통합', () => {
+describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper capture → 합성 체결 → 비교 통합', () => {
   let db: ReturnType<typeof createDatabase>;
   beforeAll(async () => {
     db = createDatabase(testDatabaseUrl());
@@ -25,11 +25,18 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper capture → 합성 부분
   afterAll(async () => {
     await db?.close();
   });
-  it.each(['KR', 'US'] as const)('%s 원장의 전후 증거를 파일로 비교하고 원장을 변경하지 않는다', async (market) => {
+  it.each([
+    ['KR', 'partial'],
+    ['US', 'partial'],
+    ['KR', 'round-trip'],
+    ['US', 'round-trip'],
+  ] as const)('%s %s 원장의 전후 증거를 파일로 비교하고 원장을 변경하지 않는다', async (market, scenario) => {
     const directory = await mkdtemp(join(tmpdir(), 'paper-review-db-'));
     const network = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('NETWORK_FORBIDDEN'));
     const profile = plan.profiles.find((p) => p.instrument.market === market)!;
     const account = 'paper-demo-' + randomUUID();
+    const currency = market === 'KR' ? 'KRW' : 'USD';
+    let phase: 'bullish' | 'bearish' = 'bullish';
     const clock = async () =>
       new Date(
         (await db.db.$client.query<{ now: string }>('SELECT clock_timestamp()::text AS now')).rows[0]!.now,
@@ -43,7 +50,21 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper capture → 합성 부분
           observedAt: anchor,
           reconciled: false,
           cash: plan.cash,
-          positions: [],
+          positions:
+            scenario === 'round-trip'
+              ? [
+                  {
+                    instrument: profile.manualInstrument,
+                    quantity: plan.manualQuantity,
+                    manualQuantity: plan.manualQuantity,
+                    sellableQuantity: plan.manualQuantity,
+                    ownership: [],
+                    markPrice: profile.flat[2],
+                    markTimestamp: anchor,
+                    markObservedAt: anchor,
+                  },
+                ]
+              : [],
           dailyPnl: {
             KRW: { tradingDate: marketTradingDate(Date.parse(anchor), 'KR'), netPnl: '0' },
             USD: { tradingDate: marketTradingDate(Date.parse(anchor), 'US'), netPnl: '0' },
@@ -88,15 +109,55 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper capture → 합성 부분
         },
         async (instruments) => {
           const now = await clock();
-          return instruments.map((instrument) => rehearsalEvidence(instrument, profile.bullish, now, anchor));
+          return instruments.map((instrument) =>
+            rehearsalEvidence(
+              instrument,
+              instrument.symbol === profile.instrument.symbol ? profile[phase] : profile.flat,
+              now,
+              anchor,
+            ),
+          );
         },
       );
       await worker.start();
       await worker.step();
       await worker.step();
+      if (scenario === 'round-trip') {
+        const partialBuy = await db.paperReview.capture(account, 'synthetic-only');
+        expect(partialBuy.intents[0]).toMatchObject({ state: 'PARTIALLY_FILLED', filledQuantity: '1' });
+        expect(partialBuy.basis).toMatchObject([{ quantity: '1', amount: market === 'KR' ? '1102' : '11.02' }]);
+        await worker.step();
+        const fullBuy = await db.paperReview.capture(account, 'synthetic-only');
+        expect(fullBuy.basis).toMatchObject([{ quantity: '2', amount: market === 'KR' ? '2203' : '22.03' }]);
+        phase = 'bearish';
+        await worker.step();
+        await worker.step();
+        expect((await db.paper.readDashboard(account)).orders.find((order) => order.side === 'SELL')).toMatchObject({
+          state: 'PARTIALLY_FILLED',
+          filledQuantity: '1',
+        });
+        const partialSell = await db.paperReview.capture(account, 'synthetic-only');
+        expect(partialSell.basis).toMatchObject([{ quantity: '1', amount: market === 'KR' ? '1102' : '11.02' }]);
+        await worker.step();
+      }
       await worker.close();
       const beforeRead = await db.paper.readDashboard(account);
-      expect(beforeRead.orders[0]).toMatchObject({ state: 'ABORTED', filledQuantity: '1' });
+      if (scenario === 'partial') {
+        expect(beforeRead.orders[0]).toMatchObject({ state: 'ABORTED', filledQuantity: '1' });
+      } else {
+        expect(beforeRead.orders).toHaveLength(2);
+        expect(beforeRead.orders.every((order) => order.state === 'FILLED' && order.filledQuantity === '2')).toBe(true);
+        expect(beforeRead.fills).toHaveLength(4);
+        expect(beforeRead.portfolios.find((value) => value.currency === currency)).toMatchObject(
+          profile.expectedRoundTrip,
+        );
+        expect(beforeRead.positions).toHaveLength(1);
+        expect(beforeRead.positions[0]).toMatchObject({
+          instrument: profile.manualInstrument,
+          quantity: '3',
+          manualQuantity: '3',
+        });
+      }
       await capture(afterPath);
       const result = await runPaperReview(
         ['--compare', '--before=' + beforePath, '--after=' + afterPath, '--output=' + output],
@@ -109,8 +170,47 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper capture → 합성 부분
       expect(checkpoint.hash).toBe(contentHash(checkpoint.snapshot));
       expect(artifact.report).toMatchObject({
         checks: { costBasisReplay: 'passed', cashMatchesFills: 'passed', manualHoldingsPreserved: 'passed' },
-        evidence: { newIntents: 1, newFills: 1 },
+        evidence: { newIntents: scenario === 'partial' ? 1 : 2, newFills: scenario === 'partial' ? 1 : 4 },
       });
+      if (scenario === 'round-trip') {
+        expect(artifact.report.comparison).toMatchObject({
+          cashBefore: plan.cash,
+          cashAfter: { ...plan.cash, [currency]: profile.expectedRoundTrip.cash },
+          costs: market === 'KR' ? { KRW: '9', USD: '0' } : { KRW: '0', USD: '0.09' },
+          realizedPnl: market === 'KR' ? { KRW: '-409', USD: '0' } : { KRW: '0', USD: '-4.09' },
+          basisBefore: [],
+        });
+        const chronological = [...checkpoint.snapshot.fills].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        expect(chronological.map(({ quantity, costs, realizedPnl }) => ({ quantity, costs, realizedPnl }))).toEqual(
+          (market === 'KR'
+            ? [
+                ['2', '0'],
+                ['1', '0'],
+                ['3', '-204'],
+                ['3', '-205'],
+              ]
+            : [
+                ['0.02', '0'],
+                ['0.01', '0'],
+                ['0.03', '-2.04'],
+                ['0.03', '-2.05'],
+              ]
+          ).map(([costs, realizedPnl]) => ({ quantity: '1', costs, realizedPnl })),
+        );
+        expect(checkpoint.snapshot.positions).toEqual([
+          {
+            instrument: profile.manualInstrument,
+            quantity: '3',
+            manualQuantity: '3',
+            sellableQuantity: '3',
+            ownership: [],
+          },
+        ]);
+        expect(checkpoint.snapshot.basis.every((basis) => basis.quantity === '0' && basis.amount === '0')).toBe(true);
+        expect(checkpoint.snapshot.stopped).toBe(true);
+        expect(checkpoint.snapshot.leasePresent).toBe(false);
+        expect(checkpoint.snapshot.reservations.every((reservation) => !reservation.active)).toBe(true);
+      }
       expect(await db.paper.readDashboard(account)).toEqual({ ...beforeRead, asOf: expect.any(String) });
       expect(await readFile(output, 'utf8')).not.toContain(account);
       expect(network).not.toHaveBeenCalled();
