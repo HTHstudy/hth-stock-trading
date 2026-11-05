@@ -64,3 +64,19 @@ corepack pnpm paper:warmup:plan --fast-period=5 --slow-period=20 \
 별도 inputs/manifest와 현재 US 계좌 제어 조건을 고정했고 읽기 전용 준비 검사를 통과했다. KR/US Paper 원장의 전후 hash는 동일했다. 별도 무접속 확인에서도 plan/warmup v2/build hash와 고정 입력이 일치했고 dbAccessed=false였다. 상태는 prepared-not-started, scheduled/resumeRequested/executionEnabled/canResume=false다. 기존 철회 준비본은 재사용하지 않는다.
 
 최종 기본 테스트 584개와 타입·린트·전체 빌드·포맷 검사를 통과했다. DB 통합 102개는 기본 실행에서 제외됐다. 관련 테스트는 원본 수집 보존·5분/25분 준비 봉·거래일/DST/조기 종료·최소 절차 예산·대기 전 무접속 거부·종목별 개수·전용 실패 표시·고정 코드와 운영 root 분리를 검증한다. 실제 시장 데이터 진단은 테스트와 구분해 위 private 증거에 보관했다.
+
+## 11월 5일 소유 래퍼를 통한 새 예약
+
+사용자 진행 요청에 따라 13:49 KST에 위 최종 고정 준비본으로 일회성 예약을 연결했다. 원본 plan.json은 prepared-not-started로 보존하고 새 dispatch·request·launch 증거를 별도 저장했다.
+
+- 실행 창: **11/6 00:05~00:30 KST**, 미국 11/5 정규장, 최대 60 tick.
+- run: `e3c96a51-7ef8-46dc-b533-215cd38e7298`.
+- owned launch: `87e0324c-d416-4bbb-b490-b3843c6ab916`.
+- batch: `cdad5dfb-e64a-43d9-94f0-3a7c7e2c1730`.
+- `.local-data/paper-validation-batches/<batch>/`의 launch-verification.json·process-verification.json·ledger-verification.json, 소유 프로세스 루트의 launch.json, 실행 루트의 request.json·warmup-plan.json을 확인했다.
+
+고정 build/input/control hash·현재 계좌 정지/lease 없음·준비 조건·선행 관측의 최종 hash를 재검증했다. 도구 종료 뒤에도 소유 래퍼·그 자식 실행기·PID 수명에 연결한 caffeinate의 생존을 별도 확인했다. 13:51 KST 조회에서 두 Paper 원장은 예약 전 hash와 같고 정지/lease 없음이 유지됐다. PID/프로세스 생존은 이 확인 시점의 증거이며 실행 성공을 뜻하지 않는다.
+
+새 request는 resumeRequested=true지만 현재 Paper tick은 시작하지 않았다. 예약 대기에는 토큰/증권사 연결을 만들지 않는다. 시작 시 최신 일일 기준/손실 이월 검토·정지 시세 관측·실제 확정 봉 개수·현재 계좌 CAS·체크포인트를 다시 검증하고 명시적 재개 절차를 따른다. 시작 누락·검사 실패·기한 종료 시 다음 날 이월하거나 자동 재시도하지 않는다. PC 종료·덮개 닫기·수동 절전·재부팅 후 자동 복구는 제공하지 않는다.
+
+이번에는 소유 래퍼가 직접 실행한 자식의 종료를 관찰해 exit.json을 남기므로 향후 원본 보존형 예약 정리의 독립 증거를 확보할 수 있다. 아직 exit/result/checkpoint 대사 결과는 없으며, 과거 요청 누락 예약의 정책이나 증거는 변경하지 않았다. 실제 주문 권한은 계속 비활성이다.
