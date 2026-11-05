@@ -4,6 +4,7 @@ import { BACKTESTS_API } from '@shared/api/backtests';
 import { formatDecimal, formatMoney, profitClass } from '@shared/lib/format';
 import { comparisonBlocker, sourceLabel } from './model';
 import { ComparisonTable } from './comparison';
+import { CostComparison } from './cost-comparison';
 import { ReportLedger } from './ledger';
 
 const EquityChart = lazy(() => import('./equity-chart').then((module) => ({ default: module.EquityChart })));
@@ -116,9 +117,10 @@ export function BacktestsPage() {
                     .filter((item) => index === 0 || item.reportHash !== primary?.reportHash)
                     .map((item) => (
                       <option key={item.reportHash} value={item.reportHash}>
-                        {sourceLabel(item)} · {item.datasetRequest.instrument.symbol} · MA{' '}
-                        {item.strategy.parameters.fastPeriod}/{item.strategy.parameters.slowPeriod} ·{' '}
-                        {item.reportHash.slice(0, 8)}
+                        {sourceLabel(item)} · {item.datasetRequest.instrument.symbol} · {item.datasetRequest.interval} ·{' '}
+                        {item.datasetRequest.from}~{item.datasetRequest.to} · MA {item.strategy.parameters.fastPeriod}/
+                        {item.strategy.parameters.slowPeriod} · 수수료 {item.config.buyFeeBps}/{item.config.sellFeeBps}{' '}
+                        · 슬립 {item.config.slippageBps}bps · {item.reportHash.slice(0, 8)}
                       </option>
                     ))}
                 </select>
@@ -132,6 +134,7 @@ export function BacktestsPage() {
               {primary.datasetRequest.interval} · {primary.currency}
             </p>
           )}
+          <CostComparison leftHash={primary?.reportHash ?? ''} rightHash={comparison?.reportHash ?? ''} />
           {first.isPending && (
             <p role="status" className="py-12 text-center text-sm text-slate-400">
               리포트 상세를 불러오고 있습니다…

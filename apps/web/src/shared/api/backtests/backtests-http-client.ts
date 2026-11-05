@@ -1,9 +1,13 @@
 import { notifyUnauthorized } from '@shared/lib/auth-events';
 import { ENV } from '@shared/config/env';
 
-export async function backtestsRequest(path: string, signal?: AbortSignal): Promise<unknown> {
+export async function backtestsRequest(
+  path: string,
+  signal?: AbortSignal,
+  resource: 'backtests' | 'backtest-comparison' = 'backtests',
+): Promise<unknown> {
   const timeout = AbortSignal.timeout(15_000);
-  const response = await fetch(`${ENV.API_URL}/v1/backtests${path}`, {
+  const response = await fetch(`${ENV.API_URL}/v1/${resource}${path}`, {
     cache: 'no-store',
     credentials: 'same-origin',
     signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
