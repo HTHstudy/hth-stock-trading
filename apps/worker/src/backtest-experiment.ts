@@ -41,8 +41,10 @@ export function parseExperimentManifest(input: unknown) {
   return parsed.data;
 }
 
-export function runBacktestExperiment(input: unknown, exports: unknown[]) {
-  const manifest = parseExperimentManifest(input);
+export function prepareExperimentInputs(
+  manifest: Pick<z.infer<typeof experimentManifestSchema>, 'datasets'>,
+  exports: unknown[],
+) {
   if (exports.length !== manifest.datasets.length) throw new Error('EXPERIMENT_INPUT_MISMATCH');
   const datasets = exports.map((value, index) => {
     const exported = parseDatasetExport(value);
@@ -62,6 +64,12 @@ export function runBacktestExperiment(input: unknown, exports: unknown[]) {
   const ordered = datasets.map(({ dataset }) => dataset.request).sort((a, b) => a.from.localeCompare(b.from));
   if (ordered.some((request, index) => index > 0 && request.from <= ordered[index - 1]!.to))
     throw new Error('EXPERIMENT_OVERLAPPING_PERIODS');
+  return datasets;
+}
+
+export function runBacktestExperiment(input: unknown, exports: unknown[]) {
+  const manifest = parseExperimentManifest(input);
+  const datasets = prepareExperimentInputs(manifest, exports);
   if (datasets.reduce((total, { dataset }) => total + dataset.candles.length, 0) * manifest.variants.length > 100_000)
     throw new Error('EXPERIMENT_WORK_LIMIT');
   let reportBytes = 0;
