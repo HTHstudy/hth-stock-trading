@@ -81,3 +81,9 @@ ORDER_INFO는 09:00–09:10 KST에 3 TPS다. 조회에 지수 백오프·jitter�
 공식 REST OpenAPI를 다시 내려받은 버전은 `1.2.28`, SHA-256은 `c5918961335ccd6b091577e307dc06ed505b58f83e4d99f0c4617de14ceb036a`다. 11/2 보관본과 종목·캔들·국내/미국 캘린더·토큰 경로 및 이들이 참조하는 schema 31개가 같음을 확인했다. 확인한 읽기 전용 범위의 호환성 검사이며 전체 API 변경 검증은 아니다.
 
 [공식 FAQ](https://openapi.tossinvest.com/openapi-docs/faq.md)에서 미국 일봉 OHLC의 정규장 기준, 국내 1분봉의 0거래량 채움·늦게 변할 수 있는 마지막 봉, 미국 sparse 분봉, 수정주가·상장폐지·재배포 제약을 재확인했다. 기존 adapter endpoint/DTO와 종료 판정·완전성 정책을 유지한다. 계좌·보유분·주문 API를 과거 수집에 사용하지 않는다.
+
+## 2026-11-06 현재 수수료 읽기 전용 조회
+
+공식 OpenAPI version 1.2.28·SHA-256 `c5918961335ccd6b091577e307dc06ed505b58f83e4d99f0c4617de14ceb036a`를 다시 확인했다. GET /api/v1/commissions는 ORDER_INFO 그룹과 계좌 헤더를 사용하며 현재 계좌의 marketCountry·소수 비율 commissionRate·선택적 nullable startDate/endDate를 반환한다. 기간은 KST 기준이고 종목/매수·매도 구분/과거 기준일 query는 없다.
+
+기존 transport의 GET 전용 경로 목록에 이 조회만 추가했다. 기존 ReadonlyBroker 포트에 필수 메서드를 늘리지 않고 별도 BrokerCommissionLookup capability로 제공한다. 실제 주문 경로는 추가하지 않았다. 상세 구현·검증과 현행 요율을 과거/실제 청구 검증으로 확대하지 않는 경계는 [수수료 검토](COMMISSION_REVIEW.md)를 따른다.

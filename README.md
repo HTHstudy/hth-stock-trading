@@ -4,6 +4,8 @@
 
 개인용 국내·미국주식 자동매매 시스템입니다. **읽기 전용 토스 연동·캔들 저장·로컬 대시보드와 이동평균 교차 백테스트를 제공합니다. Paper 주문 원장·원자적 예약·내부 모의 체결도 구현했습니다. 합성 데이터의 상시 Paper 실행·복구 루프도 제공합니다. 로컬 합성 Paper 조회·긴급 정지 화면도 제공합니다. 단일 소유자 로그인과 전략 설정·활성 관리도 제공합니다. 실제 시세용 Paper CLI도 추가했으며 실데이터 운용 검증·외부 배포·실제 주문은 후속입니다.** 기본 dev는 키 없이 실행할 수 있으며, `DASHBOARD_ENABLED=true`일 때만 대시보드가 worker를 통해 실제 데이터를 조회합니다. `TRADING_MODE=live`는 거부합니다.
 
+현재 계좌 수수료와 실험 가정을 비교하려면 [수수료 조회·검토](docs/COMMISSION_REVIEW.md)를 따릅니다. `corepack pnpm broker:commissions`와 `corepack pnpm commission:review`는 기본 미리보기입니다. 실제 조회는 서버의 명시적 확인 모드에서만 실행하며 현재 요율을 과거 비용·세금·호가 검증이나 자동 설정 적용으로 사용하지 않습니다.
+
 ## 구성
 
 - `apps/web`: React + Vite + Tailwind CSS, TanStack Query v5와 Lightweight Charts 대시보드
