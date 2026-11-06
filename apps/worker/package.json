@@ -55,7 +55,9 @@
     "readonly:supervision:status": "node dist/readonly-supervision-status-run.js",
     "paper:reservation:closure": "node dist/paper-reservation-closure-run.js",
     "paper:validation:owned": "node dist/owned-paper-validation-run.js",
-    "paper:warmup:plan": "node dist/paper-warmup-run.js"
+    "paper:warmup:plan": "node dist/paper-warmup-run.js",
+    "broker:commissions": "tsx src/commission-check-run.ts",
+    "commission:review": "tsx src/commission-review-run.ts"
   },
   "dependencies": {
     "@hth/contracts": "workspace:*",
