@@ -1,0 +1,21 @@
+{
+  "strategy": { "fastPeriod": 5, "slowPeriod": 20 },
+  "execution": {
+    "initialCash": "10000000",
+    "quantity": "1",
+    "priceTick": "1",
+    "buyFeeBps": "10",
+    "sellFeeBps": "30",
+    "sellTaxBps": "0",
+    "slippageBps": "5",
+    "executionRules": {
+      "formatVersion": "execution-rules-v1",
+      "priceRule": "krx-kospi-equity-2023",
+      "venueAssumption": "KRX",
+      "boardAssumption": "KOSPI",
+      "assetClassAssumption": "common-stock",
+      "buyFee": { "rounding": "ceil", "minimum": "0", "maximum": null },
+      "sellFee": { "rounding": "ceil", "minimum": "0", "maximum": null }
+    }
+  }
+}
