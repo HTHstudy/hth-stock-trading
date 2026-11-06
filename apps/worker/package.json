@@ -23,6 +23,10 @@
     "./backtest-comparison": {
       "types": "./dist/backtest-comparison.d.ts",
       "import": "./dist/backtest-comparison.js"
+    },
+    "./strategy-research-snapshot": {
+      "types": "./dist/strategy-research-snapshot.d.ts",
+      "import": "./dist/strategy-research-snapshot.js"
     }
   },
   "scripts": {
@@ -58,7 +62,8 @@
     "paper:warmup:plan": "node dist/paper-warmup-run.js",
     "broker:commissions": "tsx src/commission-check-run.ts",
     "commission:review": "tsx src/commission-review-run.ts",
-    "backtest:strategies": "tsx src/strategy-study-run.ts"
+    "backtest:strategies": "tsx src/strategy-study-run.ts",
+    "backtest:benchmark": "tsx src/strategy-benchmark-study-run.ts"
   },
   "dependencies": {
     "@hth/contracts": "workspace:*",

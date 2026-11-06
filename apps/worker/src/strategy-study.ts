@@ -78,7 +78,7 @@ function simulate(dataset: HistoricalDataset, definition: z.infer<typeof strateg
   }
 }
 
-const resultSchema = z
+export const strategyStudyResultSchema = z
   .object({
     formatVersion: z.literal('strategy-study-result-v1'),
     resultHash: hash,
@@ -175,7 +175,7 @@ export function runStrategyStudy(input: unknown, exports: unknown[]) {
 
 export function reviewStrategyStudy(input: unknown, manifestInput: unknown) {
   const manifest = parseStrategyStudyManifest(manifestInput);
-  const parsed = resultSchema.safeParse(input);
+  const parsed = strategyStudyResultSchema.safeParse(input);
   if (!parsed.success) throw new Error('STRATEGY_STUDY_RESULT_INVALID');
   const { resultHash, ...payload } = parsed.data;
   const fail = () => {

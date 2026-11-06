@@ -64,7 +64,8 @@
     "paper:warmup:plan": "corepack pnpm --filter @hth/worker paper:warmup:plan",
     "broker:commissions": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker broker:commissions",
     "commission:review": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker commission:review",
-    "backtest:strategies": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker backtest:strategies"
+    "backtest:strategies": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker backtest:strategies",
+    "backtest:benchmark": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker backtest:benchmark"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
