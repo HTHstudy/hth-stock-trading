@@ -85,3 +85,7 @@ private 증거는 `.local-data/strategy-family-studies/1a0348d5-aead-4d53-9284-a
 ## 구현 검증
 
 최종 `verify:ci`는 새 전용 localhost `hth_readonly_test` DB에서 116파일·894개 테스트(42.80초)와 포맷·린트·타입·전체 빌드를 통과했다. 두 Compose 설정 검사도 통과했다. 관련 38개 테스트로 미래 가격 변경이 이전 판단/체결을 바꾸지 않는지, 현재 봉 제외·경계·보유 상태·정확한 십진 비교, 기존 MA 계약 유지, hash 재계산 후 설정/요청/조합 변조 거부, 키/DB 없는 CLI와 live/덮어쓰기 거부를 확인했다. 독립 정적 검토도 수행했다. 이 기록은 로컬 최종 검증이며 원격 Actions 결과를 의미하지 않는다. 사용한 임시 테스트 DB 컨테이너는 종료했다.
+
+## 후속 대조군과 웹 조회
+
+[단순 보유 대조군·자본 노출 연구](STRATEGY_BENCHMARK_RESEARCH.md)에서 같은 최초 판단 시점의 보유 대조군과 보유 시간/취득원가 지표를 추가했다. 기존 36조건 결과는 그대로이며 별도 wrapper/result/snapshot을 사용한다. `/research`는 새 공개 DTO만 소유자/loopback 경계에서 읽는다. 이 문서의 이전 private-only/미구현 서술은 최초 연구 당시 범위이며 기존 원본·공개 MA 계약은 그대로다.
