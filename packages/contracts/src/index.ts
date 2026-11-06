@@ -224,3 +224,20 @@ export { channelBreakoutConfigSchema, meanReversionConfigSchema } from './resear
 export type { ChannelBreakoutConfig, MeanReversionConfig } from './research-strategies.js';
 
 export { createBacktestReportSchema } from './backtest-reports.js';
+
+export {
+  capitalExposureSchema,
+  researchStrategyDefinitionSchema,
+  strategyResearchSnapshotSchema,
+  strategyResearchSummarySchema,
+  strategyResearchListSchema,
+} from './strategy-research.js';
+export type {
+  CapitalExposure,
+  StrategyResearchSnapshot,
+  StrategyResearchSummary,
+  StrategyResearchList,
+} from './strategy-research.js';
+
+export { buyAndHoldConfigSchema } from './benchmark-strategy.js';
+export type { BuyAndHoldConfig } from './benchmark-strategy.js';

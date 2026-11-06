@@ -33,3 +33,6 @@ export {
 
 export { channelBreakout } from './strategy/channel-breakout.js';
 export { meanReversion } from './strategy/mean-reversion.js';
+
+export { buyAndHold } from './strategy/buy-and-hold.js';
+export { calculateCapitalExposure } from './backtest/capital-exposure.js';
