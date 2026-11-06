@@ -30,3 +30,6 @@ export {
   validateExecutionRuleScope,
   krxEquityTickEvidence,
 } from './backtest/execution-rules.js';
+
+export { channelBreakout } from './strategy/channel-breakout.js';
+export { meanReversion } from './strategy/mean-reversion.js';

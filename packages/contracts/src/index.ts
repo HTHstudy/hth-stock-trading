@@ -219,3 +219,8 @@ export { paperValidationFailureCodeSchema } from './paper-validation-status.js';
 
 export { backtestCostPairSchema } from './backtest-cost-pair.js';
 export type { BacktestCostPair } from './backtest-cost-pair.js';
+
+export { channelBreakoutConfigSchema, meanReversionConfigSchema } from './research-strategies.js';
+export type { ChannelBreakoutConfig, MeanReversionConfig } from './research-strategies.js';
+
+export { createBacktestReportSchema } from './backtest-reports.js';
