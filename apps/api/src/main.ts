@@ -11,6 +11,7 @@ import {
 import { createPaperDashboard } from './paper-dashboard.js';
 import { fileURLToPath } from 'node:url';
 import { createObservationReports } from './observation-reports.js';
+import { createStrategyResearchReader } from './strategy-research.js';
 import { createBacktestReports } from './backtest-reports.js';
 import { parseApiConfig } from './config.js';
 import { createDashboardService, loadDashboardFromWorker } from './dashboard-service.js';
@@ -47,6 +48,9 @@ async function main() {
   ];
   const reports = localAccess
     ? createBacktestReports(fileURLToPath(new URL('../../../.local-data', import.meta.url)))
+    : undefined;
+  const research = localAccess
+    ? createStrategyResearchReader(fileURLToPath(new URL('../../../.local-data/strategy-research', import.meta.url)))
     : undefined;
   const observations = localAccess
     ? createObservationReports(
@@ -107,6 +111,7 @@ async function main() {
           fileURLToPath(new URL('../../../.local-data/paper-validation-runs', import.meta.url)),
         )
       : undefined,
+    research,
   );
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {

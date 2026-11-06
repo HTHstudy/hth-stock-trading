@@ -4,6 +4,7 @@ import { PATHS } from '@shared/routes/paths';
 const navigation = [
   { path: PATHS.HOME, label: '계좌 현황' },
   { path: PATHS.BACKTESTS, label: '백테스트' },
+  { path: PATHS.RESEARCH, label: '전략 연구' },
   { path: PATHS.PAPER, label: 'Paper 모의매매' },
   { path: PATHS.OBSERVATIONS, label: '시세 관측' },
 ];

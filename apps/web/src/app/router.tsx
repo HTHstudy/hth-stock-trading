@@ -33,7 +33,12 @@ const observationsRoute = createRoute({
   path: PATHS.OBSERVATIONS,
   component: lazyRouteComponent(() => import('@pages/observations'), 'ObservationsPage'),
 });
-const routeTree = rootRoute.addChildren([overviewRoute, backtestsRoute, paperRoute, observationsRoute]);
+const researchRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: PATHS.RESEARCH,
+  component: lazyRouteComponent(() => import('@pages/research'), 'ResearchPage'),
+});
+const routeTree = rootRoute.addChildren([overviewRoute, backtestsRoute, paperRoute, observationsRoute, researchRoute]);
 
 export function createAppRouter(history: RouterHistory = createBrowserHistory()) {
   const target = legacyRouteTarget(history.location);

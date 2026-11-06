@@ -18,7 +18,7 @@ it('기존 해시 링크를 검색 조건을 보존한 일반 경로로 교체�
   expect(history.length).toBe(2);
   history.back();
   expect(history.location.href).toBe('/#observations?ignored');
-  for (const path of ['/paper', '/backtests', '/observations']) {
+  for (const path of ['/paper', '/backtests', '/observations', '/research']) {
     expect(legacyRouteTarget({ pathname: path, hash: '#paper', search: '' })).toBeNull();
   }
   for (const hash of ['#unknown', '#constructor', '#__proto__']) {
@@ -40,4 +40,14 @@ it('일반 경로를 매칭하고 뒤로가기·앞으로가기로 같은 화면
   const missingRouter = createAppRouter(createMemoryHistory({ initialEntries: ['/missing-page'] }));
   await missingRouter.load();
   expect(missingRouter.state.matches.some((match) => match._notFound || match.status === 'notFound')).toBe(true);
+});
+
+it('전략 연구는 lazy 페이지이며 비공개 loader나 prefetch를 등록하지 않는다', () => {
+  const router = createAppRouter(createMemoryHistory({ initialEntries: ['/research'] }));
+  expect(router.matchRoutes('/research').at(-1)?.routeId).toBe('/research');
+  const route = router.routesById['/research'];
+  expect(route.options.component).toBeDefined();
+  expect(route.options.loader).toBeUndefined();
+  expect(route.options.beforeLoad).toBeUndefined();
+  expect(router.options.defaultPreload).toBe(false);
 });

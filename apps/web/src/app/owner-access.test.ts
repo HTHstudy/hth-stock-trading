@@ -2,6 +2,7 @@ import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { expect, it, vi } from 'vitest';
+import { ResearchPage } from '@pages/research';
 import { OwnerAccess } from './owner-access.js';
 
 it('미인증·인증 미설정·세션 확인 중에는 보호된 라우트를 렌더링하지 않는다', () => {
@@ -33,4 +34,25 @@ it('인증을 확인한 세션에만 보호된 라우트를 렌더링한다', ()
   );
   expect(html).toContain('PRIVATE_ROUTE');
   client.clear();
+});
+
+it('전략 연구 조회 화면은 소유자 인증 전에는 마운트되지 않는다', () => {
+  for (const authenticated of [false, true]) {
+    const client = new QueryClient();
+    try {
+      client.setQueryData(['owner-session'], { configured: true, authenticated, expiresAt: null });
+      const html = renderToString(
+        createElement(QueryClientProvider, {
+          client,
+          children: createElement(OwnerAccess, { children: createElement(ResearchPage) }),
+        }),
+      );
+      expect(html.includes('HTH TRADING / RESEARCH')).toBe(authenticated);
+      expect(client.getQueryCache().findAll({ queryKey: ['strategy-research-list'] }).length).toBe(
+        authenticated ? 1 : 0,
+      );
+    } finally {
+      client.clear();
+    }
+  }
 });

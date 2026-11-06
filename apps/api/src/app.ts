@@ -1,5 +1,7 @@
 import { compareBacktestReports } from '@hth/worker/backtest-comparison';
 import {
+  strategyResearchListSchema,
+  strategyResearchSnapshotSchema,
   backtestCostPairSchema,
   reportHashSchema,
   paperValidationStatusSchema,
@@ -26,6 +28,7 @@ import Fastify from 'fastify';
 import type { PaperValidationStatusReader } from '@hth/worker/paper-validation-status';
 import { z } from 'zod';
 import type { DashboardService } from './dashboard-service.js';
+import type { StrategyResearchReader } from './strategy-research.js';
 import type { BacktestReports } from './backtest-reports.js';
 import type { PaperDashboard } from './paper-dashboard.js';
 import type { OwnerAuth } from './owner-auth.js';
@@ -47,6 +50,7 @@ export function createApp(
   workerStatus?: WorkerStatusReader,
   preparation?: PaperPreparationDashboardReader,
   validation?: PaperValidationStatusReader,
+  research?: StrategyResearchReader,
 ) {
   const app = Fastify({
     logger: {
@@ -77,6 +81,7 @@ export function createApp(
     const privateRoute = [
       '/v1/dashboard',
       '/v1/backtests',
+      '/v1/strategy-research',
       '/v1/backtest-comparison',
       '/v1/paper',
       '/v1/observations',
@@ -324,6 +329,36 @@ export function createApp(
       return backtestCostPairSchema.parse(compareBacktestReports(pair[0], pair[1]));
     } catch {
       return reply.code(503).send({ error: { code: 'BACKTEST_COMPARISON_UNAVAILABLE' } });
+    }
+  });
+
+  app.get('/v1/strategy-research', { exposeHeadRoute: false }, async (request, reply) => {
+    if (!z.object({}).strict().safeParse(request.query).success)
+      return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (!research) return reply.code(503).send({ error: { code: 'STRATEGY_RESEARCH_UNAVAILABLE' } });
+    try {
+      return strategyResearchListSchema.parse(await research.list());
+    } catch {
+      return reply.code(503).send({ error: { code: 'STRATEGY_RESEARCH_UNAVAILABLE' } });
+    }
+  });
+  app.get('/v1/strategy-research/:hash', { exposeHeadRoute: false }, async (request, reply) => {
+    const params = z.object({ hash: reportHashSchema }).strict().safeParse(request.params);
+    if (!params.success || !z.object({}).strict().safeParse(request.query).success)
+      return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
+    if (!research) return reply.code(503).send({ error: { code: 'STRATEGY_RESEARCH_UNAVAILABLE' } });
+    let snapshot;
+    try {
+      snapshot = await research.get(params.data.hash);
+    } catch {
+      return reply.code(404).send({ error: { code: 'STRATEGY_RESEARCH_NOT_FOUND' } });
+    }
+    try {
+      const result = strategyResearchSnapshotSchema.parse(snapshot);
+      if (result.snapshotHash !== params.data.hash) throw new Error('INVALID_RESEARCH_RESPONSE');
+      return result;
+    } catch {
+      return reply.code(503).send({ error: { code: 'STRATEGY_RESEARCH_UNAVAILABLE' } });
     }
   });
 
