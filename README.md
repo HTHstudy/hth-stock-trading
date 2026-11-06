@@ -35,6 +35,8 @@ web: http://localhost:5173, API 생존 확인: http://localhost:4000/health/live
 
 가격대별 호가와 수수료 올림/내림·최소/최대를 실험하려면 [선택 체결 규칙 모델](docs/EXECUTION_RULE_MODELS.md)을 사용합니다. 규칙을 생략하면 기존 모델과 결과 hash를 유지합니다. 새 규칙은 명시적 가정이며 실제 거래 장소·과거 비용·세금·정산 검증을 의미하지 않습니다.
 
+이동평균·돌파·평균회귀를 오프라인으로 비교하려면 [전략 계열 연구](docs/STRATEGY_FAMILY_STUDY.md)의 `backtest:strategies`를 사용합니다. 연구 결과는 별도 private 형식이며 Paper 전략이나 대시보드 리포트를 자동 변경하지 않습니다.
+
 개별 실행은 `corepack pnpm dev:web`, `dev:api`, `dev:worker`입니다. dev는 web/API를 실행하며 API 실행 전에 공통 패키지와 worker를 빌드합니다. 기본 worker는 idle이므로 별도 실행하지 않아도 됩니다. 명시적 서비스 모드는 [worker 서비스 운영](docs/WORKER_SERVICE.md)을 따릅니다. 패키지나 worker 소스를 변경하면 다시 빌드하고 API를 재시작하세요. 서버 설정은 루트 `.env`, 공개 웹 설정은 `apps/web/.env.local`에 둡니다. `VITE_API_URL`은 `/api`로 설정하며 Vite가 localhost API에 프록시합니다.
 
 ## 실제 데이터 대시보드
