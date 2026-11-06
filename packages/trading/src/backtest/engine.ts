@@ -2,6 +2,7 @@ import { Decimal } from 'decimal.js';
 import { backtestConfigSchema, historicalDatasetSchema, strategySignalSchema } from '@hth/contracts';
 import type { BacktestConfig, HistoricalDataset } from '@hth/contracts';
 import { buildHistoricalDataset } from '../market-data/historical.js';
+import { calculateRulePrice, calculateRuleFee, validateExecutionRuleScope } from './execution-rules.js';
 import type { Strategy } from '../strategy/types.js';
 
 const Money = Decimal.clone({ precision: 100, rounding: Decimal.ROUND_HALF_UP });
@@ -57,10 +58,10 @@ export interface ClosedTrade {
 }
 export interface BacktestReport<Config = unknown> {
   formatVersion: 'backtest-report-v1';
-  engineVersion: '1.0.0';
+  engineVersion: '1.0.0' | '1.1.0';
   mode: 'paper';
   executionEnabled: false;
-  model: 'next-eligible-open-v1';
+  model: 'next-eligible-open-v1' | 'next-eligible-open-rules-v1';
   strategy: { id: string; version: string; parameters: Config };
   config: BacktestConfig;
   currency: 'KRW' | 'USD';
@@ -109,6 +110,15 @@ export function runBacktest<Config>(input: {
   const configResult = backtestConfigSchema.safeParse(input.config);
   if (!configResult.success) throw new Error('INVALID_BACKTEST_CONFIG');
   const config = configResult.data;
+  const rules = config.executionRules;
+  if (rules)
+    validateExecutionRuleScope({
+      rules,
+      market: dataset.request.instrument.market,
+      currency: dataset.instrument.currency,
+      from: dataset.request.from,
+      to: dataset.request.to,
+    });
   const parameters = structuredClone(input.strategyConfig);
   freeze(parameters);
   if (new Money(config.sellFeeBps).plus(config.sellTaxBps).gte(10_000)) throw new Error('INVALID_BACKTEST_CONFIG');
@@ -235,10 +245,32 @@ export function runBacktest<Config>(input: {
           new Money(1).plus(new Money(config.slippageBps).div(10_000).mul(buying ? 1 : -1)),
         );
         const steps = rawPrice.div(tick);
-        const price = (buying ? steps.ceil() : steps.floor()).mul(tick);
+        const price = rules
+          ? new Money(
+              calculateRulePrice({
+                referencePrice: candle.open,
+                slippageBps: config.slippageBps,
+                priceTick: config.priceTick,
+                side: order.action,
+                market: candle.instrument.market,
+                currency: candle.currency,
+                tradingDate: candle.tradingDate,
+                rules,
+              }),
+            )
+          : (buying ? steps.ceil() : steps.floor()).mul(tick);
         const size = buying ? new Money(config.quantity) : quantity;
         const notional = price.mul(size);
-        const fee = charge(notional, buying ? config.buyFeeBps : config.sellFeeBps);
+        const fee = rules
+          ? new Money(
+              calculateRuleFee({
+                notional: notional.toFixed(),
+                feeBps: buying ? config.buyFeeBps : config.sellFeeBps,
+                currency: candle.currency,
+                rule: buying ? rules.buyFee : rules.sellFee,
+              }),
+            )
+          : charge(notional, buying ? config.buyFeeBps : config.sellFeeBps);
         const tax = buying ? new Money(0) : charge(notional, config.sellTaxBps);
         if (price.lte(0)) signals[order.signalIndex]!.status = 'INVALID_PRICE';
         else if (buying ? cash.lt(notional.plus(fee)) : cash.plus(notional).lt(fee.plus(tax)))
@@ -282,10 +314,10 @@ export function runBacktest<Config>(input: {
   const unrealized = quantity.mul(candles.at(-1)!.close).minus(entryCost);
   return {
     formatVersion: 'backtest-report-v1',
-    engineVersion: '1.0.0',
+    engineVersion: rules ? '1.1.0' : '1.0.0',
     mode: 'paper',
     executionEnabled: false,
-    model: 'next-eligible-open-v1',
+    model: rules ? 'next-eligible-open-rules-v1' : 'next-eligible-open-v1',
     strategy: { id: input.strategy.id, version: input.strategy.version, parameters },
     config,
     currency: dataset.instrument.currency,
@@ -294,7 +326,14 @@ export function runBacktest<Config>(input: {
     warnings: [
       ...dataset.warnings,
       'SYNTHETIC_FULL_FILLS_NO_LIQUIDITY_MODEL',
-      'FIXED_TICK_AND_COST_ASSUMPTIONS',
+      ...(rules
+        ? [
+            'EXPLICIT_EXECUTION_RULE_ASSUMPTIONS',
+            'VENUE_ASSUMPTION_NOT_VERIFIED',
+            'ASSET_CLASS_AND_BOARD_ASSUMPTIONS_NOT_VERIFIED',
+            'TAX_AND_SETTLEMENT_UNVERIFIED',
+          ]
+        : ['FIXED_TICK_AND_COST_ASSUMPTIONS']),
       'NO_DIVIDEND_FX_OR_CORPORATE_ACTION_CASHFLOWS',
       'SAMPLED_DRAWDOWN_NOT_INTRABAR',
       'NO_FORCED_LIQUIDATION',

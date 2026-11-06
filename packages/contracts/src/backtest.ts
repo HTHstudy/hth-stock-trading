@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { executionRulesSchema } from './execution-rules.js';
 
 const amount = z
   .string()
@@ -23,6 +24,7 @@ export const backtestConfigSchema = z
     sellFeeBps: basisPoints,
     sellTaxBps: basisPoints,
     slippageBps: basisPoints,
+    executionRules: executionRulesSchema.optional(),
   })
   .strict();
 export const movingAverageBacktestConfigSchema = z

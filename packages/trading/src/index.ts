@@ -23,3 +23,10 @@ export {
   paperEquityValues,
   paperEquityChange,
 } from './execution/paper-portfolio.js';
+
+export {
+  calculateRulePrice,
+  calculateRuleFee,
+  validateExecutionRuleScope,
+  krxEquityTickEvidence,
+} from './backtest/execution-rules.js';

@@ -5,6 +5,8 @@ export {
 } from './paper-validation-status.js';
 export type { PaperValidationStatus, PaperValidationRun } from './paper-validation-status.js';
 import { z } from 'zod';
+export { executionRulesSchema } from './execution-rules.js';
+export type { ExecutionRules } from './execution-rules.js';
 export {
   paperReviewSnapshotSchema,
   paperReviewCheckpointSchema,

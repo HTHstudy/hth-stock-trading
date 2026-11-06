@@ -40,10 +40,10 @@ const metrics = z
 export const backtestReportSchema = z
   .object({
     formatVersion: z.literal('backtest-report-v1'),
-    engineVersion: z.literal('1.0.0'),
+    engineVersion: z.enum(['1.0.0', '1.1.0']),
     mode: z.literal('paper'),
     executionEnabled: z.literal(false),
-    model: z.literal('next-eligible-open-v1'),
+    model: z.enum(['next-eligible-open-v1', 'next-eligible-open-rules-v1']),
     strategy,
     config: backtestConfigSchema,
     currency: z.enum(['KRW', 'USD']),
@@ -112,6 +112,13 @@ export const backtestReportSchema = z
     metrics,
   })
   .strict()
+  .refine(
+    (value) =>
+      value.config.executionRules === undefined
+        ? value.model === 'next-eligible-open-v1' && value.engineVersion === '1.0.0'
+        : value.model === 'next-eligible-open-rules-v1' && value.engineVersion === '1.1.0',
+    { message: 'Execution rules, model and engine version must match' },
+  )
   .refine(
     (value) =>
       value.metrics.fillCount === value.fills.length &&
