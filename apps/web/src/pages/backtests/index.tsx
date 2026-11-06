@@ -120,7 +120,8 @@ export function BacktestsPage() {
                         {sourceLabel(item)} · {item.datasetRequest.instrument.symbol} · {item.datasetRequest.interval} ·{' '}
                         {item.datasetRequest.from}~{item.datasetRequest.to} · MA {item.strategy.parameters.fastPeriod}/
                         {item.strategy.parameters.slowPeriod} · 수수료 {item.config.buyFeeBps}/{item.config.sellFeeBps}{' '}
-                        · 슬립 {item.config.slippageBps}bps · {item.reportHash.slice(0, 8)}
+                        · 슬립 {item.config.slippageBps}bps · {item.config.executionRules ? '규칙 실험' : '기존 모델'} ·{' '}
+                        {item.reportHash.slice(0, 8)}
                       </option>
                     ))}
                 </select>
@@ -132,6 +133,12 @@ export function BacktestsPage() {
               {sourceLabel(primary)} · {primary.datasetRequest.instrument.market}{' '}
               {primary.datasetRequest.instrument.symbol} · {primary.datasetRequest.from} ~ {primary.datasetRequest.to} ·{' '}
               {primary.datasetRequest.interval} · {primary.currency}
+            </p>
+          )}
+          {(primary?.config.executionRules || comparison?.config.executionRules) && (
+            <p className="mt-4 rounded-xl border border-amber-300/20 p-4 text-xs leading-6 text-amber-100">
+              선택 규칙을 가정한 체결 산술 실험입니다. 실제 거래 장소·상품 분류·과거 규칙·세금·증권사 정산이 검증된
+              결과는 아닙니다.
             </p>
           )}
           <CostComparison leftHash={primary?.reportHash ?? ''} rightHash={comparison?.reportHash ?? ''} />

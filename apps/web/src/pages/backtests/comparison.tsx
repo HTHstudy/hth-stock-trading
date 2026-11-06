@@ -22,6 +22,35 @@ export function ComparisonTable({ reports }: { reports: BacktestSummary[] }) {
       label: '매수 수량 · 호가 가정',
       value: (item) => `${item.config.quantity}주 · ${item.config.priceTick} ${item.currency}`,
     },
+    {
+      label: '체결 산술 모델',
+      value: (item) => (item.config.executionRules ? '선택 규칙 실험 (1.1.0)' : '기존 고정 단위 (1.0.0)'),
+    },
+    {
+      label: '호가 규칙 가정',
+      value: (item) =>
+        item.config.executionRules?.priceRule === 'krx-kospi-equity-2023'
+          ? 'KRX 유가증권 보통주 가정 · 실제 거래 장소 미검증'
+          : `고정 ${item.config.priceTick} ${item.currency}`,
+    },
+    {
+      label: '매수 수수료 산술',
+      value: (item) => {
+        const rule = item.config.executionRules?.buyFee;
+        return rule
+          ? `${rule.rounding === 'ceil' ? '올림' : '내림'} · 최소 ${rule.minimum} / 최대 ${rule.maximum ?? '없음'} ${item.currency}`
+          : '통화 최소 단위 올림 · 최소/최대 없음';
+      },
+    },
+    {
+      label: '매도 수수료 산술',
+      value: (item) => {
+        const rule = item.config.executionRules?.sellFee;
+        return rule
+          ? `${rule.rounding === 'ceil' ? '올림' : '내림'} · 최소 ${rule.minimum} / 최대 ${rule.maximum ?? '없음'} ${item.currency}`
+          : '통화 최소 단위 올림 · 최소/최대 없음';
+      },
+    },
     { label: '매수/매도 수수료', value: (item) => `${item.config.buyFeeBps} / ${item.config.sellFeeBps} bps` },
     { label: '매도세 · 슬리피지', value: (item) => `${item.config.sellTaxBps} / ${item.config.slippageBps} bps` },
     { label: '수정주가', value: (item) => (item.datasetRequest.adjusted ? '적용' : '미적용') },

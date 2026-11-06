@@ -1,5 +1,5 @@
 import { expect, expectTypeOf, it } from 'vitest';
-import { backtestArtifactSchema } from '@hth/contracts';
+import { backtestArtifactSchema, executionRulesSchema } from '@hth/contracts';
 import { compareBacktestCosts } from './backtest-cost-comparison.js';
 import type { BacktestCostComparisonRow } from './backtest-cost-comparison.js';
 import type { reviewBacktestExperiment } from './backtest-experiment-review.js';
@@ -40,6 +40,26 @@ function row(variant: string, cost = '1'): BacktestCostComparisonRow {
     },
   };
 }
+
+it('groups only identical explicit execution profiles independently of fee BPS', () => {
+  const lower = row('one');
+  const higher = row('two', '2');
+  const rules = executionRulesSchema.parse({
+    formatVersion: 'execution-rules-v1',
+    priceRule: 'fixed',
+    venueAssumption: 'unspecified',
+    boardAssumption: 'unspecified',
+    assetClassAssumption: 'unspecified',
+    buyFee: { rounding: 'ceil', minimum: '0', maximum: null },
+    sellFee: { rounding: 'floor', minimum: '0', maximum: null },
+  });
+  higher.config.execution.executionRules = structuredClone(rules);
+  expect(compareBacktestCosts([lower, higher])).toEqual([]);
+  lower.config.execution.executionRules = rules;
+  expect(compareBacktestCosts([lower, higher])).toHaveLength(1);
+  higher.config.execution.executionRules.buyFee.minimum = '1';
+  expect(compareBacktestCosts([lower, higher])).toEqual([]);
+});
 
 function evidence(): NonNullable<BacktestCostComparisonRow['executionEvidence']> {
   const report = backtestArtifactSchema.shape.report.shape;

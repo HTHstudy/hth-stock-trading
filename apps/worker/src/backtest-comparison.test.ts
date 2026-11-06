@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { backtestArtifactSchema, backtestCostPairSchema } from '@hth/contracts';
+import { backtestArtifactSchema, backtestCostPairSchema, executionRulesSchema } from '@hth/contracts';
 import type { BacktestArtifact } from '@hth/contracts';
 import { contentHash } from '@hth/database';
 import { compareBacktestReports } from './backtest-comparison.js';
@@ -78,6 +78,40 @@ function rehash(value: BacktestArtifact) {
   const payload = { formatVersion: value.formatVersion, dataset: value.dataset, report: value.report };
   return backtestArtifactSchema.parse({ ...payload, reportHash: contentHash(payload) });
 }
+
+it('rejects execution profile changes before checking even identical fee BPS', () => {
+  const left = artifact();
+  const right = structuredClone(left);
+  right.report.model = 'next-eligible-open-rules-v1';
+  right.report.engineVersion = '1.1.0';
+  right.report.config.executionRules = executionRulesSchema.parse({
+    formatVersion: 'execution-rules-v1',
+    priceRule: 'fixed',
+    venueAssumption: 'unspecified',
+    boardAssumption: 'unspecified',
+    assetClassAssumption: 'unspecified',
+    buyFee: { rounding: 'ceil', minimum: '0', maximum: null },
+    sellFee: { rounding: 'floor', minimum: '0', maximum: null },
+  });
+  expect(compareBacktestReports(left, rehash(right)).reason).toBe('DIFFERENT_EXECUTION');
+  const explicitLeft = structuredClone(right);
+  right.report.config.executionRules.sellFee.maximum = '10';
+  expect(compareBacktestReports(rehash(explicitLeft), rehash(right)).reason).toBe('DIFFERENT_EXECUTION');
+  right.report.config.executionRules = structuredClone(explicitLeft.report.config.executionRules);
+  right.report.config.buyFeeBps = '1';
+  expect(compareBacktestReports(rehash(explicitLeft), rehash(right)).status).toBe('compared');
+});
+
+it('blocks model or engine version changes before fee comparison', () => {
+  const left = artifact();
+  for (const change of ['model', 'engineVersion'] as const) {
+    const right = higher(left);
+    // Defensive helper boundary; artifact schema rejects these mismatched pairs separately.
+    if (change === 'model') right.report.model = 'next-eligible-open-rules-v1';
+    else right.report.engineVersion = '1.1.0';
+    expect(compareBacktestReports(left, right).reason).toBe('DIFFERENT_EXECUTION');
+  }
+});
 
 it('orders numeric costs independently of input order and preserves zero-fill comparisons', () => {
   const left = artifact(),

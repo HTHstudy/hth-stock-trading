@@ -1,5 +1,5 @@
 import { Decimal } from 'decimal.js';
-import { backtestCostPairSchema } from '@hth/contracts';
+import { backtestCostPairSchema, executionRulesSchema } from '@hth/contracts';
 import type { BacktestArtifact, BacktestCostPair } from '@hth/contracts';
 import { compareBacktestCosts } from './backtest-cost-comparison.js';
 import type { BacktestCostComparisonRow } from './backtest-cost-comparison.js';
@@ -27,7 +27,16 @@ export function compareBacktestReports(left: BacktestArtifact, right: BacktestAr
     return incomparable('DIFFERENT_DATASET');
   if (JSON.stringify(a.strategy) !== JSON.stringify(b.strategy)) return incomparable('DIFFERENT_STRATEGY');
   const executionFields = ['initialCash', 'quantity', 'priceTick'] as const;
-  if (executionFields.some((field) => !new Decimal(a.config[field]).eq(b.config[field])))
+  const profile = (artifact: BacktestArtifact) =>
+    artifact.report.config.executionRules === undefined
+      ? null
+      : executionRulesSchema.parse(artifact.report.config.executionRules);
+  if (
+    a.model !== b.model ||
+    a.engineVersion !== b.engineVersion ||
+    JSON.stringify(profile(left)) !== JSON.stringify(profile(right)) ||
+    executionFields.some((field) => !new Decimal(a.config[field]).eq(b.config[field]))
+  )
     return incomparable('DIFFERENT_EXECUTION');
   const row = (artifact: BacktestArtifact): BacktestCostComparisonRow => ({
     dataset: artifact.dataset.contentHash,

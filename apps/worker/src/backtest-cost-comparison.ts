@@ -1,5 +1,6 @@
 import { Decimal } from 'decimal.js';
 import type { z } from 'zod';
+import { executionRulesSchema } from '@hth/contracts';
 import type { backtestArtifactSchema, movingAverageBacktestConfigSchema } from '@hth/contracts';
 
 type BacktestReport = z.infer<typeof backtestArtifactSchema>['report'];
@@ -47,6 +48,7 @@ function groupKey(row: BacktestCostComparisonRow): string {
     new Money(execution.initialCash).toString(),
     new Money(execution.quantity).toString(),
     new Money(execution.priceTick).toString(),
+    execution.executionRules === undefined ? null : executionRulesSchema.parse(execution.executionRules),
   ]);
 }
 

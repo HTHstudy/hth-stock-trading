@@ -41,6 +41,8 @@ async function main() {
 main().catch((error: unknown) => {
   const allowed = [
     'BACKTEST_PAPER_ONLY',
+    'INVALID_EXECUTION_RULE',
+    'UNSUPPORTED_EXECUTION_RULE_SCOPE',
     'EXPERIMENT_ARGUMENTS_REQUIRED',
     'INVALID_EXPERIMENT_MANIFEST',
     'EXPERIMENT_FILE_TOO_LARGE',
