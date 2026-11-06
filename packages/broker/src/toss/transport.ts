@@ -15,6 +15,7 @@ export type ReadPath =
   | '/api/v1/prices'
   | '/api/v1/candles'
   | '/api/v1/buying-power'
+  | '/api/v1/commissions'
   | '/api/v1/exchange-rate'
   | '/api/v1/market-calendar/KR'
   | '/api/v1/market-calendar/US';

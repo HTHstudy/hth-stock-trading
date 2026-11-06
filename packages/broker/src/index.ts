@@ -6,6 +6,19 @@ export interface BrokerAccount {
   readonly type: string;
 }
 
+export interface BrokerCommissionRate {
+  readonly market: 'KR' | 'US';
+  readonly rate: string;
+  readonly startsOn: string | null;
+  readonly endsOn: string | null;
+  /** Both original date properties were supplied, including explicit nulls. */
+  readonly periodBoundsKnown: boolean;
+}
+
+export interface BrokerCommissionLookup {
+  getCommissionRates(account: BrokerAccount): Promise<readonly BrokerCommissionRate[]>;
+}
+
 export interface Holding {
   readonly instrument: InstrumentId;
   readonly quantity: DecimalString;

@@ -90,6 +90,19 @@ export const candlesDto = z.object({
 
 export const buyingPowerDto = z.object({ result: z.object({ currency, cashBuyingPower: nonnegative }) });
 
+export const commissionsDto = z.object({
+  result: z.array(
+    z
+      .object({
+        marketCountry: z.enum(['KR', 'US']),
+        commissionRate: nonnegative,
+        startDate: z.iso.date().nullish(),
+        endDate: z.iso.date().nullish(),
+      })
+      .refine((value) => !value.startDate || !value.endDate || value.startDate <= value.endDate),
+  ),
+});
+
 export const exchangeRateDto = z.object({
   result: z
     .object({

@@ -1,12 +1,13 @@
 import { currencySchema, instantSchema, marketSchema } from '@hth/contracts';
 import type { Candle, Currency, InstrumentId, Market, TokenLifecycleSnapshot } from '@hth/contracts';
 import { z } from 'zod';
-import type { CandleQuery, MarketDay, MarketSession, ReadonlyBroker } from '../index.js';
+import type { BrokerCommissionLookup, CandleQuery, MarketDay, MarketSession, ReadonlyBroker } from '../index.js';
 import { BrokerError } from '../errors.js';
 import {
   accountsDto,
   buyingPowerDto,
   candlesDto,
+  commissionsDto,
   exchangeRateDto,
   holdingsDto,
   instrumentsDto,
@@ -150,7 +151,8 @@ function mapDay(
   };
 }
 
-export type TossReadonlyBroker = ReadonlyBroker & { readTokenLifecycle(): TokenLifecycleSnapshot };
+export type TossReadonlyBroker = ReadonlyBroker &
+  BrokerCommissionLookup & { readTokenLifecycle(): TokenLifecycleSnapshot };
 
 export function createTossReadonlyBroker(options: TossOptions): TossReadonlyBroker {
   const transport = createTransport(options);
@@ -189,6 +191,26 @@ export function createTossReadonlyBroker(options: TossOptions): TossReadonlyBrok
       );
       if (supportedCurrency(data.result.currency) !== currency) throw new BrokerError('INVALID_RESPONSE');
       return { currency, amount: data.result.cashBuyingPower };
+    },
+    async getCommissionRates(account) {
+      const { reference } = input(accountSchema, account);
+      const data = await transport.get(
+        '/api/v1/commissions',
+        'ORDER_INFO',
+        commissionsDto,
+        new URLSearchParams(),
+        reference,
+      );
+      return data.result.map((item) => {
+        if (compareDecimal(item.commissionRate, '1') >= 0) throw new BrokerError('INVALID_RESPONSE');
+        return {
+          market: item.marketCountry,
+          rate: item.commissionRate,
+          startsOn: item.startDate ?? null,
+          endsOn: item.endDate ?? null,
+          periodBoundsKnown: Object.hasOwn(item, 'startDate') && Object.hasOwn(item, 'endDate'),
+        };
+      });
     },
     async getInstruments(instruments) {
       const requests = normalizeRequests(instruments);
