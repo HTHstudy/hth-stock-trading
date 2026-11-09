@@ -10,7 +10,7 @@ describe('화면 숫자 표시', () => {
     expect(formatDecimal(undefined)).toBe('—');
   });
   it('손익 부호를 문자열에서 판정한다', () => {
-    expect(profitClass('-0.01')).toBe('text-sky-400');
-    expect(profitClass('0.000')).toBe('text-slate-400');
+    expect(profitClass('-0.01')).toBe('text-down');
+    expect(profitClass('0.000')).toBe('text-muted');
   });
 });

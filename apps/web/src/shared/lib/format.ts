@@ -31,5 +31,5 @@ export function formatTime(value: string | null | undefined) {
 }
 
 export function profitClass(value: string) {
-  return !/[1-9]/.test(value) ? 'text-slate-400' : value.startsWith('-') ? 'text-sky-400' : 'text-rose-400';
+  return !/[1-9]/.test(value) ? 'text-muted' : value.startsWith('-') ? 'text-down' : 'text-negative';
 }

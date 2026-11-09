@@ -5,7 +5,7 @@ import { researchListOptions, researchSnapshotOptions } from './api';
 import { executionDescription, executionKey, filterRows } from './model';
 import { ResearchResults } from './results';
 
-const selectClass = 'mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 p-3 text-xs text-slate-200';
+const selectClass = 'mt-2 w-full rounded-lg border border-line-strong bg-inset p-3 text-xs text-primary';
 
 // App mounts its router inside OwnerAccess; no private loaders or route prefetch are used.
 export function ResearchPage() {
@@ -17,16 +17,14 @@ export function ResearchPage() {
   const detail = useQuery(researchSnapshotOptions(hash));
   const snapshot = !detail.isError && detail.data?.snapshotHash === hash ? detail.data : undefined;
   return (
-    <main className="mx-auto max-w-[1800px] px-5 py-7 text-slate-200 sm:px-9 xl:ml-56 xl:px-10">
-      <header className="flex flex-wrap items-center justify-between gap-5 border-b border-slate-800 pb-7">
+    <main className="mx-auto max-w-[1800px] px-5 py-7 text-primary sm:px-9 xl:ml-56 xl:px-10">
+      <header className="flex flex-wrap items-center justify-between gap-5 border-b border-line pb-7">
         <div>
-          <p className="text-xs tracking-wider text-slate-500">HTH TRADING / RESEARCH</p>
+          <p className="text-xs tracking-wider text-subtle">HTH TRADING / RESEARCH</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">전략 연구</h1>
-          <p className="mt-2 text-xs text-slate-400">
-            저장된 후보와 매수 후 보유 벤치마크의 성과·자본 노출을 확인합니다.
-          </p>
+          <p className="mt-2 text-xs text-muted">저장된 후보와 매수 후 보유 벤치마크의 성과·자본 노출을 확인합니다.</p>
         </div>
-        <span className="rounded-full border border-teal-300/20 bg-teal-300/5 px-3 py-2 text-xs text-teal-200">
+        <span className="rounded-full border border-accent/20 bg-accent-fill/5 px-3 py-2 text-xs text-accent">
           탐색 연구 · 조회 전용
         </span>
       </header>
@@ -39,23 +37,23 @@ export function ResearchPage() {
         </p>
       )}
       {list.isError && (
-        <p role="alert" className="my-5 text-sm text-rose-200">
+        <p role="alert" className="my-5 text-sm text-negative">
           연구 목록을 읽을 수 없습니다. 연결 또는 검증 상태를 확인해 주세요.
         </p>
       )}
       {list.data && (
-        <p role="status" className="my-4 text-xs text-amber-200">
+        <p role="status" className="my-4 text-xs text-warning">
           검증 제외 {list.data.rejectedCount}개 ·{' '}
           {list.data.limited ? '읽기 한도에 도달해 일부 목록만 표시합니다.' : '목록 읽기 한도 미도달'}
         </p>
       )}
       {!list.isError && list.data && reports.length === 0 && (
-        <p className="rounded-xl border border-dashed border-slate-700 p-10 text-sm text-slate-400">
+        <p className="rounded-xl border border-dashed border-line-strong p-10 text-sm text-muted">
           조회할 전략 연구 리포트가 없습니다.
         </p>
       )}
       {reports.length > 0 && (
-        <label className="mt-5 block rounded-xl border border-slate-800 bg-[#111a2b] p-5 text-xs text-teal-200">
+        <label className="mt-5 block rounded-xl border border-line bg-surface p-5 text-xs text-accent">
           연구 리포트
           <select className={selectClass} value={hash} onChange={(event) => setSelected(event.target.value)}>
             {reports.map((report, index) => (
@@ -73,7 +71,7 @@ export function ResearchPage() {
         </p>
       )}
       {hash && detail.isError && (
-        <p role="alert" className="my-5 text-sm text-rose-200">
+        <p role="alert" className="my-5 text-sm text-negative">
           선택한 연구 리포트를 읽거나 검증할 수 없습니다. 이전 결과를 표시하지 않습니다.
         </p>
       )}
@@ -90,7 +88,7 @@ function SnapshotView({ snapshot }: { snapshot: StrategyResearchSnapshot }) {
   return (
     <>
       <section aria-label="연구 필터" className="mt-5 grid gap-4 md:grid-cols-2">
-        <label className="text-xs text-slate-400">
+        <label className="text-xs text-muted">
           데이터셋
           <select className={selectClass} value={dataset} onChange={(event) => setDataset(event.target.value)}>
             <option value="">전체 데이터셋</option>
@@ -101,7 +99,7 @@ function SnapshotView({ snapshot }: { snapshot: StrategyResearchSnapshot }) {
             ))}
           </select>
         </label>
-        <label className="text-xs text-slate-400">
+        <label className="text-xs text-muted">
           체결 비용 (base / stress 등 원본 설정)
           <select className={selectClass} value={execution} onChange={(event) => setExecution(event.target.value)}>
             <option value="">전체 비용 설정</option>
@@ -114,8 +112,8 @@ function SnapshotView({ snapshot }: { snapshot: StrategyResearchSnapshot }) {
         </label>
       </section>
       <ResearchResults snapshot={snapshot} rows={rows} />
-      <details className="mt-5 break-all rounded-xl border border-slate-800 p-5 text-xs leading-6 text-slate-400">
-        <summary className="cursor-pointer text-slate-300">조회 근거와 평가 구간</summary>
+      <details className="mt-5 break-all rounded-xl border border-line p-5 text-xs leading-6 text-muted">
+        <summary className="cursor-pointer text-secondary">조회 근거와 평가 구간</summary>
         <p>snapshot {snapshot.snapshotHash}</p>
         <p>원본 결과 {snapshot.sourceResultHash}</p>
         <p>파일 무결성 검증 · 데이터셋 파일 재검증 없음 · 엔진 재실행 없음 · 독립 holdout 검증 없음</p>
@@ -134,7 +132,7 @@ export function ResearchDisclosure({ entryAfterClosedCandles }: { entryAfterClos
   return (
     <aside
       aria-label="연구 해석과 한계"
-      className="my-5 rounded-xl border border-amber-300/15 bg-amber-300/5 p-5 text-xs leading-6 text-amber-100"
+      className="my-5 rounded-xl border border-warning/15 bg-warning/5 p-5 text-xs leading-6 text-warning"
     >
       <p>
         사후 수집한 과거 자료를 사용한 탐색 연구이며 독립 검증이나 전략 선정·운용 승인이 아닙니다. 실제 주문을

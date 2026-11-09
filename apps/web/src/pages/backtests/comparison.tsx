@@ -79,17 +79,17 @@ export function ComparisonTable({ reports }: { reports: BacktestSummary[] }) {
     { label: '리포트 SHA-256', value: (item) => item.reportHash },
   ];
   return (
-    <section className="mt-6 overflow-hidden rounded-2xl border border-slate-800 bg-[#111a2b]">
-      <h2 className="border-b border-slate-800 px-6 py-5 text-sm font-semibold">실험 조건 · 성과 비교</h2>
+    <section className="mt-6 overflow-hidden rounded-2xl border border-line bg-surface">
+      <h2 className="border-b border-line px-6 py-5 text-sm font-semibold">실험 조건 · 성과 비교</h2>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[600px] table-fixed text-left text-xs">
           <thead>
-            <tr className="border-b border-slate-800 text-slate-500">
+            <tr className="border-b border-line text-subtle">
               <th className="w-40 px-6 py-4 font-normal">항목</th>
               {reports.map((item, index) => (
                 <th
                   key={item.reportHash}
-                  className={`px-6 py-4 font-medium ${index ? 'text-violet-300' : 'text-teal-300'}`}
+                  className={`px-6 py-4 font-medium ${index ? 'text-comparison' : 'text-accent'}`}
                 >
                   {index ? '비교' : '기준'} · {item.reportHash.slice(0, 8)}
                 </th>
@@ -98,8 +98,8 @@ export function ComparisonTable({ reports }: { reports: BacktestSummary[] }) {
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.label} className="border-b border-slate-800/50 last:border-0">
-                <th scope="row" className="px-6 py-3 font-normal text-slate-500">
+              <tr key={row.label} className="border-b border-line/50 last:border-0">
+                <th scope="row" className="px-6 py-3 font-normal text-subtle">
                   {row.label}
                 </th>
                 {reports.map((item) => (

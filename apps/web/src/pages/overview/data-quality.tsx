@@ -27,15 +27,15 @@ export function DataQualityPanel({ quality, now }: { quality: MarketDataQuality 
     quality?.instruments.filter((item) => item.ready && item.validUntil && Date.parse(item.validUntil) > now).length ??
     0;
   return (
-    <section aria-label="전략 입력 데이터 검증" className="mt-6 rounded-2xl border border-slate-800 bg-[#111a2b] p-5">
+    <section aria-label="전략 입력 데이터 검증" className="mt-6 rounded-2xl border border-line bg-surface p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold">전략 입력 데이터 검증</h2>
-          <p className="mt-1.5 text-xs leading-5 text-slate-500">
+          <p className="mt-1.5 text-xs leading-5 text-subtle">
             세션·봉 종료·시세·계좌·환율을 검사합니다. 통과 여부는 매매 실행 권한과 무관합니다.
           </p>
         </div>
-        <span className="text-xs text-slate-400">
+        <span className="text-xs text-muted">
           {quality ? `현재 입력 조건 충족 ${ready}/${quality.instruments.length}` : '아직 검증하지 않음'}
         </span>
       </div>
@@ -44,17 +44,17 @@ export function DataQualityPanel({ quality, now }: { quality: MarketDataQuality 
           {quality.instruments.map((item) => {
             const expired = item.ready && (!item.validUntil || Date.parse(item.validUntil) <= now);
             return (
-              <article key={item.key} className="rounded-lg border border-slate-800 px-4 py-3">
+              <article key={item.key} className="rounded-lg border border-line px-4 py-3">
                 <div className="flex items-center justify-between gap-2 text-xs">
-                  <span className="font-mono text-slate-300">{item.key}</span>
-                  <span className={item.ready && !expired ? 'text-teal-300' : 'text-amber-200'}>
+                  <span className="font-mono text-secondary">{item.key}</span>
+                  <span className={item.ready && !expired ? 'text-accent' : 'text-warning'}>
                     {expired ? '검증 유효시간 경과' : item.ready ? '입력 조건 충족' : '전략 입력 차단'}
                   </span>
                 </div>
-                <p className="mt-2 text-[11px] text-slate-500">
+                <p className="mt-2 text-[11px] text-subtle">
                   종료 확인 {item.closedCandles} · 대기 {item.pendingCandles} · 제외 {item.blockedCandles}개 봉
                 </p>
-                <p className="mt-2 text-xs leading-5 text-slate-400">
+                <p className="mt-2 text-xs leading-5 text-muted">
                   {expired
                     ? '새로고침 후 다시 검증해주세요.'
                     : item.blockers.length
@@ -66,7 +66,7 @@ export function DataQualityPanel({ quality, now }: { quality: MarketDataQuality 
           })}
         </div>
       )}
-      <p className="mt-3 text-[10px] leading-5 text-slate-600">
+      <p className="mt-3 text-[10px] leading-5 text-subtle">
         {quality ? `검사 ${formatTime(quality.checkedAt)} · ${quality.policyVersion} · ` : ''}봉 구간 종료 확인은 원천
         데이터의 영구 불변 보장이 아닙니다. 늦은 체결·수정주가에 따라 과거 값이 바뀔 수 있습니다.
       </p>

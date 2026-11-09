@@ -48,7 +48,7 @@ export function OwnerAccess({ children }: { children: ReactNode }) {
   }
   if (session.isPending)
     return (
-      <p role="status" className="p-12 text-center text-sm text-slate-400">
+      <p role="status" className="p-12 text-center text-sm text-muted">
         소유자 세션을 확인하고 있습니다…
       </p>
     );
@@ -56,14 +56,14 @@ export function OwnerAccess({ children }: { children: ReactNode }) {
     return (
       <main className="grid min-h-screen place-items-center px-6">
         <div className="text-center">
-          <p role="alert" className="text-sm text-slate-400">
+          <p role="alert" className="text-sm text-muted">
             소유자 세션을 확인할 수 없습니다.
           </p>
           <button
             onClick={() => {
               void session.refetch();
             }}
-            className="mt-5 rounded-lg border border-slate-700 px-5 py-3 text-sm"
+            className="mt-5 rounded-lg border border-line-strong px-5 py-3 text-sm"
           >
             다시 확인
           </button>
@@ -73,10 +73,10 @@ export function OwnerAccess({ children }: { children: ReactNode }) {
   if (!session.data.authenticated) return <SignInPage configured={session.data.configured} />;
   return (
     <>
-      <div className="flex items-center justify-end gap-4 border-b border-slate-800 px-5 py-2 text-[11px] text-slate-500 xl:ml-56">
+      <div className="flex items-center justify-end gap-4 border-b border-line px-5 py-2 text-[11px] text-subtle xl:ml-56">
         <span>소유자 세션</span>
         {error && (
-          <span role="alert" className="text-rose-200">
+          <span role="alert" className="text-negative">
             로그아웃을 확인하지 못했습니다.
           </span>
         )}
@@ -85,7 +85,7 @@ export function OwnerAccess({ children }: { children: ReactNode }) {
           onClick={() => {
             void logout();
           }}
-          className="rounded-md px-3 py-2 text-slate-300 hover:bg-slate-800 disabled:opacity-40"
+          className="rounded-md px-3 py-2 text-secondary hover:bg-hover disabled:opacity-40"
         >
           {leaving ? '확인 중…' : '로그아웃'}
         </button>

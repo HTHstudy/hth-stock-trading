@@ -4,8 +4,7 @@ import { watchlistUpdateSchema } from '@hth/contracts';
 import type { WatchlistState } from '@hth/contracts';
 import { WATCHLIST_API } from '@shared/api/watchlist';
 
-const inputClass =
-  'rounded-md border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-slate-200 disabled:opacity-40';
+const inputClass = 'rounded-md border border-line-strong bg-inset px-2 py-2 text-xs text-primary disabled:opacity-40';
 function WatchlistForm({
   state,
   onClose,
@@ -42,13 +41,13 @@ function WatchlistForm({
   }
   return (
     <form
-      className="mt-4 rounded-xl border border-teal-300/20 bg-slate-950/30 p-3"
+      className="mt-4 rounded-xl border border-accent/20 bg-inset/30 p-3"
       onSubmit={(event) => {
         event.preventDefault();
         if (!save.isPending) submit();
       }}
     >
-      <p className="text-xs leading-6 text-slate-400">
+      <p className="text-xs leading-6 text-muted">
         조회할 종목 코드만 저장합니다. 전략·보유분은 변경하지 않습니다. 저장 후 상단 새로고침으로 시세를 조회해 주세요.
       </p>
       <fieldset disabled={save.isPending || conflict} className="mt-3 space-y-2">
@@ -82,7 +81,7 @@ function WatchlistForm({
             <button
               type="button"
               aria-label={`${index + 1}번 종목 삭제`}
-              className="shrink-0 px-1 text-xs text-rose-300"
+              className="shrink-0 px-1 text-xs text-negative"
               onClick={() => setDraft(draft.filter((_, i) => i !== index))}
             >
               삭제
@@ -90,29 +89,29 @@ function WatchlistForm({
           </div>
         ))}
         {!draft.length && (
-          <p className="py-2 text-xs text-slate-500">빈 목록으로 저장할 수 있습니다. 기본 종목을 다시 넣지 않습니다.</p>
+          <p className="py-2 text-xs text-subtle">빈 목록으로 저장할 수 있습니다. 기본 종목을 다시 넣지 않습니다.</p>
         )}
         <button
           type="button"
           disabled={draft.length >= 20}
-          className="mt-2 text-xs text-teal-200 disabled:opacity-40"
+          className="mt-2 text-xs text-accent disabled:opacity-40"
           onClick={() => setDraft([...draft, { market: 'KR', symbol: '' }])}
         >
           + 종목 추가 ({draft.length}/20)
         </button>
       </fieldset>
       {invalid && (
-        <p role="alert" className="mt-3 text-xs leading-5 text-rose-300">
+        <p role="alert" className="mt-3 text-xs leading-5 text-negative">
           중복 없이 최대 20개까지 저장합니다. 코드는 영문·숫자·점·하이픈으로 입력해 주세요.
         </p>
       )}
       {conflict && (
-        <p role="alert" className="mt-3 text-xs leading-5 text-amber-200">
+        <p role="alert" className="mt-3 text-xs leading-5 text-warning">
           다른 창에서 목록이 변경됐습니다. 취소 후 최신 목록으로 다시 편집해 주세요.
         </p>
       )}
       {save.isError && !conflict && (
-        <p role="alert" className="mt-3 text-xs leading-5 text-rose-300">
+        <p role="alert" className="mt-3 text-xs leading-5 text-negative">
           저장 여부를 확인하지 못했습니다. 자동으로 재전송하지 않습니다. 취소 후 목록을 다시 조회해 주세요.
         </p>
       )}
@@ -120,7 +119,7 @@ function WatchlistForm({
         <button
           type="submit"
           disabled={save.isPending || conflict}
-          className="rounded-md bg-teal-300 px-3 py-2 text-xs font-semibold text-slate-950 disabled:opacity-40"
+          className="rounded-md bg-accent-fill px-3 py-2 text-xs font-semibold text-on-accent disabled:opacity-40"
         >
           {save.isPending ? '저장 확인 중…' : '저장'}
         </button>
@@ -128,7 +127,7 @@ function WatchlistForm({
           type="button"
           disabled={save.isPending}
           onClick={onClose}
-          className="rounded-md border border-slate-700 px-3 py-2 text-xs"
+          className="rounded-md border border-line-strong px-3 py-2 text-xs"
         >
           취소
         </button>
@@ -145,8 +144,8 @@ export function WatchlistEditor() {
     staleTime: 5000,
   });
   return (
-    <div className="mt-3 border-b border-slate-800 pb-4">
-      <p className="text-[11px] leading-5 text-slate-500">
+    <div className="mt-3 border-b border-line pb-4">
+      <p className="text-[11px] leading-5 text-subtle">
         {!query.data
           ? '조회용 관심종목 설정'
           : query.data.origin === 'environment'
@@ -154,7 +153,7 @@ export function WatchlistEditor() {
             : '저장한 관심종목 · 매매 대상과 별도'}
       </p>
       {query.data && (
-        <p className="mt-2 break-words text-xs text-slate-400">
+        <p className="mt-2 break-words text-xs text-muted">
           {query.data.instruments.length
             ? query.data.instruments.map((item) => `${item.market}:${item.symbol}`).join(' · ')
             : '등록한 관심종목 없음'}
@@ -164,7 +163,7 @@ export function WatchlistEditor() {
         <button
           type="button"
           disabled={!query.data || query.isError || editing}
-          className="text-xs text-teal-200 disabled:opacity-40"
+          className="text-xs text-accent disabled:opacity-40"
           onClick={() => {
             setEditing(true);
             setSaved(false);
@@ -175,24 +174,24 @@ export function WatchlistEditor() {
         <button
           type="button"
           disabled={query.isFetching}
-          className="text-xs text-slate-400"
+          className="text-xs text-muted"
           onClick={() => void query.refetch()}
         >
           설정 다시 읽기
         </button>
       </div>
       {query.isError && (
-        <p role="alert" className="mt-2 text-xs text-rose-300">
+        <p role="alert" className="mt-2 text-xs text-negative">
           관심종목 설정을 조회하지 못했습니다.
         </p>
       )}
       {query.isPending && (
-        <p role="status" className="mt-2 text-xs text-slate-500">
+        <p role="status" className="mt-2 text-xs text-subtle">
           관심종목 설정을 읽고 있습니다…
         </p>
       )}
       {saved && (
-        <p role="status" className="mt-3 text-xs leading-5 text-teal-200">
+        <p role="status" className="mt-3 text-xs leading-5 text-accent">
           관심종목을 저장했습니다. 상단 새로고침으로 새 목록의 시세를 조회해 주세요. 기존 30초 조회 간격은 유지됩니다.
           거래는 시작하지 않았습니다.
         </p>

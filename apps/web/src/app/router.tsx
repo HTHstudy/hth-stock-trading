@@ -47,17 +47,17 @@ export function createAppRouter(history: RouterHistory = createBrowserHistory())
     routeTree,
     history,
     defaultPendingComponent: () => (
-      <p role="status" className="p-10 text-sm text-slate-400 xl:ml-56">
+      <p role="status" className="p-10 text-sm text-muted xl:ml-56">
         화면을 불러오고 있습니다…
       </p>
     ),
     defaultErrorComponent: () => (
-      <p role="alert" className="p-10 text-sm text-rose-200 xl:ml-56">
+      <p role="alert" className="p-10 text-sm text-negative xl:ml-56">
         화면을 불러오지 못했습니다. 새로고침해 주세요.
       </p>
     ),
     defaultNotFoundComponent: () => (
-      <p role="alert" className="p-10 text-sm text-slate-400 xl:ml-56">
+      <p role="alert" className="p-10 text-sm text-muted xl:ml-56">
         존재하지 않는 페이지입니다.
       </p>
     ),

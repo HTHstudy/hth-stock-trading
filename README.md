@@ -39,6 +39,8 @@ web: http://localhost:5173, API 생존 확인: http://localhost:4000/health/live
 
 [전략 연구 화면](http://localhost:5173/research)에서 같은 시점의 단순 보유 대조군과 투자 원가·보유 시간을 비교합니다. 성과와 투자금·보유 시간을 나눠 보고, 종목·기간·비용 설정으로 조회할 수 있습니다. [KO·JPM 2023~2025 연구 확대](docs/SECTOR_RESEARCH_EXPANSION.md)도 같은 고정 조건으로 추가했습니다. 실행/저장 검토 명령 `backtest:benchmark`와 지표 정의는 [대조군·자본 노출 문서](docs/STRATEGY_BENCHMARK_RESEARCH.md)를 따릅니다. 소유자 로그인 후 읽기 전용으로 조회합니다.
 
+화면 상단의 **시스템 / 라이트 / 다크** 버튼으로 테마를 바꿀 수 있습니다. 기본은 OS 설정이며 선택은 브라우저에 저장합니다. 로그인 화면과 차트에도 적용되며, 브라우저 저장소가 차단된 경우 현재 탭에서만 선택을 유지합니다. [구현·검증 범위](docs/WEB_THEME.md)를 참고하세요.
+
 개별 실행은 `corepack pnpm dev:web`, `dev:api`, `dev:worker`입니다. dev는 web/API를 실행하며 API 실행 전에 공통 패키지와 worker를 빌드합니다. 기본 worker는 idle이므로 별도 실행하지 않아도 됩니다. 명시적 서비스 모드는 [worker 서비스 운영](docs/WORKER_SERVICE.md)을 따릅니다. 패키지나 worker 소스를 변경하면 다시 빌드하고 API를 재시작하세요. 서버 설정은 루트 `.env`, 공개 웹 설정은 `apps/web/.env.local`에 둡니다. `VITE_API_URL`은 `/api`로 설정하며 Vite가 localhost API에 프록시합니다.
 
 ## 실제 데이터 대시보드

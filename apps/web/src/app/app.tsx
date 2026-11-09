@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { RouterProvider } from '@tanstack/react-router';
 import './global.css';
+import { ThemeProvider } from '@shared/lib/theme';
+import { ThemeControl } from './theme-control';
 import { Providers } from './providers';
 import { OwnerAccess } from './owner-access';
 import { createAppRouter } from './router';
@@ -20,10 +22,13 @@ export function App() {
     return () => window.removeEventListener('hashchange', migrate);
   }, []);
   return (
-    <Providers>
-      <OwnerAccess>
-        <RouterProvider router={router} />
-      </OwnerAccess>
-    </Providers>
+    <ThemeProvider>
+      <ThemeControl />
+      <Providers>
+        <OwnerAccess>
+          <RouterProvider router={router} />
+        </OwnerAccess>
+      </Providers>
+    </ThemeProvider>
   );
 }

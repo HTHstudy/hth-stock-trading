@@ -89,11 +89,11 @@ export function validationRunPresentation(run: PaperValidationRun) {
   return {
     execution: {
       label: executionLabel,
-      className: fullRun && !uncertain ? 'text-teal-200' : 'text-amber-100',
+      className: fullRun && !uncertain ? 'text-accent' : 'text-warning',
     },
     review: {
       label: run.verdict ? `검증: ${validationVerdictLabels[run.verdict]}` : '검증: 대사 기록 없음 · 미검증',
-      className: run.verdict === 'consistent-observed-state' && !uncertain ? 'text-teal-200' : 'text-amber-100',
+      className: run.verdict === 'consistent-observed-state' && !uncertain ? 'text-accent' : 'text-warning',
     },
   };
 }

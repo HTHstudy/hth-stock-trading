@@ -95,7 +95,7 @@ it('새 확정 봉 부족 기록을 일반 사전 점검 실패와 구분하고 
   expect(html).toContain('검증: 대사 기록 없음 · 미검증');
   expect(html).not.toContain('시작 전 점검 불충족');
   expect(html).not.toContain('실행: 60회 실행 완료');
-  expect(html).not.toContain('text-teal-200');
+  expect(html).not.toContain('text-accent');
   expect(html).not.toContain('재개하기');
   const historical = render(snapshot({ runs: [{ ...stopped, code: 'PAPER_PREFLIGHT_FAILED' }] }));
   expect(historical).toContain('종료 사유: 시작 전 점검 불충족');
@@ -120,7 +120,7 @@ it('저장 fixture만 SSR하고 조회나 broker 연결을 시작하지 않는�
   expect(html).toContain('정지·정리 기록 있음');
   expect(html).toContain('현재 실행 여부는 미확인');
   expect(html).toContain('조회에서 다시 계산하지 않습니다');
-  expect(html).not.toContain('text-teal-200');
+  expect(html).not.toContain('text-accent');
   expect(html.match(/<button/g)).toHaveLength(1);
   expect(html).toContain('실행 기록 새로고침');
   for (const forbidden of [
@@ -185,11 +185,11 @@ it('완료 기록이 있어도 시각 불확실 경고를 우선하고 완료 �
     runningTicks: 60,
     checks: Object.fromEntries(paperValidationCheckNames.map((name) => [name, 'passed' as const])),
   });
-  expect(render(snapshot({ runs: [completed] }))).toContain('text-teal-200');
+  expect(render(snapshot({ runs: [completed] }))).toContain('text-accent');
   const html = render(snapshot({ runs: [{ ...completed, clock: 'unverified' }] }));
   expect(html).toContain('시각 불확실 · 결과 해석 주의');
   expect(html.indexOf('시각 불확실')).toBeLessThan(html.indexOf('실행: 60회 실행 완료'));
-  expect(html).not.toContain('text-teal-200');
+  expect(html).not.toContain('text-accent');
 });
 it('상한과 제외 수를 실패 횟수와 구분하고 두 시장의 오류·정리 문제를 표시한다', () => {
   const html = render(
@@ -234,8 +234,8 @@ it('60회 실행 완료와 주문·체결 검증 미완료를 접힌 요약에�
   const summary = html.match(/<summary[^>]*>([\s\S]*?)<\/summary>/)?.[1];
   expect(summary).toContain('실행: 60회 실행 완료');
   expect(summary).toContain('검증: 대사 미완료');
-  expect(summary).toContain('text-teal-200');
-  expect(summary).toContain('text-amber-100');
+  expect(summary).toContain('text-accent');
+  expect(summary).toContain('text-warning');
   expect(html).toContain('주문 의도 검증 미완료');
   expect(html).toContain('모의 체결 검증 미완료');
 });
@@ -243,7 +243,7 @@ it('실행 보고가 부족하거나 조기 종료된 기록을 60회 실행 완
   for (const record of [run(), run({ resultState: 'execution-ended-early', runningTicks: 60 })]) {
     const html = render(snapshot({ runs: [record] }));
     expect(html).not.toContain('실행: 60회 실행 완료');
-    expect(html).not.toContain('text-teal-200');
+    expect(html).not.toContain('text-accent');
   }
 });
 it('60회 실행 뒤 대사 문제가 발견되면 실행 완료와 문제를 각각 표시한다', () => {

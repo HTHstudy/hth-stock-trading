@@ -42,15 +42,15 @@ export function BacktestsPage() {
   );
   const metrics = first.data?.report.metrics;
   return (
-    <main className="mx-auto max-w-[1600px] px-5 py-7 text-slate-200 sm:px-9 xl:ml-56 xl:px-10">
-      <header className="flex flex-wrap items-center justify-between gap-5 border-b border-slate-800 pb-7">
+    <main className="mx-auto max-w-[1600px] px-5 py-7 text-primary sm:px-9 xl:ml-56 xl:px-10">
+      <header className="flex flex-wrap items-center justify-between gap-5 border-b border-line pb-7">
         <div>
-          <p className="text-xs tracking-wider text-slate-500">HTH TRADING / BACKTESTS</p>
+          <p className="text-xs tracking-wider text-subtle">HTH TRADING / BACKTESTS</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">백테스트 실험실</h1>
-          <p className="mt-2 text-xs text-slate-400">저장한 리포트의 성과와 조건을 확인하고 두 실험을 비교합니다.</p>
+          <p className="mt-2 text-xs text-muted">저장한 리포트의 성과와 조건을 확인하고 두 실험을 비교합니다.</p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="rounded-full border border-amber-300/20 bg-amber-300/5 px-3 py-1.5 text-[11px] font-semibold text-amber-200">
+          <span className="rounded-full border border-warning/20 bg-warning/5 px-3 py-1.5 text-[11px] font-semibold text-warning">
             PAPER · 조회 전용
           </span>
           <button
@@ -60,40 +60,40 @@ export function BacktestsPage() {
               if (comparison) void second.refetch();
             }}
             disabled={list.isFetching}
-            className="rounded-lg bg-teal-300 px-4 py-2.5 text-xs font-semibold text-slate-950 disabled:opacity-40"
+            className="rounded-lg bg-accent-fill px-4 py-2.5 text-xs font-semibold text-on-accent disabled:opacity-40"
           >
             {list.isFetching ? '검증 중…' : '목록 새로고침'}
           </button>
         </div>
       </header>
-      <p className="my-5 rounded-xl border border-amber-300/15 bg-amber-300/5 px-5 py-4 text-xs leading-6 text-amber-100">
+      <p className="my-5 rounded-xl border border-warning/15 bg-warning/5 px-5 py-4 text-xs leading-6 text-warning">
         합성 데모는 기능 검증용이며 실제 투자 성과가 아닙니다. 모든 결과는 합성 전량 체결·고정 비용 가정을 사용하고,
         과거 당시 정보만을 보장하지 않습니다. 이 화면에서 전략이나 주문을 실행하지 않습니다.
       </p>
       {list.isPending && (
-        <p role="status" className="py-12 text-center text-sm text-slate-400">
+        <p role="status" className="py-12 text-center text-sm text-muted">
           리포트 목록을 검증하고 있습니다…
         </p>
       )}
       {list.isError && (
-        <p role="alert" className="my-6 rounded-xl border border-rose-300/20 p-5 text-sm text-rose-200">
+        <p role="alert" className="my-6 rounded-xl border border-negative/20 p-5 text-sm text-negative">
           리포트 API에 연결할 수 없습니다. 로컬 API 서버와 리포트 디렉터리 접근 상태를 확인한 뒤 새로고침하세요.
         </p>
       )}
       {list.data && (list.data.rejectedCount > 0 || list.data.limited) && (
-        <p role="status" className="mb-5 text-xs leading-6 text-amber-200">
+        <p role="status" className="mb-5 text-xs leading-6 text-warning">
           {list.data.rejectedCount > 0 &&
             `검증을 통과하지 못한 JSON ${list.data.rejectedCount}개를 목록에서 제외했습니다. `}
           {list.data.limited && '파일 수 또는 읽기 한도에 도달해 목록 일부만 표시합니다.'}
         </p>
       )}
       {list.data && reports.length === 0 && (
-        <section className="rounded-2xl border border-dashed border-slate-700 px-6 py-14 text-center">
+        <section className="rounded-2xl border border-dashed border-line-strong px-6 py-14 text-center">
           <h2 className="font-medium">아직 조회할 백테스트가 없습니다.</h2>
-          <p className="mt-3 text-sm text-slate-400">
+          <p className="mt-3 text-sm text-muted">
             CLI에서 리포트를 프로젝트의 .local-data 디렉터리에 저장한 뒤 목록을 새로고침하세요.
           </p>
-          <p className="mt-3 text-xs text-slate-500">실행 방법은 docs/BACKTESTING.md에서 확인할 수 있습니다.</p>
+          <p className="mt-3 text-xs text-subtle">실행 방법은 docs/BACKTESTING.md에서 확인할 수 있습니다.</p>
         </section>
       )}
       {reports.length > 0 && (
@@ -103,14 +103,12 @@ export function BacktestsPage() {
               { label: '기준 리포트', value: primary?.reportHash ?? '', onChange: setSelected },
               { label: '비교 리포트', value: comparison?.reportHash ?? '', onChange: setCompared },
             ].map((field, index) => (
-              <label key={field.label} className="rounded-xl border border-slate-800 bg-[#111a2b] p-5">
-                <span className={`mb-3 block text-xs ${index ? 'text-violet-300' : 'text-teal-300'}`}>
-                  {field.label}
-                </span>
+              <label key={field.label} className="rounded-xl border border-line bg-surface p-5">
+                <span className={`mb-3 block text-xs ${index ? 'text-comparison' : 'text-accent'}`}>{field.label}</span>
                 <select
                   value={field.value}
                   onChange={(event) => field.onChange(event.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-900 p-3 text-xs text-slate-200"
+                  className="w-full rounded-lg border border-line-strong bg-inset p-3 text-xs text-primary"
                 >
                   {index === 1 && <option value="">비교하지 않음</option>}
                   {reports
@@ -129,26 +127,26 @@ export function BacktestsPage() {
             ))}
           </section>
           {primary && (
-            <p className="mt-4 text-xs text-slate-500">
+            <p className="mt-4 text-xs text-subtle">
               {sourceLabel(primary)} · {primary.datasetRequest.instrument.market}{' '}
               {primary.datasetRequest.instrument.symbol} · {primary.datasetRequest.from} ~ {primary.datasetRequest.to} ·{' '}
               {primary.datasetRequest.interval} · {primary.currency}
             </p>
           )}
           {(primary?.config.executionRules || comparison?.config.executionRules) && (
-            <p className="mt-4 rounded-xl border border-amber-300/20 p-4 text-xs leading-6 text-amber-100">
+            <p className="mt-4 rounded-xl border border-warning/20 p-4 text-xs leading-6 text-warning">
               선택 규칙을 가정한 체결 산술 실험입니다. 실제 거래 장소·상품 분류·과거 규칙·세금·증권사 정산이 검증된
               결과는 아닙니다.
             </p>
           )}
           <CostComparison leftHash={primary?.reportHash ?? ''} rightHash={comparison?.reportHash ?? ''} />
           {first.isPending && (
-            <p role="status" className="py-12 text-center text-sm text-slate-400">
+            <p role="status" className="py-12 text-center text-sm text-muted">
               리포트 상세를 불러오고 있습니다…
             </p>
           )}
           {(first.isError || (comparison && second.isError)) && (
-            <p role="alert" className="my-5 rounded-xl border border-rose-300/20 p-5 text-sm text-rose-200">
+            <p role="alert" className="my-5 rounded-xl border border-negative/20 p-5 text-sm text-negative">
               선택한 리포트를 읽을 수 없습니다. 파일 변경·삭제 또는 검증 실패일 수 있습니다. 목록을 새로고침하세요.
             </p>
           )}
@@ -171,62 +169,62 @@ export function BacktestsPage() {
                   {
                     label: '최대 낙폭 (MDD)',
                     value: `${formatDecimal(metrics.maxDrawdownPct, 4)}%`,
-                    className: 'text-slate-100',
+                    className: 'text-primary',
                     note: '시가·종가 평가 지점 기준',
                   },
                   {
                     label: '승률',
                     value: metrics.winRatePct === null ? '—' : `${formatDecimal(metrics.winRatePct)}%`,
-                    className: 'text-slate-100',
+                    className: 'text-primary',
                     note: `완료 거래 ${metrics.tradeCount}건 · 체결 ${metrics.fillCount}건`,
                   },
                 ].map((metric) => (
-                  <article key={metric.label} className="rounded-2xl border border-slate-800 bg-[#111a2b] p-6">
-                    <p className="text-xs text-slate-400">{metric.label}</p>
+                  <article key={metric.label} className="rounded-2xl border border-line bg-surface p-6">
+                    <p className="text-xs text-muted">{metric.label}</p>
                     <p className={`mt-4 text-2xl font-semibold tracking-tight tabular-nums ${metric.className}`}>
                       {metric.value}
                     </p>
-                    <p className="mt-3 text-[11px] text-slate-500">{metric.note}</p>
+                    <p className="mt-3 text-[11px] text-subtle">{metric.note}</p>
                   </article>
                 ))}
               </section>
-              <section className="mt-6 overflow-hidden rounded-2xl border border-slate-800 bg-[#111a2b]">
-                <div className="border-b border-slate-800 px-6 py-5">
+              <section className="mt-6 overflow-hidden rounded-2xl border border-line bg-surface">
+                <div className="border-b border-line px-6 py-5">
                   <h2 className="text-sm font-semibold">
-                    누적 수익률 곡선 <span className="ml-2 text-[10px] font-normal text-slate-500">시간축 UTC</span>
+                    누적 수익률 곡선 <span className="ml-2 text-[10px] font-normal text-subtle">시간축 UTC</span>
                   </h2>
-                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                  <p className="mt-2 text-xs leading-5 text-subtle">
                     {comparison
                       ? (blocker ??
                         '같은 동결 데이터셋·통화·초기 자산 기준입니다. 전략·비용 차이는 아래 표에서 확인하세요.')
                       : '기준 리포트의 시간별 누적 수익률입니다.'}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-5 text-xs">
-                    <span className="text-teal-300">
+                    <span className="text-accent">
                       ━ 기준 MA {first.data.report.strategy.parameters.fastPeriod}/
                       {first.data.report.strategy.parameters.slowPeriod}
                     </span>
                     {curves.length > 1 && (
-                      <span className="text-violet-300">
+                      <span className="text-comparison">
                         ━ 비교 MA {curves[1]!.report.strategy.parameters.fastPeriod}/
                         {curves[1]!.report.strategy.parameters.slowPeriod}
                       </span>
                     )}
                     {comparison && second.isPending && (
-                      <span role="status" className="text-slate-400">
+                      <span role="status" className="text-muted">
                         비교 리포트 로딩 중…
                       </span>
                     )}
                   </div>
                 </div>
-                <Suspense fallback={<p className="h-80 p-10 text-sm text-slate-400">차트 로딩 중…</p>}>
+                <Suspense fallback={<p className="h-80 p-10 text-sm text-muted">차트 로딩 중…</p>}>
                   <EquityChart reports={curves} />
                 </Suspense>
               </section>
               <ComparisonTable reports={[primary!, ...(comparison ? [comparison] : [])]} />
               <ReportLedger key={first.data.reportHash} artifact={first.data} />
-              <details className="my-6 rounded-xl border border-slate-800 px-6 py-4 text-xs leading-6 text-slate-400">
-                <summary className="cursor-pointer font-medium text-slate-300">해석할 때 확인할 가정과 한계</summary>
+              <details className="my-6 rounded-xl border border-line px-6 py-4 text-xs leading-6 text-muted">
+                <summary className="cursor-pointer font-medium text-secondary">해석할 때 확인할 가정과 한계</summary>
                 <p className="mt-3">
                   신호를 알 수 있는 시각 이후의 첫 체결 가능 시가를 사용합니다. 유동성·거래 정지·실제 주문 조건을
                   재현하지 않습니다. 배당·환전·기업행위 현금 흐름은 반영하지 않으며 미청산 포지션을 강제 청산하지
