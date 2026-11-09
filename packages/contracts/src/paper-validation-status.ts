@@ -53,6 +53,8 @@ export const paperValidationFailureCodeSchema = z.enum([
   'PAPER_MARKET_PLAN_INVALID',
   'PAPER_MARKET_PLAN_HASH_MISMATCH',
   'PAPER_VALIDATION_RESOURCE_INVALID',
+  'PAPER_VALIDATION_PAUSED',
+  'PAPER_VALIDATION_WAITING',
 ]);
 const ticks = z.number().int().min(0).max(60).nullable();
 export const paperValidationRunSchema = z

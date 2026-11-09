@@ -32,7 +32,12 @@ function row() {
   };
 }
 it('확정 봉 부족과 일반 사전 점검 실패 코드를 구분하고 알 수 없는 코드는 거부한다', () => {
-  for (const code of ['PAPER_STRATEGY_WARMUP_INSUFFICIENT', 'PAPER_PREFLIGHT_FAILED']) {
+  for (const code of [
+    'PAPER_STRATEGY_WARMUP_INSUFFICIENT',
+    'PAPER_PREFLIGHT_FAILED',
+    'PAPER_VALIDATION_PAUSED',
+    'PAPER_VALIDATION_WAITING',
+  ]) {
     expect(paperValidationFailureCodeSchema.parse(code)).toBe(code);
     const saved = paperValidationRunSchema.parse({
       ...row(),

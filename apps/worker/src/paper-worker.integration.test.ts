@@ -7,6 +7,7 @@ import type { PaperEvidence } from '@hth/contracts';
 import { createPaperWorker } from './paper-worker.js';
 import type { PaperSource } from './paper-worker.js';
 import { paperSyntheticSource } from './paper-synthetic-source.js';
+import { runGuardedPaperValidationPhase } from './paper-validation-guards.js';
 
 describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper 상시 worker', () => {
   let database: ReturnType<typeof createDatabase>;
@@ -525,6 +526,54 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('Paper 상시 worker', () => {
     const signal = AbortSignal.abort();
     await cancelled.run(signal);
     expect((await database.paper.readAccount(context.id)).leaseUntil).toBeNull();
+  });
+  it.each([
+    { state: 'paused', resume: false, code: 'PAPER_VALIDATION_PAUSED' },
+    { state: 'waiting', resume: true, code: 'PAPER_VALIDATION_WAITING' },
+  ] as const)('유한 실행 guard는 $state 첫 tick 뒤 정리를 마치고 자산을 보존한다', async ({ state, resume, code }) => {
+    const context = await fixture();
+    await context.worker.start();
+    await context.worker.step();
+    await context.worker.step();
+    expect((await database.paper.readAccount(context.id)).snapshot.positions).toMatchObject([{ quantity: '1' }]);
+    await context.worker.close();
+    const before = await database.paper.readAccount(context.id);
+    const beforeReview = await database.paperReview.capture(context.id, 'synthetic-only');
+    if (state === 'waiting') context.closeMarket();
+    const worker = context.create({ ...context.config, resume });
+    const onTick = vi.fn();
+
+    const result = await runGuardedPaperValidationPhase({
+      resume: true,
+      // A finite fallback makes a missing callback guard fail without an unbounded loop.
+      run: (callback) => worker.run(new AbortController().signal, callback, 3),
+      onTick,
+    });
+
+    expect(result).toBe(code);
+    expect(onTick).toHaveBeenCalledTimes(1);
+    expect(onTick).toHaveBeenCalledWith({ state, signals: 0, fills: 0, executionEnabled: false });
+    // Assert before any explicit close: run's finally must have released ownership already.
+    const after = await database.paper.readAccount(context.id);
+    expect(after.control.stopped).toBe(true);
+    expect(after.leaseUntil).toBeNull();
+    expect(after.snapshot.reservations).toHaveLength(0);
+    expect(await database.paper.readOpenIntents(context.id)).toHaveLength(0);
+    expect(after.snapshot.cash).toEqual(before.snapshot.cash);
+    // A paused observation legitimately refreshes mark times, but cannot change holdings or price.
+    expect(after.snapshot.positions).toEqual(
+      before.snapshot.positions.map((position) => ({
+        ...position,
+        markTimestamp: expect.any(String),
+        markObservedAt: expect.any(String),
+      })),
+    );
+    expect(after.snapshot.dailyPnl).toEqual(before.snapshot.dailyPnl);
+    expect((await database.paperReview.capture(context.id, 'synthetic-only')).basis).toEqual(beforeReview.basis);
+    const dashboard = await database.paper.readDashboard(context.id);
+    expect(dashboard.orders).toHaveLength(1);
+    expect(dashboard.orders[0]).toMatchObject({ state: 'ABORTED', filledQuantity: '1' });
+    expect(dashboard.fills).toHaveLength(1);
   });
   it('계좌와 다른 출처의 봉은 관측·의도 기록 전에 거부하고 정지한다', async () => {
     const context = await fixture();

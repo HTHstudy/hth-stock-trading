@@ -317,3 +317,27 @@ it('검증 계획 파일 오류를 실행 실패 사유로 표시하고 완료�
   expect(html).toContain('검증 계획 파일 읽기 또는 형식 오류');
   expect(html).not.toContain('실행: 60회 실행 완료');
 });
+
+it('정지·휴장 조기 종료는 완료 성공으로 표시하지 않고 사유와 체결 미검증을 유지한다', () => {
+  for (const [code, label] of [
+    ['PAPER_VALIDATION_PAUSED', '정지 상태로 검증 조기 종료'],
+    ['PAPER_VALIDATION_WAITING', '휴장 대기 상태로 검증 조기 종료'],
+  ] as const) {
+    const html = render(
+      snapshot({
+        runs: [
+          run({
+            resultState: 'execution-ended-early',
+            code,
+            completedTicks: 1,
+            runningTicks: 0,
+            verdict: 'incomplete',
+          }),
+        ],
+      }),
+    );
+    expect(html).toContain(label);
+    expect(html).toContain('체결');
+    expect(html).not.toContain('text-accent');
+  }
+});

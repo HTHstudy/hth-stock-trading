@@ -19,6 +19,7 @@ import { createObservationJobs } from './observation-jobs.js';
 import { observationMonitoring } from './observation-monitoring.js';
 
 const maxJournal = 32 * 1048576;
+type SampleRange = { startedAt: string | null; finishedAt: string | null };
 const key = (item: { market: string; symbol: string }) => `${item.market}:${item.symbol}`;
 export function createObservationReports(directory: string, jobsDirectory?: string, now: () => number = Date.now) {
   const root = resolve(directory);
@@ -53,7 +54,7 @@ export function createObservationReports(directory: string, jobsDirectory?: stri
   async function verify(
     id: string,
     charge?: (size: number) => void,
-  ): Promise<{ report: ObservationReport; bytes: number }> {
+  ): Promise<{ report: ObservationReport; sampleRange: SampleRange; bytes: number }> {
     if (!z.uuid().safeParse(id).success) throw new Error('INVALID_REPORT_ID');
     const folder = join(root, id);
     const rootInfo = await lstat(root),
@@ -107,6 +108,10 @@ export function createObservationReports(directory: string, jobsDirectory?: stri
           samplesLimited: records.length > 50,
           monitoring: observationMonitoring(manifest, records, false, now(), end < journal.length),
         }),
+        sampleRange: {
+          startedAt: records[0]?.startedAt ?? null,
+          finishedAt: records.at(-1)?.finishedAt ?? null,
+        },
         bytes: manifestBytes.length + journal.length,
       };
     }
@@ -162,11 +167,24 @@ export function createObservationReports(directory: string, jobsDirectory?: stri
         samplesLimited: records.length > 50,
         monitoring: observationMonitoring(manifest, records, true, now()),
       }),
+      sampleRange: {
+        startedAt: records[0]?.startedAt ?? null,
+        finishedAt: records.at(-1)?.finishedAt ?? null,
+      },
       bytes: manifestBytes.length + terminalBytes.length + journal.length,
     };
   }
   let cached: { until: number; list: ObservationList } | undefined;
   let loading: Promise<ObservationList> | undefined;
+  async function getVerified(id: string) {
+    if (!z.uuid().safeParse(id).success) throw new Error('INVALID_REPORT_ID');
+    try {
+      return await verify(id);
+    } catch {
+      cached = undefined;
+      throw new Error('OBSERVATION_NOT_FOUND');
+    }
+  }
   return {
     async list(): Promise<ObservationList> {
       if (cached && cached.until > now()) return cached.list;
@@ -242,13 +260,11 @@ export function createObservationReports(directory: string, jobsDirectory?: stri
       return createObservationJobs(jobsDirectory).list();
     },
     async get(id: string) {
-      if (!z.uuid().safeParse(id).success) throw new Error('INVALID_REPORT_ID');
-      try {
-        return (await verify(id)).report;
-      } catch {
-        cached = undefined;
-        throw new Error('OBSERVATION_NOT_FOUND');
-      }
+      return (await getVerified(id)).report;
+    },
+    async getWithSampleRange(id: string): Promise<{ report: ObservationReport; sampleRange: SampleRange }> {
+      const { report, sampleRange } = await getVerified(id);
+      return { report, sampleRange };
     },
   };
 }

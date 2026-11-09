@@ -1,7 +1,8 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, writeFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, readdir, rm, mkdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { pathToFileURL } from 'node:url';
 import { join, resolve } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
 import { contentHash } from '@hth/database';
@@ -140,4 +141,105 @@ it('개장 5분 뒤 예약은 키·DB·대기·실행 기록 생성 전에 warmu
     ),
   ).rejects.toMatchObject({ stderr: expect.stringContaining('PAPER_STRATEGY_WARMUP_INSUFFICIENT') });
   expect(await readdir(root)).toEqual(before);
+}, 20000);
+
+it('전체 표본 범위를 읽는 선행 검사 실패는 서버 환경·계좌·DB 단계 이전에 종료 기록을 남긴다', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'paper-prerequisite-gate-'));
+  roots.push(root);
+  const buildRoot = join(root, 'code');
+  const actual = resolve('.');
+  const realModule = (name: string, path: string) =>
+    `export { ${name} } from ${JSON.stringify(pathToFileURL(resolve(actual, path)).href)};`;
+  const modules: Record<string, string> = {
+    'packages/contracts/dist/index.js': realModule(
+      'instantSchema, observationJobSchema',
+      'packages/contracts/dist/index.js',
+    ),
+    'packages/database/dist/index.js': realModule('contentHash', 'packages/database/dist/index.js'),
+    'apps/worker/dist/paper-validation-resources.js': realModule(
+      'verifyPaperValidationResources, paperValidationFailureCode',
+      'apps/worker/dist/paper-validation-resources.js',
+    ),
+    'apps/worker/dist/paper-market-plan.js': realModule(
+      'readPaperMarketPlan, verifyPaperMarketPlan',
+      'apps/worker/dist/paper-market-plan.js',
+    ),
+    'apps/worker/dist/paper-warmup.js': realModule(
+      'planPaperWarmup, assessPaperWarmup',
+      'apps/worker/dist/paper-warmup.js',
+    ),
+    'apps/worker/dist/paper-review-files.js': realModule(
+      'writeReviewArtifact',
+      'apps/worker/dist/paper-review-files.js',
+    ),
+    'apps/worker/dist/paper-validation-guards.js': `export {runGuardedPaperValidationPhase} from ${JSON.stringify(pathToFileURL(resolve(actual, 'apps/worker/dist/paper-validation-guards.js')).href)}; export function verifyPaperPrerequisite(){throw new Error('PREREQUISITE_FAILED')}`,
+    'apps/api/dist/observation-jobs.js': `export const createObservationJobs=()=>({list:async()=>({jobs:[{id:'kr-2026-11-09',state:'completed',reportId:'12345678-1234-4234-8234-123456789012'}]})});`,
+    'apps/api/dist/observation-reports.js': `export const createObservationReports=()=>({getWithSampleRange:async()=>({report:{},sampleRange:{}})});`,
+  };
+  for (const path of [
+    'packages/contracts/dist',
+    'packages/broker/dist',
+    'packages/trading/dist',
+    'packages/database/dist',
+    'apps/worker/dist',
+    'apps/api/dist',
+  ])
+    await mkdir(join(buildRoot, path), { recursive: true });
+  for (const [path, source] of Object.entries(modules)) await writeFile(join(buildRoot, path), source);
+  await writeFile(join(buildRoot, 'package.json'), JSON.stringify({ type: 'module' }));
+  await writeFile(join(buildRoot, 'pnpm-lock.yaml'), 'test-only-lock');
+  const clock = join(root, 'clock.mjs');
+  await writeFile(
+    clock,
+    `const original=Date;const now=original.parse('2026-11-09T01:30:00Z');globalThis.Date=class extends original{constructor(value){super(value===undefined?now:value)}static now(){return now}};`,
+  );
+  const plan = defaultPaperMarketPlan({ market: 'KR', symbol: '005930' }),
+    source = join(root, 'source.json');
+  await writeFile(source, JSON.stringify(plan));
+  const pinned = await createPaperValidationResources(join(root, 'resources'), 'KR', source, contentHash(plan));
+  const expectations = {
+    KR: { version: 1, epoch: 1, entryHash: 'a'.repeat(64), limitsHash: 'b'.repeat(64), strategyHash: 'c'.repeat(64) },
+  };
+  const expectationsPath = join(root, 'expected.json');
+  await writeFile(expectationsPath, JSON.stringify(expectations));
+  const invoke = (args: string[]) =>
+    execute(process.execPath, ['--import', clock, script, '--market=KR', `--build-root=${buildRoot}`, ...args], {
+      cwd: root,
+      env: {},
+      timeout: 10000,
+    });
+  const fingerprint = (await invoke(['--fingerprint'])).stdout.trim();
+  await expect(
+    invoke([
+      '--run',
+      '--resume-authorized',
+      `--build-hash=${fingerprint}`,
+      `--resources=${pinned.directory}`,
+      `--resources-hash=${pinned.resourcesHash}`,
+      `--expectations=${expectationsPath}`,
+      `--expectations-hash=${contentHash(expectations)}`,
+      '--session-start=2026-11-09T00:00:00Z',
+      '--session-end=2026-11-09T06:30:00Z',
+      '--start-at=2026-11-09T01:30:00Z',
+      '--deadline=2026-11-09T01:55:00Z',
+      '--prerequisite=kr-2026-11-09',
+    ]),
+  ).rejects.toMatchObject({ code: 1 });
+  const runs = join(root, '.local-data/paper-validation-runs'),
+    [id] = await readdir(runs);
+  const result = JSON.parse(await readFile(join(runs, id!, 'result.json'), 'utf8'));
+  expect(result).toMatchObject({
+    phase: 'waiting',
+    code: 'PREREQUISITE_FAILED',
+    runStarted: false,
+    completedTicks: 0,
+    automaticRetry: false,
+    executionEnabled: false,
+  });
+  expect(await readdir(join(runs, id!))).toEqual(
+    expect.arrayContaining(['request.json', 'warmup-plan.json', 'result.json']),
+  );
+  expect(await readdir(join(runs, id!))).not.toContain('observation-evidence.json');
+  // No server env file exists: passing the prerequisite would have failed in a different phase/code.
+  await expect(readFile(join(root, '.env'))).rejects.toMatchObject({ code: 'ENOENT' });
 }, 20000);

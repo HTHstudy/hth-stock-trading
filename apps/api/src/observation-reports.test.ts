@@ -105,6 +105,45 @@ it('저장 형식을 검증하고 전체 집계와 최근 50회를 반환한다'
   expect(report.recentSamples[0]!.index).toBe(6);
   expect(JSON.stringify(report)).not.toMatch(/samples\.jsonl|PRIVATE_KEY|accountNumber/);
 });
+it('내부 범위는 최근 50개에서 빠진 첫 표본부터 전체 60개의 마지막 표본까지 연결한다', async () => {
+  const context = await fixture(60);
+  const service = createObservationReports(context.root, undefined, () => Date.parse('2026-03-25T01:10:01Z'));
+  const records = Array.from({ length: 60 }, (_, index) => ({
+    ...context.record,
+    index: index + 1,
+    startedAt: new Date(Date.parse(context.record.startedAt) + index * 10000).toISOString(),
+    finishedAt: new Date(Date.parse(context.record.finishedAt) + index * 10000).toISOString(),
+  }));
+  const journal = records.map((record) => JSON.stringify(record)).join('\n') + '\n';
+  await writeFile(join(context.directory, 'samples.jsonl'), journal);
+  await writeFile(
+    join(context.directory, 'summary.json'),
+    JSON.stringify({
+      ...context.artifact,
+      finishedAt: '2026-03-25T01:10:00Z',
+      journalSha256: createHash('sha256').update(journal).digest('hex'),
+    }),
+  );
+  const result = await service.getWithSampleRange(context.id);
+  expect(Object.keys(result).sort()).toEqual(['report', 'sampleRange']);
+  expect(result.sampleRange).toEqual({ startedAt: records[0]!.startedAt, finishedAt: records[59]!.finishedAt });
+  expect(result.report).toEqual(await service.get(context.id));
+  expect(result.report).not.toHaveProperty('sampleRange');
+  expect(result.report.recordedSamples).toBe(60);
+  expect(result.report.recentSamples).toEqual(records.slice(10));
+  expect(result.sampleRange.startedAt).not.toBe(result.report.recentSamples[0]!.startedAt);
+
+  await rm(join(context.directory, 'summary.json'));
+  await writeFile(join(context.directory, 'samples.jsonl'), journal + '{"index":61');
+  const provisional = await service.getWithSampleRange(context.id);
+  expect(provisional.sampleRange).toEqual(result.sampleRange);
+  expect(provisional.report).toMatchObject({
+    state: 'incomplete',
+    journalSha256: null,
+    recordedSamples: 60,
+    monitoring: { evidence: 'provisional', partialWrite: true },
+  });
+});
 it('변조된 해시·집계·manifest와 비공개 필드를 거부한다', async () => {
   for (const change of ['hash', 'count', 'manifest', 'private']) {
     const context = await fixture();
@@ -118,6 +157,7 @@ it('변조된 해시·집계·manifest와 비공개 필드를 거부한다', asy
     );
     expect(await context.service.list()).toMatchObject({ reports: [], rejectedCount: 1 });
     await expect(context.service.get(context.id)).rejects.toThrow('OBSERVATION_NOT_FOUND');
+    await expect(context.service.getWithSampleRange(context.id)).rejects.toThrow('OBSERVATION_NOT_FOUND');
   }
 });
 it('미완료와 상위 실행 실패를 정상 종료로 표시하지 않는다', async () => {
@@ -150,17 +190,21 @@ it('미완료와 상위 실행 실패를 정상 종료로 표시하지 않는다
 it('심볼릭 링크·경로 이탈·거대 파일을 거부한다', async () => {
   const context = await fixture();
   await expect(context.service.get('../private')).rejects.toThrow('INVALID_REPORT_ID');
+  await expect(context.service.getWithSampleRange('../private')).rejects.toThrow('INVALID_REPORT_ID');
   const linked = randomUUID();
   await symlink(context.directory, join(context.root, linked));
   await expect(context.service.get(linked)).rejects.toThrow('OBSERVATION_NOT_FOUND');
+  await expect(context.service.getWithSampleRange(linked)).rejects.toThrow('OBSERVATION_NOT_FOUND');
   await rm(join(context.directory, 'samples.jsonl'));
   await symlink(join(context.directory, 'manifest.json'), join(context.directory, 'samples.jsonl'));
   await expect(context.service.get(context.id)).rejects.toThrow('OBSERVATION_NOT_FOUND');
+  await expect(context.service.getWithSampleRange(context.id)).rejects.toThrow('OBSERVATION_NOT_FOUND');
   await rm(join(context.directory, 'samples.jsonl'));
   const file = await open(join(context.directory, 'samples.jsonl'), 'w');
   await file.truncate(33 * 1048576);
   await file.close();
   await expect(context.service.get(context.id)).rejects.toThrow('OBSERVATION_NOT_FOUND');
+  await expect(context.service.getWithSampleRange(context.id)).rejects.toThrow('OBSERVATION_NOT_FOUND');
 });
 it('해시가 일치해도 journal 형식·연속 순서·종목 혼입을 거부한다', async () => {
   for (const change of ['sequence', 'symbol', 'private']) {
@@ -217,6 +261,7 @@ it('인증·로컬 경계·입력 제한을 적용하고 조회로 수집을 시
     expect(response.statusCode).toBe(200);
     expect(response.headers['cache-control']).toBe('no-store, private');
     expect(response.body).not.toContain(context.root);
+    expect(response.json()).not.toHaveProperty('sampleRange');
     expect(
       (
         await app.inject({
@@ -237,6 +282,7 @@ it('대량 목록은 제한을 표시하고 상세 조회는 캐시와 무관하
   const context = await fixture();
   await context.service.list();
   await writeFile(join(context.directory, 'samples.jsonl'), 'tampered\n');
+  await expect(context.service.getWithSampleRange(context.id)).rejects.toThrow('OBSERVATION_NOT_FOUND');
   await expect(context.service.get(context.id)).rejects.toThrow('OBSERVATION_NOT_FOUND');
   expect((await context.service.list()).reports).toHaveLength(0);
   for (let index = 0; index < 52; index++) {
@@ -344,6 +390,7 @@ it('초기 빈 기록·완료 요약 대기·시각 불확실 상태를 종료�
   const service = createObservationReports(context.root, undefined, () => Date.parse('2026-03-25T01:00:02Z'));
   expect((await service.get(context.id)).monitoring?.state).toBe('awaiting-finalization');
   await writeFile(join(context.directory, 'samples.jsonl'), '');
+  expect((await service.getWithSampleRange(context.id)).sampleRange).toEqual({ startedAt: null, finishedAt: null });
   expect(await service.get(context.id)).toMatchObject({
     recordedSamples: 0,
     monitoring: { state: 'recent', lastRecordedAt: null },
@@ -351,5 +398,6 @@ it('초기 빈 기록·완료 요약 대기·시각 불확실 상태를 종료�
   const future = createObservationReports(context.root, undefined, () => Date.parse('2026-03-24T01:00:00Z'));
   expect((await future.get(context.id)).monitoring?.state).toBe('clock-unverified');
   await rm(join(context.directory, 'samples.jsonl'));
+  expect((await service.getWithSampleRange(context.id)).sampleRange).toEqual({ startedAt: null, finishedAt: null });
   expect((await service.get(context.id)).recordedSamples).toBe(0);
 });

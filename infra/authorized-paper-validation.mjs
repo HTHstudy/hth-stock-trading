@@ -217,6 +217,15 @@ async function main() {
   } catch {
     throw new Error('PAPER_CONTROL_CHANGED');
   }
+  const { verifyPaperPrerequisite, runGuardedPaperValidationPhase } = await load(
+    'apps/worker/dist/paper-validation-guards.js',
+  );
+  const prerequisiteContext = () => ({
+    instrument: pinnedPlan.strategy.instrument,
+    sessionStartsAt: warmupTiming.sessionStartsAt,
+    sessionEndsAt: warmupTiming.sessionEndsAt,
+    asOf: new Date().toISOString(),
+  });
   const { createObservationJobs } = await load('apps/api/dist/observation-jobs.js');
   const { createObservationReports } = await load('apps/api/dist/observation-reports.js');
   const { writeReviewArtifact } = await load('apps/worker/dist/paper-review-files.js');
@@ -265,6 +274,7 @@ async function main() {
       resolve(root, '.local-data/observations'),
       resolve(root, '.local-data/scheduled-observations'),
     );
+    let selectedPrerequisite;
     while (true) {
       control.signal.throwIfAborted();
       if (Date.now() >= deadline) throw new Error('PREREQUISITE_UNVERIFIED');
@@ -277,22 +287,13 @@ async function main() {
       const job = list.jobs.find((x) => x.id === prerequisite);
       if (job && ['failed', 'cancelled'].includes(job.state)) throw new Error('PREREQUISITE_FAILED');
       if (job?.state === 'completed' && job.reportId) {
-        const report = await reports.get(job.reportId);
-        if (
-          report.monitoring.evidence !== 'final-hash-verified' ||
-          report.monitoring.state !== 'terminal' ||
-          report.manifest.source !== 'toss-readonly' ||
-          report.manifest.instruments.length !== 1 ||
-          report.manifest.instruments[0].market !== market ||
-          report.recordedSamples !== 60 ||
-          report.summary?.healthy !== 60 ||
-          report.summary?.errorSamples !== 0 ||
-          report.summary?.blocked !== 0 ||
-          report.monitoring.gapCount !== 0
-        )
-          throw new Error('PREREQUISITE_FAILED');
+        const evidence = await reports.getWithSampleRange(job.reportId);
+        const selection = verifyPaperPrerequisite(job, evidence, prerequisiteContext());
+        const { report } = evidence;
+        selectedPrerequisite = { job, selection };
         await writeReviewArtifact(resolve(directory, 'observation-evidence.json'), {
           job: prerequisite,
+          selection,
           reportId: report.manifest.id,
           journalSha256: report.journalSha256,
           monitoring: report.monitoring,
@@ -431,41 +432,64 @@ async function main() {
       );
       if (config.resume !== resume || config.prepare || config.initialize || config.stop || ticks > 60)
         throw new Error('PAPER_PREFLIGHT_FAILED');
-      await runPaperMarket(
-        config,
-        {
-          paper: db.paper,
-          prepare: async () => {
-            throw new Error('PAPER_PREFLIGHT_FAILED');
-          },
-          withBrokerLease: (key, operation) => brokerDb.withBrokerLease(key, operation),
-          createBroker: createTossReadonlyBroker,
-          createWorker: (value, source) =>
-            createPaperWorker(
-              {
-                ...db.paper,
-                acquireLease: (id, ttl, dataSource) =>
-                  db.paper.acquireLease(
-                    id,
-                    ttl,
-                    dataSource,
-                    resume ? beforeRun.snapshot.version : reviewed.snapshot.version,
-                  ),
+      const leaseControl = new AbortController();
+      const phaseSignal = AbortSignal.any([
+        control.signal,
+        leaseControl.signal,
+        AbortSignal.timeout(resume ? 900000 : 60000),
+      ]);
+      return runGuardedPaperValidationPhase({
+        resume,
+        signal: phaseSignal,
+        run: (onTick) =>
+          runPaperMarket(
+            config,
+            {
+              paper: db.paper,
+              prepare: async () => {
+                throw new Error('PAPER_PREFLIGHT_FAILED');
               },
-              value,
-              async (instruments, signal) => {
-                const frames = await source(instruments, signal);
-                lastFrames = frames;
-                return frames;
+              withBrokerLease: async (key, operation) => {
+                let heldSignal;
+                try {
+                  return await brokerDb.withBrokerLease(key, (signal) => {
+                    heldSignal = signal;
+                    return operation(signal);
+                  });
+                } finally {
+                  // A callback error must not mask lease loss during transport/lock cleanup.
+                  if (heldSignal?.aborted) leaseControl.abort(new Error('BROKER_LEASE_LOST'));
+                }
               },
-            ),
-        },
-        AbortSignal.any([control.signal, AbortSignal.timeout(resume ? 900000 : 60000)]),
-        (status) => {
+              createBroker: createTossReadonlyBroker,
+              createWorker: (value, source) =>
+                createPaperWorker(
+                  {
+                    ...db.paper,
+                    acquireLease: (id, ttl, dataSource) =>
+                      db.paper.acquireLease(
+                        id,
+                        ttl,
+                        dataSource,
+                        resume ? beforeRun.snapshot.version : reviewed.snapshot.version,
+                      ),
+                  },
+                  value,
+                  async (instruments, signal) => {
+                    const frames = await source(instruments, signal);
+                    lastFrames = frames;
+                    return frames;
+                  },
+                ),
+            },
+            phaseSignal,
+            onTick,
+          ),
+        onTick: (status) => {
           statuses.push(status);
           emit({ state: resume ? 'paper-tick' : 'stopped-observation', tick: statuses.length, ...status });
         },
-      );
+      });
     };
     phase = 'stopped-observation';
     emit({ state: phase });
@@ -544,6 +568,14 @@ async function main() {
       throw new Error('PAPER_CONFIGURATION_CHANGED');
     if ((await fingerprint()) !== expectedBuild) throw new Error('PAPER_BUILD_CHANGED');
     await verifyPaperValidationResources(resourceDirectory, resourcesHash, market);
+    const finalSelection = verifyPaperPrerequisite(
+      selectedPrerequisite.job,
+      await reports.getWithSampleRange(selectedPrerequisite.job.reportId),
+      prerequisiteContext(),
+    );
+    if (finalSelection.evidenceHash !== selectedPrerequisite.selection.evidenceHash)
+      throw new Error('PREREQUISITE_FAILED');
+    await writeReviewArtifact(resolve(directory, 'prerequisite-before-run.json'), finalSelection);
     beforeRun = await capture('before');
     if (
       beforeRun.snapshot.version !== observed.snapshot.version ||
@@ -554,33 +586,43 @@ async function main() {
     phase = 'authorized-paper-run';
     runStarted = true;
     emit({ state: phase, maxTicks: 60 });
-    await runPhase(true, 60).finally(async () => {
-      afterRun = await capture('after');
-      const report = reviewPaperCheckpoints(beforeRun, afterRun, new Date().toISOString());
-      await writeReviewArtifact(resolve(directory, 'review.json'), {
-        formatVersion: 'paper-review-artifact-v1',
-        report,
-        hash: contentHash(report),
+    let earlyStopCode = null;
+    await runPhase(true, 60)
+      .then((code) => {
+        earlyStopCode = code;
+      })
+      .finally(async () => {
+        afterRun = await capture('after');
+        const report = reviewPaperCheckpoints(beforeRun, afterRun, new Date().toISOString());
+        await writeReviewArtifact(resolve(directory, 'review.json'), {
+          formatVersion: 'paper-review-artifact-v1',
+          report,
+          hash: contentHash(report),
+        });
+        result = {
+          state:
+            report.verdict === 'issues-found'
+              ? 'review-issues-found'
+              : report.verdict === 'incomplete'
+                ? 'completed-with-incomplete-review'
+                : 'completed',
+          resumeRequested: true,
+          maxTicks: 60,
+          completedTicks: statuses.length,
+          runningTicks: statuses.filter((x) => x.state === 'running').length,
+          verdict: report.verdict,
+          stoppedAndCleaned: clean(afterRun.snapshot),
+          intents: afterRun.snapshot.intents.length,
+          fills: afterRun.snapshot.fills.length,
+        };
+        if (report.verdict !== 'issues-found' && (result.completedTicks !== 60 || result.runningTicks !== 60))
+          result.state = 'execution-ended-early';
+        if (earlyStopCode) {
+          if (report.verdict !== 'issues-found') result.state = 'execution-ended-early';
+          result.code = earlyStopCode;
+        }
+        if (!clean(afterRun.snapshot)) throw new Error('PAPER_CLEANUP_INCOMPLETE');
       });
-      result = {
-        state:
-          report.verdict === 'issues-found'
-            ? 'review-issues-found'
-            : report.verdict === 'incomplete'
-              ? 'completed-with-incomplete-review'
-              : 'completed',
-        resumeRequested: true,
-        maxTicks: 60,
-        completedTicks: statuses.length,
-        runningTicks: statuses.filter((x) => x.state === 'running').length,
-        verdict: report.verdict,
-        stoppedAndCleaned: clean(afterRun.snapshot),
-        intents: afterRun.snapshot.intents.length,
-        fills: afterRun.snapshot.fills.length,
-      };
-      if (result.completedTicks !== 60 || result.runningTicks !== 60) result.state = 'execution-ended-early';
-      if (!clean(afterRun.snapshot)) throw new Error('PAPER_CLEANUP_INCOMPLETE');
-    });
   } catch (error) {
     const code = paperValidationFailureCode(error, control.signal.aborted);
     result = { ...result, state: 'stopped-before-run-or-failed', phase, code, runStarted };
