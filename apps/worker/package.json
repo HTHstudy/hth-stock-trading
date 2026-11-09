@@ -27,6 +27,18 @@
     "./strategy-research-snapshot": {
       "types": "./dist/strategy-research-snapshot.d.ts",
       "import": "./dist/strategy-research-snapshot.js"
+    },
+    "./readonly-supervision-status": {
+      "types": "./dist/readonly-supervision-status.d.ts",
+      "import": "./dist/readonly-supervision-status.js"
+    },
+    "./token-lifecycle-evidence": {
+      "types": "./dist/token-lifecycle-evidence.d.ts",
+      "import": "./dist/token-lifecycle-evidence.js"
+    },
+    "./paper-validation-guards": {
+      "types": "./dist/paper-validation-guards.d.ts",
+      "import": "./dist/paper-validation-guards.js"
     }
   },
   "scripts": {

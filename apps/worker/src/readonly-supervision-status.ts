@@ -3,7 +3,9 @@ import { lstat, open, opendir, realpath } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+import { observationJobSchema } from '@hth/contracts';
 import { contentHash } from '@hth/database';
+import { marketTradingDate } from '@hth/trading';
 import { planReadonlyValidation } from './readonly-validation-plan.js';
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
@@ -21,7 +23,7 @@ const instrument = z.strictObject({
 });
 const planSchema = z.strictObject({
   formatVersion: z.literal('readonly-validation-plan-v1'),
-  kind: z.enum(['session', 'expiry']),
+  kind: z.enum(['session', 'expiry', 'regular']),
   state: z.literal('prepared'),
   startsAt: instant,
   deadline: instant,
@@ -36,12 +38,16 @@ const planSchema = z.strictObject({
   estimatedBudgetEndsAt: instant,
   sourceMethodCallsWithoutRetries: z.number().int().min(10).max(50_000),
   httpRequestCountKnown: z.literal(false),
-  blockers: z.array(z.enum(['DEADLINE_BUDGET_INSUFFICIENT', 'RESERVED_WINDOW_OVERLAP'])).length(0),
+  blockers: z
+    .array(z.enum(['DEADLINE_BUDGET_INSUFFICIENT', 'RESERVED_WINDOW_OVERLAP', 'OUTSIDE_REGULAR_SESSION']))
+    .length(0),
   reservedWindowCount: z.number().int().min(0).max(100),
   reservedWindows: z.array(z.strictObject({ startsAt: instant, endsAt: instant })).max(100),
   observedTtlSeconds: z.number().int().min(1).max(172800).nullable(),
   boundaryAt: instant.nullable(),
-  regularOnly: z.literal(false),
+  regularOnly: z.boolean(),
+  sessionStartsAt: instant.optional(),
+  sessionEndsAt: instant.optional(),
   tokenLifecycle: z.literal(true),
   requiresDeadlineSupervisor: z.literal(true),
   requiresFreshCalendar: z.literal(true),
@@ -60,6 +66,7 @@ const requestSchema = z.strictObject({
   planHash: hash,
   buildHash: hash,
   requestedAt: instant,
+  observationJobId: observationJobSchema.shape.id.optional(),
   ...safety,
 });
 const failureCode = z.enum([
@@ -131,15 +138,38 @@ export function summarizeReadonlySupervision(id: string, input: { request: unkno
     deadline: plan.deadline,
     intervalSeconds: plan.intervalSeconds,
     reservedWindows: plan.reservedWindows,
-    ...(plan.kind === 'session' ? { boundaryAt: plan.boundaryAt } : { observedTtlSeconds: plan.observedTtlSeconds }),
+    ...(plan.kind === 'regular'
+      ? { sessionStartsAt: plan.sessionStartsAt, sessionEndsAt: plan.sessionEndsAt }
+      : plan.kind === 'session'
+        ? { boundaryAt: plan.boundaryAt }
+        : { observedTtlSeconds: plan.observedTtlSeconds }),
   });
+  const regular = plan.kind === 'regular';
+  const binding = {
+    plan,
+    source: request.source,
+    instrument: request.instrument,
+    ...(regular ? { observationJobId: request.observationJobId } : {}),
+  };
   if (
     request.id !== id ||
     contentHash(recalculated) !== contentHash(plan) ||
     (plan.kind === 'session' ? plan.observedTtlSeconds !== null : plan.boundaryAt !== null) ||
+    (regular &&
+      (plan.observedTtlSeconds !== null ||
+        plan.samples !== 60 ||
+        !plan.regularOnly ||
+        !request.observationJobId?.startsWith(request.instrument.market.toLowerCase() + '-') ||
+        request.observationJobId.slice(3, 13) !==
+          marketTradingDate(Date.parse(plan.startsAt), request.instrument.market))) ||
+    (!regular &&
+      (request.observationJobId !== undefined ||
+        plan.regularOnly ||
+        plan.sessionStartsAt !== undefined ||
+        plan.sessionEndsAt !== undefined)) ||
     (request.source === 'demo' &&
       contentHash(request.instrument) !== contentHash({ market: 'KR', symbol: '005930' })) ||
-    contentHash({ plan, source: request.source, instrument: request.instrument }) !== request.planHash
+    contentHash(binding) !== request.planHash
   )
     throw new Error('INVALID_SUPERVISION_RECORD');
   const result = input.result === null ? null : resultSchema.parse(input.result);
@@ -206,6 +236,62 @@ export function summarizeReadonlySupervision(id: string, input: { request: unkno
     blocked: result?.evidence?.blocked ?? null,
     ...boundaries,
   };
+}
+
+/** Link only a newly recorded regular job to a clean owned result. No execution authority. */
+export function verifyRegularSupervisionLink(
+  id: string,
+  input: { request: unknown; result: unknown },
+  now: number,
+  expectedJobId: string,
+) {
+  try {
+    observationJobSchema.shape.id.parse(expectedJobId);
+    const summary = summarizeReadonlySupervision(id, input, now),
+      request = requestSchema.parse(input.request),
+      result = resultSchema.parse(input.result);
+    if (
+      request.plan.kind !== 'regular' ||
+      request.source !== 'market' ||
+      request.observationJobId !== expectedJobId ||
+      summary.clockUnverified ||
+      result.state !== 'observation-completed' ||
+      !result.childCleanupConfirmed ||
+      result.forced ||
+      !result.evidence ||
+      result.evidence.samples !== 60 ||
+      result.evidence.healthy !== 60 ||
+      result.evidence.closed !== 0 ||
+      result.evidence.blocked !== 0 ||
+      !request.plan.sessionStartsAt ||
+      !request.plan.sessionEndsAt
+    )
+      throw new Error('INVALID');
+    const job = observationJobSchema.parse({
+      id: expectedJobId,
+      startsAt: request.plan.startsAt,
+      launchedAt: request.requestedAt,
+      instrument: request.instrument,
+      requestedSamples: 60,
+      intervalSeconds: request.plan.intervalSeconds,
+      state: 'completed',
+      failureCode: null,
+      reportId: result.evidence.id,
+      recordedSamples: 60,
+      executionEnabled: false,
+    });
+    return {
+      job,
+      reportId: result.evidence.id,
+      journalSha256: result.evidence.journalSha256,
+      sessionStartsAt: request.plan.sessionStartsAt,
+      sessionEndsAt: request.plan.sessionEndsAt,
+      supervisorFinishedAt: result.finishedAt,
+      supervisionHash: contentHash({ request, result }),
+    };
+  } catch {
+    throw new Error('SUPERVISED_PREREQUISITE_INVALID');
+  }
 }
 
 type Summary = ReturnType<typeof summarizeReadonlySupervision>;

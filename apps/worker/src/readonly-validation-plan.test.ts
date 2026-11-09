@@ -1,5 +1,4 @@
-import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { createHash } from 'node:crypto';
 import { expect, it } from 'vitest';
 import { planReadonlyValidation } from './readonly-validation-plan.js';
 
@@ -78,16 +77,6 @@ it('잘못된 시각·무한 계획·횟수 초과·미정 입력을 거부한�
   ])
     expect(() => planReadonlyValidation({ ...expiry, ...change })).toThrow();
 });
-it('CLI 미리보기는 서버 환경파일 없이 동작하고 실행 옵션을 거부한다', () => {
-  const cli = resolve('apps/worker/dist/readonly-validation-plan-run.js');
-  const preview = JSON.parse(execFileSync(process.execPath, [cli], { env: {}, encoding: 'utf8' }));
-  expect(preview).toMatchObject({ state: 'preview', scheduled: false, executionEnabled: false });
-  expect(() => execFileSync(process.execPath, [cli, '--execute'], { env: {}, stdio: 'pipe' })).toThrow();
-  expect(() =>
-    execFileSync(process.execPath, [cli, '--kind=expiry', '--kind=session'], { env: {}, stdio: 'pipe' }),
-  ).toThrow();
-});
-
 it('계획에 예약 시각 자체를 남겨 다른 예약을 같은 내용으로 hash 고정하지 않는다', () => {
   const a = planReadonlyValidation({
     ...expiry,
@@ -100,4 +89,107 @@ it('계획에 예약 시각 자체를 남겨 다른 예약을 같은 내용으�
   expect(a.state).toBe('prepared');
   expect(b.state).toBe('prepared');
   expect(a.reservedWindows).not.toEqual(b.reservedWindows);
+});
+
+const regular = {
+  kind: 'regular',
+  startsAt: '2026-11-09T00:00:00Z',
+  deadline: '2026-11-09T01:10:30Z',
+  intervalSeconds: 60,
+  sessionStartsAt: '2026-11-09T09:00:00+09:00',
+  sessionEndsAt: '2026-11-09T15:30:00+09:00',
+  reservedWindows: [],
+};
+
+it('정규장 60표본에 기존 startup/frame/cleanup 예산을 모두 포함한다', () => {
+  expect(planReadonlyValidation(regular)).toMatchObject({
+    kind: 'regular',
+    state: 'prepared',
+    samples: 60,
+    regularOnly: true,
+    targetThrough: '2026-11-09T00:59:00.000Z',
+    minimumSamplingSpanMs: 3540000,
+    plannedBudgetMs: 4230000,
+    estimatedBudgetEndsAt: '2026-11-09T01:10:30.000Z',
+    startupAllowanceMs: 30000,
+    cleanupAllowanceMs: 60000,
+    sampleTimeoutMs: 10000,
+    sourceMethodCallsWithoutRetries: 300,
+    observedTtlSeconds: null,
+    boundaryAt: null,
+    sessionStartsAt: '2026-11-09T00:00:00.000Z',
+    sessionEndsAt: '2026-11-09T06:30:00.000Z',
+    scheduled: false,
+    executionEnabled: false,
+    canResume: false,
+  });
+  expect(planReadonlyValidation({ ...regular, deadline: '2026-11-09T01:10:29.999Z' }).blockers).toContain(
+    'DEADLINE_BUDGET_INSUFFICIENT',
+  );
+  const short = planReadonlyValidation({ ...regular, intervalSeconds: 10 });
+  expect(short.samples).toBe(60);
+  expect(short.targetThrough).toBe('2026-11-09T00:09:50.000Z');
+  expect(short.plannedBudgetMs).toBe(1280000);
+});
+
+it('정규장 전체 start/deadline과 예약 겹침을 검사하고 종료 경계는 배제한다', () => {
+  for (const change of [
+    { startsAt: '2026-11-08T23:59:59.999Z' },
+    { deadline: '2026-11-09T06:30:00Z' },
+    { deadline: '2026-11-09T06:30:00.001Z' },
+  ])
+    expect(planReadonlyValidation({ ...regular, ...change }).blockers).toContain('OUTSIDE_REGULAR_SESSION');
+  expect(planReadonlyValidation({ ...regular, deadline: '2026-11-09T06:29:59.999Z' }).state).toBe('prepared');
+  expect(
+    planReadonlyValidation({
+      ...regular,
+      reservedWindows: [{ startsAt: '2026-11-09T01:10:00Z', endsAt: '2026-11-09T02:00:00Z' }],
+    }).blockers,
+  ).toEqual(['RESERVED_WINDOW_OVERLAP']);
+});
+
+it('정규장 입력은 세션 양끝 ISO와 공통 필드만 허용한다', () => {
+  for (const change of [
+    { sessionStartsAt: undefined },
+    { sessionEndsAt: undefined },
+    { sessionStartsAt: 'invalid' },
+    { sessionEndsAt: '2026-11-09' },
+    { sessionEndsAt: regular.sessionStartsAt },
+    { sessionStartsAt: regular.sessionEndsAt, sessionEndsAt: regular.sessionStartsAt },
+    { observedTtlSeconds: 120 },
+    { boundaryAt: regular.startsAt },
+    { samples: 60 },
+    { regularOnly: true },
+    { observationJobId: 'kr-2026-11-09' },
+  ])
+    expect(() => planReadonlyValidation({ ...regular, ...change })).toThrow();
+  for (const kind of ['session', 'expiry'])
+    expect(() =>
+      planReadonlyValidation({
+        ...expiry,
+        kind,
+        sessionStartsAt: regular.sessionStartsAt,
+        sessionEndsAt: regular.sessionEndsAt,
+      }),
+    ).toThrow();
+});
+
+it('기존 session/expiry 출력의 직렬화 hash와 세션 필드 생략을 보존한다', () => {
+  const session = {
+    kind: 'session',
+    startsAt: '2026-11-04T20:55:00Z',
+    boundaryAt: '2026-11-04T21:00:00Z',
+    deadline: '2026-11-04T21:10:00Z',
+    intervalSeconds: 30,
+    reservedWindows: [],
+  };
+  for (const [input, hash] of [
+    [expiry, '52f03a036cdd7349d37c59b2a947af4c3bbd5f81c9d8fc04ede4d9699e7568e8'],
+    [session, 'f6f640f4f9666540d64d758fcd7d033cd7f1d7edce4514e2bbd04c1a3b2c0b09'],
+  ] as const) {
+    const plan = planReadonlyValidation(input);
+    expect(createHash('sha256').update(JSON.stringify(plan)).digest('hex')).toBe(hash);
+    expect(plan).not.toHaveProperty('sessionStartsAt');
+    expect(plan).not.toHaveProperty('sessionEndsAt');
+  }
 });

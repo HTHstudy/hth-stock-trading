@@ -44,7 +44,12 @@ export async function runReadonlySupervisor(
   };
   if (config.fingerprint) return { ...base, state: 'fingerprint', buildHash: await fingerprintObservationBuild(root) };
   // Bind instrument/source as well as timing. A plan checksum is not authorization.
-  const binding = { plan: config.plan, source: config.source, instrument: config.instrument };
+  const binding = {
+    plan: config.plan,
+    source: config.source,
+    instrument: config.instrument,
+    ...(config.plan?.kind === 'regular' ? { observationJobId: config.observationJobId } : {}),
+  };
   const planHash = contentHash(binding);
   if (!config.execute) return { ...base, state: 'preview', ...binding, planHash, scheduled: false };
   const plan = config.plan;
@@ -157,6 +162,7 @@ export async function runReadonlySupervisor(
             `--symbols=${config.instrument.market}:${config.instrument.symbol}`,
             '--share-dashboard',
             '--token-lifecycle',
+            ...(plan.kind === 'regular' ? ['--regular-only'] : []),
             ...(plan.kind === 'session' ? [`--expected-session-boundary=${plan.boundaryAt}`] : []),
           ]),
     ];
@@ -203,6 +209,20 @@ export async function runReadonlySupervisor(
       contentHash(verified.manifest.instruments) !== contentHash([config.instrument]) ||
       verified.summary.status !== 'completed' ||
       verified.summary.errorSamples !== 0 ||
+      (plan.kind === 'regular' &&
+        (verified.summary.samples !== 60 ||
+          verified.summary.healthy !== 60 ||
+          verified.summary.closed !== 0 ||
+          verified.summary.blocked !== 0 ||
+          verified.summary.quoteRegressions !== 0 ||
+          verified.records.some(
+            (record, index) =>
+              Date.parse(record.startedAt) < Date.parse(plan.sessionStartsAt!) ||
+              Date.parse(record.finishedAt) >= Date.parse(plan.sessionEndsAt!) ||
+              (index > 0 &&
+                Date.parse(record.startedAt) - Date.parse(verified.records[index - 1]!.finishedAt) >
+                  plan.intervalSeconds * 1000 + Math.max(30000, plan.intervalSeconds * 1000)),
+          ))) ||
       verified.records.some(
         (record, index) =>
           Date.parse(record.startedAt) < start ||
@@ -221,7 +241,12 @@ export async function runReadonlySupervisor(
         JSON.parse(await readObservationText(join(folder, 'token-lifecycle.json'), 131072)),
         verified.manifest,
       ).snapshot;
-      if (token.clockUnverified || token.limited || token.inFlight !== 0)
+      if (
+        token.clockUnverified ||
+        token.limited ||
+        token.inFlight !== 0 ||
+        (plan.kind === 'regular' && (token.capturedAt === null || Date.parse(token.capturedAt) > now()))
+      )
         throw new Error('SUPERVISOR_EVIDENCE_INVALID');
     }
     if ((await fingerprintObservationBuild(root)) !== config.expectedBuildHash)

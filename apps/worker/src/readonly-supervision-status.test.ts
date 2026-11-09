@@ -5,7 +5,11 @@ import { join } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
 import { contentHash } from '@hth/database';
 import { planReadonlyValidation } from './readonly-validation-plan.js';
-import { createReadonlySupervisionStatus, summarizeReadonlySupervision } from './readonly-supervision-status.js';
+import {
+  createReadonlySupervisionStatus,
+  summarizeReadonlySupervision,
+  verifyRegularSupervisionLink,
+} from './readonly-supervision-status.js';
 
 const roots: string[] = [];
 const start = Date.parse('2026-11-04T12:00:00Z');
@@ -72,9 +76,89 @@ function fixture(kind: 'expiry' | 'session' = 'expiry', source: 'demo' | 'market
   };
   return { id, request, result };
 }
-function signed(body: Record<string, unknown>) {
+function signed<T extends Record<string, unknown>>(body: T) {
   return { ...body, hash: contentHash(body) };
 }
+function regularFixture() {
+  const f = fixture('session', 'market');
+  const plan = planReadonlyValidation({
+    kind: 'regular',
+    startsAt: new Date(start).toISOString(),
+    deadline: new Date(start + 1500000).toISOString(),
+    intervalSeconds: 10,
+    reservedWindows: [],
+    sessionStartsAt: new Date(start - 3600000).toISOString(),
+    sessionEndsAt: new Date(start + 7200000).toISOString(),
+  });
+  const binding = {
+    plan,
+    source: 'market' as const,
+    instrument: f.request.instrument,
+    observationJobId: 'kr-2026-11-04',
+  };
+  const request = { ...f.request, ...binding, planHash: contentHash(binding) };
+  const result = {
+    ...f.result,
+    planHash: request.planHash,
+    evidence: { ...f.result.evidence!, samples: 60, healthy: 60, closed: 0, blocked: 0 },
+  };
+  return { ...f, request, result: signed(result) };
+}
+it('정규장 job은 명시한 요청·정상 감독 종료만 연결하고 legacy 출력은 유지한다', () => {
+  const f = regularFixture();
+  const linked = verifyRegularSupervisionLink(f.id, f, start + 700000, 'kr-2026-11-04');
+  expect(linked.job).toMatchObject({
+    id: 'kr-2026-11-04',
+    state: 'completed',
+    requestedSamples: 60,
+    recordedSamples: 60,
+    reportId: f.result.evidence!.id,
+    executionEnabled: false,
+  });
+  expect(linked.supervisionHash).toBe(contentHash({ request: f.request, result: f.result }));
+  expect(summarizeReadonlySupervision(f.id, f, start + 700000)).toMatchObject({
+    kind: 'regular',
+    clockUnverified: false,
+    observationEvidenceRecomputed: false,
+    canResume: false,
+  });
+});
+it('정규장 결과도 불일치·강제 종료·미완료·비정상 표본·출처를 연결 승인으로 바꾸지 않는다', () => {
+  const f = regularFixture();
+  for (const change of [
+    (v: typeof f) => {
+      v.request.observationJobId = 'kr-2026-11-05';
+    },
+    (v: typeof f) => {
+      Object.assign(v.request, { source: 'demo' });
+    },
+    (v: typeof f) => {
+      v.result.forced = true;
+    },
+    (v: typeof f) => {
+      v.result.evidence!.healthy = 59;
+      v.result.evidence!.blocked = 1;
+    },
+    (v: typeof f) => {
+      v.result.childCleanupConfirmed = false;
+    },
+  ]) {
+    const changed = structuredClone(f);
+    change(changed);
+    const { hash: previous, ...body } = changed.result;
+    expect(previous).toMatch(/^[a-f0-9]{64}$/);
+    changed.result = signed(body);
+    expect(() => verifyRegularSupervisionLink(changed.id, changed, start + 700000, 'kr-2026-11-04')).toThrow(
+      'SUPERVISED_PREREQUISITE_INVALID',
+    );
+  }
+  expect(() =>
+    verifyRegularSupervisionLink(f.id, { request: f.request, result: null }, start + 700000, 'kr-2026-11-04'),
+  ).toThrow('SUPERVISED_PREREQUISITE_INVALID');
+  expect(() => verifyRegularSupervisionLink(f.id, f, start, 'kr-2026-11-04')).toThrow(
+    'SUPERVISED_PREREQUISITE_INVALID',
+  );
+});
 async function setup() {
   const root = await mkdtemp(join(await realpath(tmpdir()), 'readonly-supervision-status-'));
   roots.push(root);

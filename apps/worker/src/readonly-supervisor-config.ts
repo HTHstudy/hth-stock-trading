@@ -1,6 +1,7 @@
 import { parseArgs } from 'node:util';
 import { z } from 'zod';
-import { paperModeSchema } from '@hth/contracts';
+import { observationJobSchema, paperModeSchema } from '@hth/contracts';
+import { marketTradingDate } from '@hth/trading';
 import { parseReadonlySymbols } from './readonly-config.js';
 import { planReadonlyValidation } from './readonly-validation-plan.js';
 
@@ -26,6 +27,9 @@ export function parseReadonlySupervisor(args: string[], environment: Record<stri
       'interval-seconds': { type: 'string' },
       'boundary-at': { type: 'string' },
       'ttl-seconds': { type: 'string' },
+      'session-start': { type: 'string' },
+      'session-end': { type: 'string' },
+      'job-id': { type: 'string' },
       'reserved-start': { type: 'string' },
       'reserved-end': { type: 'string' },
       'plan-hash': { type: 'string' },
@@ -43,7 +47,10 @@ export function parseReadonlySupervisor(args: string[], environment: Record<stri
   if (
     (values['reserved-start'] === undefined) !== (values['reserved-end'] === undefined) ||
     (values.kind === 'session' && values['ttl-seconds'] !== undefined) ||
-    (values.kind === 'expiry' && values['boundary-at'] !== undefined)
+    (values.kind === 'expiry' && values['boundary-at'] !== undefined) ||
+    (values.kind === 'regular' && (values['ttl-seconds'] !== undefined || values['boundary-at'] !== undefined)) ||
+    (values.kind !== 'regular' &&
+      (values['session-start'] !== undefined || values['session-end'] !== undefined || values['job-id'] !== undefined))
   )
     throw new Error('SUPERVISOR_CONFIG_INVALID');
   if (
@@ -64,10 +71,20 @@ export function parseReadonlySupervisor(args: string[], environment: Record<stri
           reservedWindows: values['reserved-start']
             ? [{ startsAt: values['reserved-start'], endsAt: values['reserved-end'] }]
             : [],
-          ...(values.kind === 'session'
-            ? { boundaryAt: values['boundary-at'] }
-            : { observedTtlSeconds: Number(values['ttl-seconds']) }),
+          ...(values.kind === 'regular'
+            ? { sessionStartsAt: values['session-start'], sessionEndsAt: values['session-end'] }
+            : values.kind === 'session'
+              ? { boundaryAt: values['boundary-at'] }
+              : { observedTtlSeconds: Number(values['ttl-seconds']) }),
         });
+  const observationJobId =
+    values.kind === 'regular' ? observationJobSchema.shape.id.parse(values['job-id']) : undefined;
+  if (
+    observationJobId !== undefined &&
+    (!observationJobId.startsWith(`${instruments[0]!.market.toLowerCase()}-`) ||
+      observationJobId.slice(3, 13) !== marketTradingDate(Date.parse(plan!.startsAt), instruments[0]!.market))
+  )
+    throw new Error('SUPERVISOR_CONFIG_INVALID');
   return {
     execute: values.execute,
     fingerprint: values.fingerprint,
@@ -76,5 +93,6 @@ export function parseReadonlySupervisor(args: string[], environment: Record<stri
     plan,
     expectedPlanHash: values['plan-hash'],
     expectedBuildHash: values['build-hash'],
+    ...(observationJobId !== undefined ? { observationJobId } : {}),
   };
 }

@@ -13,6 +13,9 @@ const common = {
 const inputSchema = z.discriminatedUnion('kind', [
   z.strictObject({ ...common, kind: z.literal('session'), boundaryAt: instant }),
   z.strictObject({ ...common, kind: z.literal('expiry'), observedTtlSeconds: z.number().int().min(1).max(172800) }),
+  z
+    .strictObject({ ...common, kind: z.literal('regular'), sessionStartsAt: instant, sessionEndsAt: instant })
+    .refine((value) => Date.parse(value.sessionStartsAt) < Date.parse(value.sessionEndsAt)),
 ]);
 
 // Offline sizing only. Neither calendar/TTL input nor this plan grants execution permission.
@@ -23,7 +26,11 @@ export function planReadonlyValidation(input: unknown) {
   if (deadline <= start || deadline - start > 36 * 3600_000) throw new Error('INVALID_VALIDATION_WINDOW');
   const intervalMs = value.intervalSeconds * 1000;
   const target =
-    value.kind === 'session' ? Date.parse(value.boundaryAt) + 300_000 : start + (value.observedTtlSeconds + 120) * 1000;
+    value.kind === 'regular'
+      ? start + 59 * intervalMs
+      : value.kind === 'session'
+        ? Date.parse(value.boundaryAt) + 300_000
+        : start + (value.observedTtlSeconds + 120) * 1000;
   if (value.kind === 'session' && Date.parse(value.boundaryAt) - start < intervalMs)
     throw new Error('INSUFFICIENT_PRE_BOUNDARY_WINDOW');
   const samples = Math.ceil((target - start) / intervalMs) + 1;
@@ -35,12 +42,17 @@ export function planReadonlyValidation(input: unknown) {
     cleanupAllowanceMs = 60_000,
     sampleTimeoutMs = 10_000;
   const plannedBudgetMs = startupAllowanceMs + minimumSamplingSpanMs + samples * sampleTimeoutMs + cleanupAllowanceMs;
-  const blockers: Array<'DEADLINE_BUDGET_INSUFFICIENT' | 'RESERVED_WINDOW_OVERLAP'> = [];
+  const blockers: Array<'DEADLINE_BUDGET_INSUFFICIENT' | 'RESERVED_WINDOW_OVERLAP' | 'OUTSIDE_REGULAR_SESSION'> = [];
   if (start + plannedBudgetMs > deadline) blockers.push('DEADLINE_BUDGET_INSUFFICIENT');
   if (
     value.reservedWindows.some((window) => start < Date.parse(window.endsAt) && Date.parse(window.startsAt) < deadline)
   )
     blockers.push('RESERVED_WINDOW_OVERLAP');
+  if (
+    value.kind === 'regular' &&
+    (start < Date.parse(value.sessionStartsAt) || deadline >= Date.parse(value.sessionEndsAt))
+  )
+    blockers.push('OUTSIDE_REGULAR_SESSION');
   return {
     formatVersion: 'readonly-validation-plan-v1' as const,
     kind: value.kind,
@@ -67,7 +79,13 @@ export function planReadonlyValidation(input: unknown) {
     })),
     observedTtlSeconds: value.kind === 'expiry' ? value.observedTtlSeconds : null,
     boundaryAt: value.kind === 'session' ? value.boundaryAt : null,
-    regularOnly: false,
+    ...(value.kind === 'regular'
+      ? {
+          sessionStartsAt: new Date(value.sessionStartsAt).toISOString(),
+          sessionEndsAt: new Date(value.sessionEndsAt).toISOString(),
+        }
+      : {}),
+    regularOnly: value.kind === 'regular',
     tokenLifecycle: true,
     requiresDeadlineSupervisor: true,
     requiresFreshCalendar: true,
