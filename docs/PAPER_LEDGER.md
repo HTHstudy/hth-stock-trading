@@ -34,6 +34,8 @@ DB repository가 트랜잭션 안에서 `@hth/trading`의 순수 리스크 검�
 
 현재 reconcile은 복구용이며 활성 의도를 유지한 채 주기적으로 평가 정보를 갱신하는 메서드는 아니다. 체결은 잔고·비용·소유권을 원자적으로 반영한다. 새 observe는 활성 예약을 유지하며 모든 보유분의 평가/일일 손익을 갱신한다. lease 인수 자체는 예약을 해제하지 않으며, 같은 token/epoch의 recoverLease 또는 releaseLease만 잔량을 정리한다. 이전 worker는 새 소유자의 예약을 정리하지 못한다.
 
+[후속 유한 검증](PAPER_CONTINUATION.md)은 `acquireLease`의 선택적 5번째·`resume`의 선택적 4번째 `expectedEventsHash`를 사용한다. 계좌 행 잠금 안에서 version과 checkpoint의 events hash를 함께 대조하며 불일치는 `PAPER_VERSION_CONFLICT`다. 사건 키·종류·마이크로초 시각과 정렬은 읽기 전용 checkpoint와 같은 helper로 생성하고 5,000건 상한을 유지한다. 버전이 증가하지 않는 거부 이력도 차단하며 hash 확인을 복구·재개 권한으로 사용하지 않는다. 인자를 생략한 기존 호출의 동작은 유지한다.
+
 ## 기록과 영구 중복 방지
 
 스키마 검증을 통과한 후보는 `recordIntent({ candidate, signal })`로 먼저 **별도 트랜잭션을 커밋**한다. 이후 `reserve`가 실패하거나 롤백되어도 원래 의도는 남는다.
