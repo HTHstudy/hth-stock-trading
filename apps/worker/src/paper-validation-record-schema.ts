@@ -8,6 +8,7 @@ export const paperValidationRequestSchema = z
     formatVersion: z.literal('authorized-paper-validation-v1'),
     market: z.enum(['KR', 'US']),
     prerequisite: observationJobSchema.shape.id,
+    prerequisiteSupervision: z.uuid().optional(),
     startsAt: z.iso.datetime({ offset: true }).nullable(),
     deadline: z.iso.datetime({ offset: true }),
     resumeRequested: z.literal(true),

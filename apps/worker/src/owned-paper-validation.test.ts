@@ -114,6 +114,7 @@ describe('owned Paper process evidence', () => {
       const { root, child, launch, dependencies } = await fixture();
       const strings = [
         ...continuationArgs,
+        '--prerequisite-supervision=89ab12cd-3456-4789-8abc-123456789012',
         '--build-hash=' + 'b'.repeat(64),
         '--resources=/offline/resources.json',
         '--resources-hash=' + 'c'.repeat(64),

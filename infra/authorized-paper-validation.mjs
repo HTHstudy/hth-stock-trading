@@ -22,6 +22,7 @@ async function main() {
       fingerprint: { type: 'boolean' },
       'selfcheck-control': { type: 'boolean' },
       prerequisite: { type: 'string' },
+      'prerequisite-supervision': { type: 'string' },
       'start-at': { type: 'string' },
       'session-start': { type: 'string' },
       'session-end': { type: 'string' },
@@ -86,6 +87,8 @@ async function main() {
     (value) => value !== undefined,
   );
   const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
+  if (values['prerequisite-supervision'] !== undefined && !uuid.test(values['prerequisite-supervision']))
+    throw new Error('PREREQUISITE_FAILED');
   if (
     continuing &&
     (!uuid.test(values['continue-from'] ?? '') ||
@@ -287,6 +290,24 @@ async function main() {
   });
   const { createObservationJobs } = await load('apps/api/dist/observation-jobs.js');
   const { createObservationReports } = await load('apps/api/dist/observation-reports.js');
+  const supervisionId = values['prerequisite-supervision'];
+  const supervisedReader = supervisionId
+    ? (await load('apps/api/dist/supervised-observation-prerequisite.js')).createSupervisedObservationPrerequisite(root)
+    : null;
+  const readSupervised = async () => {
+    try {
+      const linked = await supervisedReader.get(supervisionId, prerequisite);
+      const context = prerequisiteContext();
+      if (
+        Date.parse(linked.sessionStartsAt) !== Date.parse(context.sessionStartsAt) ||
+        Date.parse(linked.sessionEndsAt) !== Date.parse(context.sessionEndsAt)
+      )
+        throw new Error('INVALID');
+      return linked;
+    } catch {
+      throw new Error('PREREQUISITE_FAILED');
+    }
+  };
   const { writeReviewArtifact } = await load('apps/worker/dist/paper-review-files.js');
   const runRoot = resolve(root, '.local-data/paper-validation-runs');
   await mkdir(runRoot, { recursive: true, mode: 0o700 });
@@ -312,6 +333,7 @@ async function main() {
       formatVersion: 'authorized-paper-validation-v1',
       market,
       prerequisite,
+      ...(supervisionId ? { prerequisiteSupervision: supervisionId } : {}),
       startsAt,
       deadline: new Date(deadline).toISOString(),
       resumeRequested: true,
@@ -351,6 +373,23 @@ async function main() {
         continue;
       }
       if (startsAt && Date.now() - Date.parse(startsAt) > 120000) throw new Error('START_MISSED');
+      if (supervisedReader) {
+        const linked = await readSupervised();
+        const selection = verifyPaperPrerequisite(linked.job, linked.evidence, prerequisiteContext());
+        selectedPrerequisite = { job: linked.job, selection, supervisionHash: linked.supervisionHash };
+        await writeReviewArtifact(resolve(directory, 'observation-evidence.json'), {
+          job: prerequisite,
+          supervisionId,
+          supervisionHash: linked.supervisionHash,
+          selection,
+          reportId: linked.evidence.report.manifest.id,
+          journalSha256: linked.evidence.report.journalSha256,
+          monitoring: linked.evidence.report.monitoring,
+          summary: linked.evidence.report.summary,
+          executionEnabled: false,
+        });
+        break;
+      }
       const list = await jobs.list();
       const job = list.jobs.find((x) => x.id === prerequisite);
       if (job && ['failed', 'cancelled'].includes(job.state)) throw new Error('PREREQUISITE_FAILED');
@@ -676,9 +715,12 @@ async function main() {
     if ((await fingerprint()) !== expectedBuild) throw new Error('PAPER_BUILD_CHANGED');
     await verifyPaperValidationResources(resourceDirectory, resourcesHash, market);
     if (continuation) await readPaperContinuation(root, continuationContext(), continuation.evidenceHash);
+    const finalLinked = supervisedReader ? await readSupervised() : null;
+    if (finalLinked && finalLinked.supervisionHash !== selectedPrerequisite.supervisionHash)
+      throw new Error('PREREQUISITE_FAILED');
     const finalSelection = verifyPaperPrerequisite(
       selectedPrerequisite.job,
-      await reports.getWithSampleRange(selectedPrerequisite.job.reportId),
+      finalLinked ? finalLinked.evidence : await reports.getWithSampleRange(selectedPrerequisite.job.reportId),
       prerequisiteContext(),
     );
     if (finalSelection.evidenceHash !== selectedPrerequisite.selection.evidenceHash)
@@ -778,6 +820,7 @@ await main().catch((error) => {
       'PAPER_STRATEGY_WARMUP_INSUFFICIENT',
       'PAPER_BUILD_CHANGED',
       'PAPER_CONTROL_CHANGED',
+      'PREREQUISITE_FAILED',
     ].includes(error.message)
       ? error.message
       : 'PAPER_VALIDATION_NOT_COMPLETED';

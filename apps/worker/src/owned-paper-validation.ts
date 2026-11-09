@@ -15,6 +15,7 @@ const stringFlags = [
   'build-root',
   'build-hash',
   'prerequisite',
+  'prerequisite-supervision',
   'start-at',
   'session-start',
   'session-end',
@@ -51,6 +52,11 @@ export function parseOwnedPaperValidation(args: string[], environment: Record<st
     seen.add(token.name);
   }
   const execute = values.execute === true;
+  if (
+    values['prerequisite-supervision'] !== undefined &&
+    !z.uuid().safeParse(values['prerequisite-supervision']).success
+  )
+    throw fail();
   if (execute && (!values.run || !values['resume-authorized'])) throw fail();
   const inspect = ['fingerprint', 'verify-inputs', 'selfcheck-control', 'inspect-continuation'].some(
     (key) => values[key],
