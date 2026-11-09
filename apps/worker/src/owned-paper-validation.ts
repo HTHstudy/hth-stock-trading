@@ -6,6 +6,7 @@ import { link, lstat, mkdir, open, realpath, unlink } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { ParseArgsConfig } from 'node:util';
+import { z } from 'zod';
 import { contentHash } from '@hth/database';
 import { ownedPaperExitSchema, ownedPaperLaunchSchema } from './paper-reservation-closure-contracts.js';
 
@@ -22,6 +23,9 @@ const stringFlags = [
   'resources-hash',
   'expectations',
   'expectations-hash',
+  'continue-from',
+  'continuation-launch',
+  'continuation-hash',
 ] as const;
 const booleanFlags = [
   'execute',
@@ -30,6 +34,7 @@ const booleanFlags = [
   'fingerprint',
   'verify-inputs',
   'selfcheck-control',
+  'inspect-continuation',
 ] as const;
 const fail = () => new Error('OWNED_PAPER_VALIDATION_INVALID');
 
@@ -47,8 +52,29 @@ export function parseOwnedPaperValidation(args: string[], environment: Record<st
   }
   const execute = values.execute === true;
   if (execute && (!values.run || !values['resume-authorized'])) throw fail();
-  const inspect = ['fingerprint', 'verify-inputs', 'selfcheck-control'].some((key) => values[key]);
+  const inspect = ['fingerprint', 'verify-inputs', 'selfcheck-control', 'inspect-continuation'].some(
+    (key) => values[key],
+  );
   if (inspect && (execute || values.run || values['resume-authorized'])) throw fail();
+  const parentRunId = values['continue-from'];
+  const parentLaunchId = values['continuation-launch'];
+  const evidenceHash = values['continuation-hash'];
+  for (const value of [parentRunId, parentLaunchId]) {
+    if (value !== undefined && !z.uuid().safeParse(value).success) throw fail();
+  }
+  if (
+    evidenceHash !== undefined &&
+    !z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .safeParse(evidenceHash).success
+  )
+    throw fail();
+  if (values['inspect-continuation']) {
+    if (parentRunId === undefined || parentLaunchId === undefined) throw fail();
+  } else if ([parentRunId, parentLaunchId, evidenceHash].some((value) => value !== undefined)) {
+    if ([parentRunId, parentLaunchId, evidenceHash].some((value) => value === undefined)) throw fail();
+  }
   if (execute && !['KR', 'US'].includes(String(values.market))) throw fail();
   const buildRoot = values['build-root'];
   if (buildRoot !== undefined && typeof buildRoot !== 'string') throw fail();

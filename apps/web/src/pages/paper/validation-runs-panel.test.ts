@@ -341,3 +341,25 @@ it('정지·휴장 조기 종료는 완료 성공으로 표시하지 않고 사�
     expect(html).not.toContain('text-accent');
   }
 });
+
+it('후속 기준 불일치는 거래 준비 완료나 재개 권한으로 표시하지 않는다', () => {
+  const html = render(
+    snapshot({
+      runs: [
+        run({
+          resultState: 'stopped-before-run-or-failed',
+          code: 'PAPER_CONTINUATION_INVALID',
+          completedTicks: 0,
+          runningTicks: 0,
+          evidence: 'request-only',
+          verdict: null,
+          checks: null,
+          observedCounts: null,
+          stoppedAndCleaned: null,
+        }),
+      ],
+    }),
+  );
+  expect(html).toContain('후속 검증의 이전 실행·기준 원장 불일치');
+  expect(html).not.toContain('text-accent');
+});

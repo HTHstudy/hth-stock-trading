@@ -37,6 +37,7 @@ it('확정 봉 부족과 일반 사전 점검 실패 코드를 구분하고 알 
     'PAPER_PREFLIGHT_FAILED',
     'PAPER_VALIDATION_PAUSED',
     'PAPER_VALIDATION_WAITING',
+    'PAPER_CONTINUATION_INVALID',
   ]) {
     expect(paperValidationFailureCodeSchema.parse(code)).toBe(code);
     const saved = paperValidationRunSchema.parse({

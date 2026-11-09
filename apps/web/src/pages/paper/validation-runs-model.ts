@@ -27,6 +27,7 @@ export const validationCodeLabels = {
   PAPER_VALIDATION_RESOURCE_INVALID: '고정 검증 입력 묶음 오류',
   PAPER_VALIDATION_PAUSED: '정지 상태로 검증 조기 종료',
   PAPER_VALIDATION_WAITING: '휴장 대기 상태로 검증 조기 종료',
+  PAPER_CONTINUATION_INVALID: '후속 검증의 이전 실행·기준 원장 불일치',
 } satisfies Record<NonNullable<PaperValidationRun['code']>, string>;
 
 export const validationCheckLabels = {

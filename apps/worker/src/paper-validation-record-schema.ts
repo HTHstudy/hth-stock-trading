@@ -15,6 +15,7 @@ export const paperValidationRequestSchema = z
     buildHash: hash,
     expectedControlHash: hash.nullable().optional(),
     resourcesHash: hash.optional(),
+    continuation: z.strictObject({ parentRunId: z.uuid(), parentLaunchId: z.uuid(), evidenceHash: hash }).optional(),
     automaticRetry: z.literal(false),
     executionEnabled: z.literal(false),
   })

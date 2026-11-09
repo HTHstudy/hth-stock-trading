@@ -55,6 +55,7 @@ export const paperValidationFailureCodeSchema = z.enum([
   'PAPER_VALIDATION_RESOURCE_INVALID',
   'PAPER_VALIDATION_PAUSED',
   'PAPER_VALIDATION_WAITING',
+  'PAPER_CONTINUATION_INVALID',
 ]);
 const ticks = z.number().int().min(0).max(60).nullable();
 export const paperValidationRunSchema = z

@@ -7,9 +7,20 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contentHash } from '@hth/database';
 import { ownedPaperExitSchema, ownedPaperLaunchSchema } from './paper-reservation-closure-contracts.js';
 import { parseOwnedPaperValidation, runOwnedPaperValidation } from './owned-paper-validation.js';
+import { paperValidationRequestSchema } from './paper-validation-record-schema.js';
 
 const roots: string[] = [];
 const args = ['--execute', '--run', '--resume-authorized', '--market=US'];
+const continuation = {
+  parentRunId: '10c59018-398a-4d7c-a25b-1a9217810321',
+  parentLaunchId: '20c59018-398a-4d7c-a25b-1a9217810321',
+  evidenceHash: 'a'.repeat(64),
+};
+const continuationArgs = [
+  `--continue-from=${continuation.parentRunId}`,
+  `--continuation-launch=${continuation.parentLaunchId}`,
+  `--continuation-hash=${continuation.evidenceHash}`,
+];
 const environment = {
   TRADING_MODE: 'paper',
   PATH: '/bin',
@@ -49,6 +60,90 @@ afterEach(async () => {
 });
 
 describe('owned Paper process evidence', () => {
+  it.each([1, 2, 3, 4, 5, 6])('rejects partial continuation flags (mask %i)', (mask) => {
+    const partial = continuationArgs.filter((_, index) => (mask & (1 << index)) !== 0);
+    for (const prefix of [[], args]) {
+      expect(() => parseOwnedPaperValidation([...prefix, ...partial], environment)).toThrow();
+    }
+  });
+  it.each([
+    ['--continue-from=bad', ...continuationArgs.slice(1)],
+    [continuationArgs[0]!, '--continuation-launch=bad', continuationArgs[2]!],
+    [...continuationArgs.slice(0, 2), '--continuation-hash=bad'],
+    [...continuationArgs.slice(0, 2), `--continuation-hash=${'A'.repeat(64)}`],
+    [...continuationArgs.slice(0, 2), `--continuation-hash=${'a'.repeat(63)}`],
+    [...continuationArgs.slice(0, 2), `--continuation-hash=${'a'.repeat(65)}`],
+    ['--continue-from=', ...continuationArgs.slice(1)],
+    [...continuationArgs, continuationArgs[0]!],
+    [...continuationArgs, `--run-id=${continuation.parentRunId}`],
+  ])('rejects malformed, repeated, or caller-owned continuation arguments %j', (...invalid) => {
+    expect(() => parseOwnedPaperValidation([...args, ...invalid], environment)).toThrow();
+  });
+  it.each([false, true])('inspects continuation offline with optional hash (%s)', async (withHash) => {
+    const inspectArgs = ['--inspect-continuation', ...continuationArgs.slice(0, withHash ? 3 : 2)];
+    expect(parseOwnedPaperValidation(inspectArgs, environment)).toEqual({
+      execute: false,
+      buildRoot: undefined,
+      runnerArgs: inspectArgs,
+    });
+    const launch = vi.fn();
+    expect(await runOwnedPaperValidation(inspectArgs, { root: '/does-not-exist', environment, launch })).toMatchObject({
+      state: 'preview',
+      executionEnabled: false,
+      canResume: false,
+    });
+    expect(launch).not.toHaveBeenCalled();
+  });
+  it.each([
+    [],
+    [continuationArgs[0]!],
+    [continuationArgs[1]!],
+    [continuationArgs[2]!],
+    [...continuationArgs, '--execute'],
+    [...continuationArgs, '--run'],
+    [...continuationArgs, '--resume-authorized'],
+    [...continuationArgs, ...args],
+    ['--continue-from=bad', ...continuationArgs.slice(1)],
+    [...continuationArgs.slice(0, 2), '--continuation-hash=bad'],
+  ])('rejects incomplete or execution-mixed continuation inspection %j', (...invalid) => {
+    expect(() => parseOwnedPaperValidation(['--inspect-continuation', ...invalid], environment)).toThrow();
+  });
+  it.each([false, true])(
+    'preserves all runner arguments and filtered environment (split strings %s)',
+    async (split) => {
+      const { root, child, launch, dependencies } = await fixture();
+      const strings = [
+        ...continuationArgs,
+        '--build-hash=' + 'b'.repeat(64),
+        '--resources=/offline/resources.json',
+        '--resources-hash=' + 'c'.repeat(64),
+        '--expectations=/offline/expectations.json',
+        '--expectations-hash=' + 'd'.repeat(64),
+        '--prerequisite=us-2026-11-09',
+        '--start-at=2026-11-09T14:30:00Z',
+        '--session-start=2026-11-09T14:30:00Z',
+        '--session-end=2026-11-09T21:00:00Z',
+        '--deadline=2026-11-09T15:00:00Z',
+        `--build-root=${root}`,
+      ];
+      const forwarded = [...args.slice(1), ...strings.flatMap((value) => (split ? value.split('=') : [value]))];
+      const running = runOwnedPaperValidation(['--execute', ...forwarded], dependencies);
+      await eventuallyLaunched(launch);
+      const [, actualArgs, options] = launch.mock.calls[0]!;
+      child.emit('close', 0, null);
+      expect(await running).toMatchObject({ successful: true });
+      const { launch: record } = await artifacts(root);
+      expect(actualArgs).toEqual([
+        join(root, 'infra/authorized-paper-validation.mjs'),
+        ...forwarded,
+        `--run-id=${record.runId}`,
+      ]);
+      expect(record.argumentsHash).toBe(contentHash(actualArgs));
+      expect(record.runId).not.toBe(continuation.parentRunId);
+      expect(options.env).toEqual({ TRADING_MODE: 'paper', PATH: '/bin', LANG: 'C', TZ: 'UTC' });
+      expect(launch).toHaveBeenCalledTimes(1);
+    },
+  );
   it('previews without filesystem, launcher, DB, or keys', async () => {
     const launch = vi.fn();
     expect(
@@ -243,6 +338,40 @@ describe('owned Paper process evidence', () => {
     await expect(runOwnedPaperValidation(args, { ...dependencies, uuid: () => ids.shift()! })).rejects.toThrow();
     expect(await readFile(join(old, 'result.json'), 'utf8')).toBe('old');
     expect(launch).not.toHaveBeenCalled();
+  });
+});
+
+describe('Paper validation request continuation schema', () => {
+  const request = {
+    formatVersion: 'authorized-paper-validation-v1',
+    market: 'US',
+    prerequisite: 'us-2026-11-09',
+    startsAt: null,
+    deadline: '2026-11-09T15:00:00Z',
+    resumeRequested: true,
+    maxTicks: 60,
+    buildHash: 'b'.repeat(64),
+    automaticRetry: false,
+    executionEnabled: false,
+  };
+  it('preserves pristine requests and accepts a complete strict continuation', () => {
+    expect(paperValidationRequestSchema.parse(request)).toEqual(request);
+    expect(paperValidationRequestSchema.parse({ ...request, continuation })).toEqual({ ...request, continuation });
+    expect(paperValidationRequestSchema.safeParse({ ...request, unknown: true }).success).toBe(false);
+  });
+  it.each([
+    null,
+    {},
+    { parentRunId: continuation.parentRunId, parentLaunchId: continuation.parentLaunchId },
+    { parentRunId: continuation.parentRunId, evidenceHash: continuation.evidenceHash },
+    { parentLaunchId: continuation.parentLaunchId, evidenceHash: continuation.evidenceHash },
+    { ...continuation, parentRunId: 'bad' },
+    { ...continuation, parentLaunchId: 'bad' },
+    { ...continuation, evidenceHash: 'A'.repeat(64) },
+    { ...continuation, evidenceHash: 'a'.repeat(63) },
+    { ...continuation, unknown: true },
+  ])('rejects malformed or extended continuation %j', (invalid) => {
+    expect(paperValidationRequestSchema.safeParse({ ...request, continuation: invalid }).success).toBe(false);
   });
 });
 

@@ -9,6 +9,10 @@ async function main() {
     args: process.argv.slice(2),
     options: {
       market: { type: 'string' },
+      'continue-from': { type: 'string' },
+      'continuation-launch': { type: 'string' },
+      'continuation-hash': { type: 'string' },
+      'inspect-continuation': { type: 'boolean' },
       'build-root': { type: 'string' },
       'run-id': { type: 'string' },
       'build-hash': { type: 'string' },
@@ -74,9 +78,55 @@ async function main() {
       values.fingerprint ||
       values['verify-inputs'] ||
       values['selfcheck-control'] ||
+      values['inspect-continuation'] ||
       !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(values['run-id']))
   )
     throw new Error('PAPER_PREFLIGHT_FAILED');
+  const continuing = [values['continue-from'], values['continuation-launch'], values['continuation-hash']].some(
+    (value) => value !== undefined,
+  );
+  const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
+  if (
+    continuing &&
+    (!uuid.test(values['continue-from'] ?? '') ||
+      !uuid.test(values['continuation-launch'] ?? '') ||
+      (!values['inspect-continuation'] && !/^[a-f0-9]{64}$/.test(values['continuation-hash'] ?? '')) ||
+      values['run-id'] === values['continue-from'])
+  )
+    throw new Error('PAPER_CONTINUATION_INVALID');
+  const continuationContext = () => ({
+    parentRunId: values['continue-from'],
+    parentLaunchId: values['continuation-launch'],
+    market,
+    asOf: new Date().toISOString(),
+  });
+  if (values['inspect-continuation']) {
+    if (
+      !continuing ||
+      values.run ||
+      values['resume-authorized'] ||
+      values.fingerprint ||
+      values['verify-inputs'] ||
+      values['selfcheck-control'] ||
+      (process.env.TRADING_MODE !== undefined && process.env.TRADING_MODE !== 'paper')
+    )
+      throw new Error('PAPER_CONTINUATION_INVALID');
+    const { readPaperContinuation } = await load('apps/worker/dist/paper-continuation.js');
+    const reviewed = await readPaperContinuation(root, continuationContext(), values['continuation-hash']);
+    console.log(
+      JSON.stringify({
+        state: 'continuation-reviewed',
+        market,
+        parentRunId: reviewed.parentRunId,
+        parentLaunchId: reviewed.parentLaunchId,
+        evidenceHash: reviewed.evidenceHash,
+        dbAccessed: false,
+        executionEnabled: false,
+        canResume: false,
+      }),
+    );
+    return;
+  }
   if (values.fingerprint) {
     console.log(await fingerprint());
     process.exit(0);
@@ -129,6 +179,7 @@ async function main() {
       JSON.stringify({
         state: 'preview',
         market,
+        continuationRequested: continuing,
         prerequisite,
         startsAt,
         maxTicks: 60,
@@ -217,6 +268,14 @@ async function main() {
   } catch {
     throw new Error('PAPER_CONTROL_CHANGED');
   }
+  const { readPaperContinuation, verifyPaperContinuationBaseline, verifyPaperContinuationEvents } = continuing
+    ? await load('apps/worker/dist/paper-continuation.js')
+    : {};
+  const continuation = continuing
+    ? await readPaperContinuation(root, continuationContext(), values['continuation-hash'])
+    : null;
+  if (continuation && continuation.resourcesHash !== resource.resourcesHash)
+    throw new Error('PAPER_CONTINUATION_INVALID');
   const { verifyPaperPrerequisite, runGuardedPaperValidationPhase } = await load(
     'apps/worker/dist/paper-validation-guards.js',
   );
@@ -259,6 +318,15 @@ async function main() {
       maxTicks: 60,
       buildHash: expectedBuild,
       resourcesHash: resource.resourcesHash,
+      ...(continuation
+        ? {
+            continuation: {
+              parentRunId: continuation.parentRunId,
+              parentLaunchId: continuation.parentLaunchId,
+              evidenceHash: continuation.evidenceHash,
+            },
+          }
+        : {}),
       expectedControlHash: values['expectations-hash'] ?? null,
       automaticRetry: false,
       executionEnabled: false,
@@ -315,6 +383,7 @@ async function main() {
     const { runPaperMarket } = await load('apps/worker/dist/paper-market-runtime.js');
     const { createPaperWorker } = await load('apps/worker/dist/paper-worker.js');
     const { paperSessionState, prepareStrategyData } = await load('packages/trading/dist/index.js');
+    if (continuation) await readPaperContinuation(root, continuationContext(), continuation.evidenceHash);
     const environment = {
       ...parseEnv(await readFile('.env', 'utf8')),
       ...parseEnv(await readFile('.local-data/paper-market-local/.env', 'utf8')),
@@ -344,6 +413,11 @@ async function main() {
       !s.leasePresent &&
       !s.reservations.some((x) => x.active) &&
       !s.intents.some((x) => ['INTENT_RECORDED', 'READY', 'PARTIALLY_FILLED'].includes(x.state));
+    const controlError = (error) => {
+      if (continuation && error instanceof Error && error.message === 'PAPER_VERSION_CONFLICT')
+        throw new Error('PAPER_CONTROL_CHANGED');
+      throw error;
+    };
     phase = 'account-preflight';
     emit({ state: phase });
     if (entry.planHash !== resource.planHash) throw new Error('PAPER_MARKET_PLAN_HASH_MISMATCH');
@@ -356,18 +430,27 @@ async function main() {
       'stopped',
       'noLease',
       'limitsMatch',
-      'initialCash',
-      'emptyPositions',
-      'noOrders',
-      'noFills',
-      'noReservations',
       'strategyMatches',
       'historyMatches',
       'preparationReceipt',
     ];
-    if (required.some((x) => prep.checks[x] !== true)) throw new Error('PAPER_ACCOUNT_NOT_PRISTINE');
+    if (!continuation) required.push('initialCash', 'emptyPositions', 'noOrders', 'noFills', 'noReservations');
+    if (required.some((x) => prep.checks[x] !== true))
+      throw new Error(continuation ? 'PAPER_CONTINUATION_INVALID' : 'PAPER_ACCOUNT_NOT_PRISTINE');
     const initial = await capture('preparation-before');
-    if (!clean(initial.snapshot)) throw new Error('PAPER_ACCOUNT_NOT_PRISTINE');
+    if (!clean(initial.snapshot))
+      throw new Error(continuation ? 'PAPER_CONTINUATION_INVALID' : 'PAPER_ACCOUNT_NOT_PRISTINE');
+    if (continuation) {
+      const baselineCheck = verifyPaperContinuationBaseline(continuation.baseline, initial);
+      await writeReviewArtifact(resolve(directory, 'continuation-evidence.json'), {
+        parentRunId: continuation.parentRunId,
+        parentLaunchId: continuation.parentLaunchId,
+        evidenceHash: continuation.evidenceHash,
+        baselineCheck,
+        executionEnabled: false,
+        canResume: false,
+      });
+    }
     if (
       initial.snapshot.version !== expected.version ||
       initial.snapshot.epoch !== expected.epoch ||
@@ -386,7 +469,19 @@ async function main() {
       await writeReviewArtifact(resolve(directory, 'day-review-plan.json'), plan);
       await applyPaperDayReview(
         {
-          paper: db.paper,
+          paper: {
+            ...db.paper,
+            acquireLease: (id, ttl, dataSource, version) =>
+              db.paper
+                .acquireLease(
+                  id,
+                  ttl,
+                  dataSource,
+                  version,
+                  continuation ? contentHash(initial.snapshot.events) : undefined,
+                )
+                .catch(controlError),
+          },
           clientId: environment.TOSS_CLIENT_ID,
           withBrokerLease: (key, operation) => brokerDb.withBrokerLease(key, operation),
           createBroker: (signal) =>
@@ -406,6 +501,7 @@ async function main() {
     }
     const reviewed = await capture('day-review-after');
     verifyDailyControl(initial.snapshot, reviewed.snapshot, dayApplied);
+    if (continuation) verifyPaperContinuationEvents(initial, reviewed, dayApplied ? 'daily-review' : 'unchanged');
     const economics = (s) => ({
       cash: s.cash,
       positions: s.positions,
@@ -467,12 +563,22 @@ async function main() {
                   {
                     ...db.paper,
                     acquireLease: (id, ttl, dataSource) =>
-                      db.paper.acquireLease(
-                        id,
-                        ttl,
-                        dataSource,
-                        resume ? beforeRun.snapshot.version : reviewed.snapshot.version,
-                      ),
+                      db.paper
+                        .acquireLease(
+                          id,
+                          ttl,
+                          dataSource,
+                          resume ? beforeRun.snapshot.version : reviewed.snapshot.version,
+                          continuation ? contentHash((resume ? beforeRun : reviewed).snapshot.events) : undefined,
+                        )
+                        .catch(controlError),
+                    resume: async (id, token, version) => {
+                      if (!continuation) return db.paper.resume(id, token, version);
+                      const current = await capture('resume-control');
+                      const eventsHash = verifyPaperContinuationEvents(beforeRun, current, 'before-resume');
+                      if (current.snapshot.version !== version) throw new Error('PAPER_CONTROL_CHANGED');
+                      return db.paper.resume(id, token, version, eventsHash).catch(controlError);
+                    },
                   },
                   value,
                   async (instruments, signal) => {
@@ -496,6 +602,7 @@ async function main() {
     await runPhase(false, 1);
     const observed = await capture('stopped-observation-after');
     verifyStoppedControl(reviewed.snapshot, observed.snapshot);
+    if (continuation) verifyPaperContinuationEvents(reviewed, observed, 'stopped-observation');
     const current = await db.paper.readAccount(entry.accountId);
     if (current.snapshot.version !== observed.snapshot.version || current.control.epoch !== observed.snapshot.epoch)
       throw new Error('PAPER_CONTROL_CHANGED');
@@ -568,6 +675,7 @@ async function main() {
       throw new Error('PAPER_CONFIGURATION_CHANGED');
     if ((await fingerprint()) !== expectedBuild) throw new Error('PAPER_BUILD_CHANGED');
     await verifyPaperValidationResources(resourceDirectory, resourcesHash, market);
+    if (continuation) await readPaperContinuation(root, continuationContext(), continuation.evidenceHash);
     const finalSelection = verifyPaperPrerequisite(
       selectedPrerequisite.job,
       await reports.getWithSampleRange(selectedPrerequisite.job.reportId),
@@ -577,6 +685,7 @@ async function main() {
       throw new Error('PREREQUISITE_FAILED');
     await writeReviewArtifact(resolve(directory, 'prerequisite-before-run.json'), finalSelection);
     beforeRun = await capture('before');
+    if (continuation) verifyPaperContinuationBaseline(observed, beforeRun);
     if (
       beforeRun.snapshot.version !== observed.snapshot.version ||
       beforeRun.snapshot.epoch !== observed.snapshot.epoch
@@ -664,6 +773,7 @@ await main().catch((error) => {
       'PAPER_MARKET_PLAN_INVALID',
       'PAPER_MARKET_PLAN_HASH_MISMATCH',
       'PAPER_VALIDATION_RESOURCE_INVALID',
+      'PAPER_CONTINUATION_INVALID',
       'PAPER_PREFLIGHT_FAILED',
       'PAPER_STRATEGY_WARMUP_INSUFFICIENT',
       'PAPER_BUILD_CHANGED',
