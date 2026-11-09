@@ -54,6 +54,7 @@ import {
   paperStrategyRevisions,
 } from './schema.js';
 import { contentHash, normalizeDecimal } from './content-hash.js';
+import { readPaperReviewEvents } from './paper-review-events.js';
 
 type Database = NodePgDatabase<typeof schema>;
 type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -107,6 +108,12 @@ function leaseOwned(account: Account, token: string, now: Date) {
 }
 function expected(account: Account, version: number) {
   if (account.version !== parse(versionSchema, version)) throw new Error('PAPER_VERSION_CONFLICT');
+}
+async function expectedEvents(transaction: Transaction, accountId: string, expectedHash?: string) {
+  if (expectedHash === undefined) return;
+  const hash = parse(z.string().regex(/^[a-f0-9]{64}$/), expectedHash);
+  if (contentHash(await readPaperReviewEvents(transaction, accountId)) !== hash)
+    throw new Error('PAPER_VERSION_CONFLICT');
 }
 function checkLimits(value: unknown) {
   const limits = parse(paperRiskLimitsSchema, value);
@@ -1000,11 +1007,13 @@ export function createPaperLedger(db: Database) {
       ttlMs = 30_000,
       source: PaperDataSource = 'synthetic-only',
       expectedVersion?: number,
+      expectedEventsHash?: string,
     ) {
       parse(ttlSchema, ttlMs);
       return locked(id, async (transaction, account) => {
         assertSource(account, source);
         if (expectedVersion !== undefined) expected(account, expectedVersion);
+        await expectedEvents(transaction, id, expectedEventsHash);
         const now = await clock(transaction);
         if (account.leaseUntil && Date.parse(account.leaseUntil) > now.getTime()) throw new Error('PAPER_LEASE_BUSY');
         const token = randomUUID();
@@ -1088,9 +1097,10 @@ export function createPaperLedger(db: Database) {
         return updated.version;
       });
     },
-    async resume(id: string, token: string, version: number) {
+    async resume(id: string, token: string, version: number, expectedEventsHash?: string) {
       return locked(id, async (transaction, account) => {
         expected(account, version);
+        await expectedEvents(transaction, id, expectedEventsHash);
         const now = await clock(transaction);
         if (!leaseOwned(account, token, now)) throw new Error('PAPER_LEASE_NOT_OWNED');
         if (

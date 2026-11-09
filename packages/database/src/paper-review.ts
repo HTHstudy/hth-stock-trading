@@ -7,6 +7,7 @@ import {
 } from '@hth/contracts';
 import type { PaperDataSource } from '@hth/contracts';
 import { contentHash, normalizeDecimal } from './content-hash.js';
+import { readPaperReviewEvents } from './paper-review-events.js';
 import * as tables from './schema.js';
 
 const key = (value: string) => contentHash(value);
@@ -142,20 +143,10 @@ export function createPaperReviewStore(db: NodePgDatabase<typeof tables>, connec
             .where(eq(tables.paperStrategies.accountId, accountId))
             .orderBy(asc(tables.paperStrategies.strategyId))
             .limit(5001);
-          const events = await tx
-            .select({
-              id: tables.paperEvents.id,
-              kind: tables.paperEvents.kind,
-              createdAt: sql<string>`to_char(${tables.paperEvents.createdAt} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
-            })
-            .from(tables.paperEvents)
-            .where(eq(tables.paperEvents.accountId, accountId))
-            .orderBy(asc(tables.paperEvents.createdAt), asc(tables.paperEvents.id))
-            .limit(5001);
+          const events = await readPaperReviewEvents(tx, accountId);
           if ([intents, fills, reservations, basis, strategies, events].some((rows) => rows.length > 5000))
             throw new Error('PAPER_REVIEW_LIMIT_EXCEEDED');
           const target = new URL(connectionString);
-          const eventKind = paperReviewSnapshotSchema.shape.events.element.shape.kind;
           return paperReviewSnapshotSchema.parse({
             formatVersion: 'paper-review-snapshot-v1',
             source,
@@ -254,11 +245,7 @@ export function createPaperReviewStore(db: NodePgDatabase<typeof tables>, connec
               sellQuantity: normalizeDecimal(r.sellQuantity),
               active: r.active,
             })),
-            events: events.map((e) => ({
-              key: key(e.id),
-              kind: eventKind.safeParse(e.kind).success ? e.kind : 'OTHER',
-              createdAt: e.createdAt,
-            })),
+            events,
           });
         },
         { isolationLevel: 'repeatable read', accessMode: 'read only' },
