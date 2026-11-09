@@ -4,8 +4,8 @@ import { QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react
 import { afterEach, expect, it, vi } from 'vitest';
 import { ResearchDisclosure, ResearchPage } from './index';
 import { researchFixture } from './research-fixture';
-import { executionKey, filterRows, strategyParametersLabel } from './model';
-import { ResearchResults } from './results';
+import { executionDescription, executionKey, filterRows, strategyParametersLabel } from './model';
+import { ResearchMetricsTable, ResearchResults } from './results';
 import { researchSnapshotOptions } from './api';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -29,14 +29,19 @@ it('0체결·투자 없음·벤치마크 자체 행과 연구 한계를 숨기�
   const html = renderToString(createElement(ResearchResults, { snapshot, rows: snapshot.rows }));
   expect(html).toContain('미검증 · 전략 0체결');
   expect(html).toContain('벤치마크 자체 행 · 0체결 미검증');
-  expect(html).toContain('투자 없음');
+  const capital = renderToString(
+    createElement(ResearchMetricsTable, { snapshot, rows: snapshot.rows, view: 'capital' }),
+  );
+  expect(capital).toContain('투자 없음');
+  expect(capital).toContain('미검증 · 전략 0체결');
+  expect(capital).toContain('벤치마크 자체 행 · 0체결 미검증');
   expect(html.indexOf('이동평균 교차')).toBeLessThan(html.indexOf('매수 후 보유'));
   const disclosure = renderToString(
     createElement(ResearchDisclosure, { entryAfterClosedCandles: snapshot.benchmark.entryAfterClosedCandles }),
   );
   for (const text of [
     'pointInTime=false',
-    '이미 열람한',
+    '사후 수집한 과거 자료',
     '21개',
     '수량·초기 자금',
     '전액 투자',
@@ -145,8 +150,9 @@ it('순손익 비율이 null이면 측정 구간 부재와 구간 내 투자 없
   const row = snapshot.rows[0]!;
   const render = (windowMilliseconds: number) =>
     renderToString(
-      createElement(ResearchResults, {
+      createElement(ResearchMetricsTable, {
         snapshot,
+        view: 'capital',
         rows: [{ ...row, exposure: { ...row.exposure, windowMilliseconds } }],
       }),
     );
@@ -219,11 +225,156 @@ it('첫 화면은 첫 데이터셋·첫 비용의 네 행만 표시하고 전체
     expect(html).toContain(`value="${executionKey(row).replaceAll('"', '&quot;')}" selected=""`);
     expect(html).toContain('전체 데이터셋');
     expect(html).toContain('전체 비용 설정');
+    const visibleText = html.replace(/<details[\s\S]*?<\/details>/g, '').replace(/<[^>]*>/g, '');
+    expect(visibleText).not.toContain(snapshot.snapshotHash);
+    expect(html).toContain(`snapshot ${snapshot.snapshotHash}`);
     expect(html).not.toContain('ma-base-validation');
     expect(html).not.toContain('ma-base-stress');
     expect(filterRows(snapshot.rows, '', '')).toHaveLength(12);
     expect(filterRows(snapshot.rows, 'research', '')).toHaveLength(8);
   } finally {
     client.clear();
+  }
+});
+
+it('성과가 기본이며 두 지표 보기 버튼과 이동 안내를 표 앞에 제공한다', () => {
+  const snapshot = researchFixture();
+  const html = renderToString(createElement(ResearchResults, { snapshot, rows: snapshot.rows }));
+  expect(html).toMatch(/aria-pressed="true"[^>]*>성과<\/button>/);
+  expect(html).toMatch(/aria-pressed="false"[^>]*>투자금·보유 시간<\/button>/);
+  expect(html.indexOf('투자금·보유 시간</button>')).toBeLessThan(html.indexOf('<table'));
+  expect(html).toContain('전략명은 고정됩니다');
+  expect(html).not.toContain('scope="col" class="px-4 py-4 font-medium">최대 투자 원가');
+});
+
+it('두 보기는 각 8열로 모든 기존 지표를 나누고 행 순서와 서버 표시값을 유지한다', () => {
+  const snapshot = researchFixture();
+  const row = snapshot.rows[0]!;
+  const rows = [
+    {
+      ...row,
+      metrics: {
+        ...row.metrics,
+        initialCash: '12345.67',
+        netPnl: '-12.34',
+        cumulativeReturnPct: '-0.1234',
+        maxDrawdownPct: '1.2345',
+        fillCount: 3,
+        totalFees: '2.34',
+        totalTax: '0.56',
+        endingQuantity: '7.25',
+      },
+      unfilledAtEnd: 2,
+      comparisonStatus: 'compared' as const,
+      netPnlDifference: '-4.56',
+      exposure: {
+        ...row.exposure,
+        holdingMilliseconds: 90061000,
+        holdingPct: '12.3456',
+        maxInvestedCapital: '2345.67',
+        averageInvestedCapital: '345.67',
+        netPnlOverMaxInvestedCapitalPct: '-0.5261',
+      },
+    },
+    snapshot.rows[1]!,
+  ];
+  const render = (view: 'performance' | 'capital') =>
+    renderToString(createElement(ResearchMetricsTable, { snapshot, rows, view })).replaceAll('<!-- -->', '');
+  const performance = render('performance');
+  const capital = render('capital');
+  for (const html of [performance, capital]) {
+    expect(html.match(/scope="col"/g)).toHaveLength(8);
+    expect(html.match(/scope="row"/g)).toHaveLength(2);
+    expect(html.indexOf('이동평균 교차')).toBeLessThan(html.indexOf('매수 후 보유'));
+    expect(html).toContain('sticky left-0');
+    const metricCells = [...html.matchAll(/<td class="([^"]*)"/g)];
+    expect(metricCells).toHaveLength(rows.length * 7);
+    for (const cell of metricCells) expect(cell[1]?.split(' ')).toContain('whitespace-nowrap');
+    const rowHeaders = [...html.matchAll(/<th scope="row" class="([^"]*)"/g)];
+    expect(rowHeaders).toHaveLength(rows.length);
+    for (const header of rowHeaders) expect(header[1]?.split(' ')).not.toContain('whitespace-nowrap');
+    expect(html).toContain('isolate overflow-x-auto');
+    expect(html).toContain('−12.34');
+    expect(html).toContain('2026-10-01 ~ 2026-10-02');
+    expect(html).not.toContain(row.reportHash);
+  }
+  for (const value of ['12,345.67', '−0.1234%', '1.2345%', '3 / 2', '2.34', '0.56', '−4.56'])
+    expect(performance).toContain(value);
+  for (const value of ['1일 1시간 1분 1초', '12.3456%', '2,345.67', '345.67', '−0.5261%', '7.2500'])
+    expect(capital).toContain(value);
+  expect(performance).not.toContain('보유 기간 (달력)</th>');
+  expect(capital).not.toContain('MDD</th>');
+});
+
+it('연구 한계의 핵심 안내는 상세 밖에 남기고 긴 설명은 기본 닫힘이다', () => {
+  const html = renderToString(createElement(ResearchDisclosure, { entryAfterClosedCandles: 21 }));
+  expect(html).toContain('사후 수집한 과거 자료를 사용한 탐색 연구');
+  expect(html).not.toContain('이미 열람한');
+  expect(html.indexOf('사후 수집한 과거 자료')).toBeLessThan(html.indexOf('<details'));
+  expect(html).toContain('독립 검증이나 전략 선정·운용 승인이 아닙니다');
+  expect(html.indexOf('Paper 설정을 변경하지 않습니다')).toBeLessThan(html.indexOf('<details'));
+  expect(html).not.toMatch(/<details[^>]* open/);
+  expect(html.indexOf('pointInTime=false')).toBeGreaterThan(html.indexOf('<details'));
+  expect(html).toContain('야간·주말');
+});
+
+it('선택 체결 규칙의 JSON은 행 상세에서만 제공하고 비용 필터의 문자열 구분은 보존한다', () => {
+  const snapshot = researchFixture();
+  const row = snapshot.rows[0]!;
+  row.execution.executionRules = {
+    formatVersion: 'execution-rules-v1',
+    priceRule: 'fixed',
+    venueAssumption: 'unspecified',
+    boardAssumption: 'unspecified',
+    assetClassAssumption: 'unspecified',
+    buyFee: { rounding: 'ceil', minimum: '0', maximum: null },
+    sellFee: { rounding: 'floor', minimum: '0', maximum: '1' },
+  };
+  expect(executionDescription(row)).toContain('별도 체결 규칙 적용');
+  expect(executionDescription(row)).not.toContain('formatVersion');
+  const other = {
+    ...row,
+    execution: {
+      ...row.execution,
+      executionRules: {
+        ...row.execution.executionRules,
+        buyFee: { rounding: 'ceil' as const, minimum: '1', maximum: null },
+      },
+    },
+  };
+  expect(filterRows([other, row], row.dataset, executionKey(row))).toEqual([row]);
+  for (const view of ['performance', 'capital'] as const) {
+    const html = renderToString(createElement(ResearchMetricsTable, { snapshot, rows: [row], view }));
+    expect(html).toContain('formatVersion');
+    expect(html.replace(/<details[\s\S]*?<\/details>/g, '')).not.toContain('formatVersion');
+  }
+});
+
+it('전체 기간의 각 행은 날짜로 구분하고 raw 데이터셋·조건 ID는 상세에만 둔다', () => {
+  const snapshot = researchFixture();
+  const first = snapshot.rows[1]!;
+  const nextDataset = {
+    ...snapshot.datasets[0]!,
+    id: 'raw-validation-id',
+    request: { ...snapshot.datasets[0]!.request, from: '2025-01-01', to: '2025-12-31' },
+  };
+  snapshot.datasets.push(nextDataset);
+  const rows = [
+    { ...first, variant: 'hold-raw-hash-first' },
+    { ...first, dataset: nextDataset.id, variant: 'hold-raw-hash-second', reportHash: '1'.repeat(64) },
+  ];
+  for (const view of ['performance', 'capital'] as const) {
+    const html = renderToString(createElement(ResearchMetricsTable, { snapshot, rows, view })).replaceAll(
+      '<!-- -->',
+      '',
+    );
+    const visible = html.replace(/<details[\s\S]*?<\/details>/g, '');
+    expect(visible).toContain('2026-10-01 ~ 2026-10-02');
+    expect(visible).toContain('2025-01-01 ~ 2025-12-31');
+    expect(visible.indexOf('2026-10-01')).toBeLessThan(visible.indexOf('2025-01-01'));
+    expect(visible).not.toContain('raw-validation-id');
+    expect(visible).not.toContain('hold-raw-hash');
+    expect(html).toContain('데이터셋 ID: research · 조건 ID: hold-raw-hash-first');
+    expect(html).toContain('데이터셋 ID: raw-validation-id · 조건 ID: hold-raw-hash-second');
   }
 });

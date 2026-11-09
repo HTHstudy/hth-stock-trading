@@ -58,10 +58,10 @@ export function ResearchPage() {
         <label className="mt-5 block rounded-xl border border-slate-800 bg-[#111a2b] p-5 text-xs text-teal-200">
           연구 리포트
           <select className={selectClass} value={hash} onChange={(event) => setSelected(event.target.value)}>
-            {reports.map((report) => (
+            {reports.map((report, index) => (
               <option key={report.snapshotHash} value={report.snapshotHash}>
                 {report.instrument.symbol} · {report.interval} · {report.currency} · {report.periods}개 기간 ·{' '}
-                {report.rows}행 · {report.snapshotHash.slice(0, 12)}
+                {report.rows}행 · 리포트 {index + 1}
               </option>
             ))}
           </select>
@@ -105,9 +105,9 @@ function SnapshotView({ snapshot }: { snapshot: StrategyResearchSnapshot }) {
           체결 비용 (base / stress 등 원본 설정)
           <select className={selectClass} value={execution} onChange={(event) => setExecution(event.target.value)}>
             <option value="">전체 비용 설정</option>
-            {configs.map((row) => (
+            {configs.map((row, index) => (
               <option key={executionKey(row)} value={executionKey(row)}>
-                {executionDescription(row)}
+                설정 {index + 1} · {executionDescription(row)}
               </option>
             ))}
           </select>
@@ -137,11 +137,12 @@ export function ResearchDisclosure({ entryAfterClosedCandles }: { entryAfterClos
       className="my-5 rounded-xl border border-amber-300/15 bg-amber-300/5 p-5 text-xs leading-6 text-amber-100"
     >
       <p>
-        이미 열람한 입력을 사용한 탐색 연구입니다. pointInTime=false이며 독립 검증이나 전략 선정·운용 승인이 아닙니다.
-        실제 주문을 실행하거나 Paper 설정을 변경하지 않습니다.
+        사후 수집한 과거 자료를 사용한 탐색 연구이며 독립 검증이나 전략 선정·운용 승인이 아닙니다. 실제 주문을
+        실행하거나 Paper 설정을 변경하지 않습니다.
       </p>
-      <details className="mt-2" open>
+      <details className="mt-2">
         <summary className="cursor-pointer font-medium">비교 조건과 자본 노출 해석</summary>
+        <p className="mt-2">사후 수집 입력 · pointInTime=false</p>
         <p className="mt-2">
           연결된 후보와 벤치마크는 각 행의 수량·초기 자금 조건이 같으며,{' '}
           {entryAfterClosedCandles === undefined

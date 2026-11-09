@@ -8,7 +8,7 @@ export function executionKey(row: ResearchRow) {
 
 export function executionDescription(row: ResearchRow) {
   const config = row.execution;
-  return `매수 ${config.buyFeeBps} / 매도 ${config.sellFeeBps} / 매도세 ${config.sellTaxBps} / 슬립 ${config.slippageBps} bps · 수량 ${config.quantity} · 호가 ${config.priceTick}${config.executionRules ? ` · 규칙 ${JSON.stringify(config.executionRules)}` : ' · 기존 체결 모델'}`;
+  return `매수 ${config.buyFeeBps} / 매도 ${config.sellFeeBps} / 매도세 ${config.sellTaxBps} / 슬립 ${config.slippageBps} bps · 수량 ${config.quantity} · 호가 ${config.priceTick}${config.executionRules ? ' · 별도 체결 규칙 적용' : ' · 기존 체결 모델'}`;
 }
 
 export function filterRows(rows: ResearchRow[], dataset: string, execution: string) {
