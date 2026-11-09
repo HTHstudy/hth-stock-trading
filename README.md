@@ -37,7 +37,7 @@ web: http://localhost:5173, API 생존 확인: http://localhost:4000/health/live
 
 이동평균·돌파·평균회귀를 오프라인으로 비교하려면 [전략 계열 연구](docs/STRATEGY_FAMILY_STUDY.md)의 `backtest:strategies`를 사용합니다. 연구 결과는 별도 private 형식이며 Paper 전략이나 대시보드 리포트를 자동 변경하지 않습니다.
 
-[전략 연구 화면](http://localhost:5173/research)에서 같은 시점의 단순 보유 대조군과 투자 원가·보유 시간을 비교합니다. 성과와 투자금·보유 시간을 나눠 보고, 종목·기간·비용 설정으로 조회할 수 있습니다. [KO·JPM 2023~2025 연구 확대](docs/SECTOR_RESEARCH_EXPANSION.md)도 같은 고정 조건으로 추가했습니다. 실행/저장 검토 명령 `backtest:benchmark`와 지표 정의는 [대조군·자본 노출 문서](docs/STRATEGY_BENCHMARK_RESEARCH.md)를 따릅니다. 소유자 로그인 후 읽기 전용으로 조회합니다.
+[전략 연구 화면](http://localhost:5173/research)에서 같은 시점의 단순 보유 대조군과 투자 원가·보유 시간을 비교합니다. 성과와 투자금·보유 시간을 나눠 보고, 종목·기간·비용 설정으로 조회할 수 있습니다. [KO·JPM 2023~2025 연구 확대](docs/SECTOR_RESEARCH_EXPANSION.md)도 같은 고정 조건으로 추가했습니다. 실행/저장 검토 명령 `backtest:benchmark`와 지표 정의는 [대조군·자본 노출 문서](docs/STRATEGY_BENCHMARK_RESEARCH.md)를 따릅니다. 소유자 로그인 후 읽기 전용으로 조회합니다. [96조건 비교 검토](docs/STRATEGY_COMPARISON_REVIEW.md)에는 후보별 비용 민감도·대조군 대비 결과·투자 노출과 채택 보류 근거를 정리했습니다.
 
 화면 상단의 **시스템 / 라이트 / 다크** 버튼으로 테마를 바꿀 수 있습니다. 기본은 OS 설정이며 선택은 브라우저에 저장합니다. 로그인 화면과 차트에도 적용되며, 브라우저 저장소가 차단된 경우 현재 탭에서만 선택을 유지합니다. [구현·검증 범위](docs/WEB_THEME.md)를 참고하세요.
 
