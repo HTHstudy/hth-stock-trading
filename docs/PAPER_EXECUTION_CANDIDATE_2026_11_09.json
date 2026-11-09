@@ -1,0 +1,176 @@
+{
+  "formatVersion": "paper-execution-candidate-document-v1",
+  "documentOnly": true,
+  "preparedOn": "2026-11-09",
+  "basedOnSourceCommit": "ce1197c",
+  "state": "draft-blocked-not-scheduled",
+  "selectedMarket": "US",
+  "deferredMarket": "KR",
+  "instrument": {
+    "market": "US",
+    "symbol": "AAPL"
+  },
+  "existingPlanHashes": {
+    "KR": "d950bcc82bc9505e17109125e43ea523664522a4565a751a032899f6dbda2d0c",
+    "US": "adb3fbf91ddf456c09614dd31e31f2ef7ea5a37683c30770f9787d681e634893"
+  },
+  "mode": "paper",
+  "accountSelection": "existing-server-manifest-only",
+  "runnerModeCandidate": "pristine-with-current-account-recheck",
+  "alternativeContinuation": {
+    "parentRunId": "e3c96a51-7ef8-46dc-b533-215cd38e7298",
+    "parentLaunchId": "87e0324c-d416-4bbb-b490-b3843c6ab916",
+    "evidenceHash": "57a28da10a85a58a0b0faae583cfdf7d845135f123455cef305ba2f720de1721",
+    "requiredForThisZeroOrderCandidate": false
+  },
+  "exchangeCalendarReference": {
+    "tradeDate": "2026-11-09",
+    "timeZone": "America/New_York",
+    "sessionStartsAt": "2026-11-09T14:30:00.000Z",
+    "sessionEndsAt": "2026-11-09T21:00:00.000Z",
+    "tossSessionVerified": false,
+    "links": [
+      "https://www.nasdaqtrader.com/Trader.aspx?id=Calendar",
+      "https://www.nasdaq.com/market-activity/stock-market-holiday-schedule"
+    ]
+  },
+  "observationCandidate": {
+    "startsAt": "2026-11-09T14:55:00.000Z",
+    "samples": 60,
+    "intervalMs": 60000,
+    "timeoutMs": 10000,
+    "intervalOnlyMs": 3540000,
+    "frameBudgetMs": 4140000,
+    "cleanupAllowanceMs": 360000,
+    "absoluteDeadline": "2026-11-09T16:10:00.000Z",
+    "actualJobId": null,
+    "actualReportId": null,
+    "actualEvidenceHash": null,
+    "actualFinishedAt": null,
+    "requiredHealthySamples": 60,
+    "maximumErrors": 0,
+    "maximumBlocked": 0,
+    "maximumGaps": 0
+  },
+  "paperCandidate": {
+    "startRule": "verified-terminal-report-finishedAt-plus-180000ms",
+    "startAt": null,
+    "deadline": null,
+    "procedureBudgetMs": 1500000,
+    "maximumTicks": 60,
+    "maximumPrerequisiteAgeMs": 900000,
+    "requireNewDailyReviewPlan": true,
+    "dailyReviewPolicy": "carry-negative-pnl-v1",
+    "requireStoppedObservation": true,
+    "minimumClosedCandles": 21,
+    "requireFreshControlAndBeforeCheckpoint": true,
+    "requireOwnedLaunchAndExit": true,
+    "requireAfterAndLedgerComparison": true
+  },
+  "timingScenarios": [
+    {
+      "name": "intervals-only-not-a-guaranteed-completion",
+      "estimatedObservationFinishedAt": "2026-11-09T15:54:00.000Z",
+      "warmup": {
+        "formatVersion": "paper-warmup-plan-v2",
+        "parameters": {
+          "fastPeriod": 5,
+          "slowPeriod": 20
+        },
+        "requiredCandles": 21,
+        "policyVersion": "market-data-v1",
+        "settlementDelayMs": 60000,
+        "schedulingBufferMs": 180000,
+        "defaultProcedureBudgetMs": 1500000,
+        "minimumProcedureBudgetMs": 720000,
+        "dayBoundaryBufferMs": 300000,
+        "warmupRecommendedStartAt": "2026-11-09T14:55:00.000Z",
+        "dayBoundaryAdjusted": true,
+        "dailyDatesAtStart": {
+          "KRW": "2026-11-10",
+          "USD": "2026-11-09"
+        },
+        "sessionStartsAt": "2026-11-09T14:30:00.000Z",
+        "sessionEndsAt": "2026-11-09T21:00:00.000Z",
+        "earliestEligibleAt": "2026-11-09T14:52:00.000Z",
+        "recommendedStartAt": "2026-11-09T15:05:00.000Z",
+        "startsAt": "2026-11-09T15:57:00.000Z",
+        "deadline": "2026-11-09T16:22:00.000Z",
+        "theoreticalClosedCandlesAtStart": 86,
+        "blockers": [],
+        "state": "prepared",
+        "actualCandlesVerified": false,
+        "sessionVerified": false,
+        "scheduled": false,
+        "executionEnabled": false,
+        "canResume": false,
+        "hash": "e39d2f52f25e7c366bc623928493987583bbc1295b1eec5ae4de288fef2851cd"
+      }
+    },
+    {
+      "name": "all-frame-timeouts-budget-excludes-cleanup",
+      "estimatedObservationFinishedAt": "2026-11-09T16:04:00.000Z",
+      "warmup": {
+        "formatVersion": "paper-warmup-plan-v2",
+        "parameters": {
+          "fastPeriod": 5,
+          "slowPeriod": 20
+        },
+        "requiredCandles": 21,
+        "policyVersion": "market-data-v1",
+        "settlementDelayMs": 60000,
+        "schedulingBufferMs": 180000,
+        "defaultProcedureBudgetMs": 1500000,
+        "minimumProcedureBudgetMs": 720000,
+        "dayBoundaryBufferMs": 300000,
+        "warmupRecommendedStartAt": "2026-11-09T14:55:00.000Z",
+        "dayBoundaryAdjusted": true,
+        "dailyDatesAtStart": {
+          "KRW": "2026-11-10",
+          "USD": "2026-11-09"
+        },
+        "sessionStartsAt": "2026-11-09T14:30:00.000Z",
+        "sessionEndsAt": "2026-11-09T21:00:00.000Z",
+        "earliestEligibleAt": "2026-11-09T14:52:00.000Z",
+        "recommendedStartAt": "2026-11-09T15:05:00.000Z",
+        "startsAt": "2026-11-09T16:07:00.000Z",
+        "deadline": "2026-11-09T16:32:00.000Z",
+        "theoreticalClosedCandlesAtStart": 96,
+        "blockers": [],
+        "state": "prepared",
+        "actualCandlesVerified": false,
+        "sessionVerified": false,
+        "scheduled": false,
+        "executionEnabled": false,
+        "canResume": false,
+        "hash": "d2cd499452f85ffa4a63dcc345303c4ad8685b882d749f886d6220ba7faf8664"
+      }
+    }
+  ],
+  "pending": [
+    "historical-reservation-independent-exit-evidence-or-reviewed-policy-resolution",
+    "regular-60-sample-finite-observation-supervision-and-final-job-report-linkage",
+    "fresh-toss-calendar-and-session",
+    "new-final-hash-verified-60-healthy-observation",
+    "current-dedicated-db-account-control-and-loss-review",
+    "new-code-resources-and-control-pins",
+    "explicit-observation-and-paper-execution-authorization"
+  ],
+  "immutableSettings": [
+    "moving-average-5-20",
+    "quantity-1",
+    "max-fill-1",
+    "existing-cash-limits-costs",
+    "existing-account-history-and-permanent-dedupe-keys"
+  ],
+  "buildHash": null,
+  "resourcesDirectory": null,
+  "expectedControlHash": null,
+  "automaticRetry": false,
+  "scheduled": false,
+  "resumeRequested": false,
+  "dbAccessed": false,
+  "executionEnabled": false,
+  "canResume": false,
+  "hash": "d70502a9483f721f448a1c4ed434c436aaffefbc6e237acc8bdbeb09cdda8067"
+}
