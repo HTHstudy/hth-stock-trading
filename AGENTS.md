@@ -104,3 +104,5 @@ worker 서비스는 [운영 정책](docs/WORKER_SERVICE.md)을 따른다. 기본
 - Paper 예약 정리는 `docs/PAPER_RESERVATION_CLOSURE.md`를 따른다. 원본 파일 집합/바이트 hash와 직접 소유한 프로세스의 독립 launch/exit를 검증한 별도 처리 기록만 허용한다. 과거 조회의 rejectedCount·실패를 바꾸지 않고 서버 내부 현재 예약 검사에서만 한정해 적용한다. 근거 없는 소급 종료 증거·다른 run의 증거 재사용·수동 확인만의 예외는 금지한다. 원본/증거 변경 시 다시 차단하며 실제 주문·재개 권한으로 확대하지 않는다.
 
 - Paper 봉 준비는 `docs/PAPER_WARMUP.md`를 따른다. 고정 전략 주기·1분봉 완전 구간·시장 정책의 재관측 지연으로 대기 전 시간 예산을 확인하고, 실행 직전 신선한 prepareStrategyData를 종목/전략별로 검사한다. 시간상 계획을 실제 봉 확보·계좌/risk/실행 승인으로 간주하지 않는다. 부족하면 전용 코드로 정지하며 전략 주기/한도/과거 확정 플래그를 바꿔 우회하지 않는다. 코드 복사본에는 키/환경/계좌 자료를 복사하지 않는다.
+
+- 일반 정규장 60표본 감독과 Paper 선행 자료 연결은 `docs/REGULAR_OBSERVATION_SUPERVISION.md`를 따른다. regular job/시장/거래일·세션·기한·최종 60 healthy·journal/토큰 증거를 고정하고 기존 예약 차단·단일 자식·자동 재시도 금지를 유지한다. 선택적 supervision UUID 경로는 고정 루트 파일만 읽고 실패를 legacy fallback으로 우회하지 않는다. 재개 직전 supervision/관측 hash와 15분을 다시 검사하며 조회를 예약/재개·실거래 권한으로 확대하지 않는다.
