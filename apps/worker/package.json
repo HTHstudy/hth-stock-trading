@@ -75,7 +75,8 @@
     "broker:commissions": "tsx src/commission-check-run.ts",
     "commission:review": "tsx src/commission-review-run.ts",
     "backtest:strategies": "tsx src/strategy-study-run.ts",
-    "backtest:benchmark": "tsx src/strategy-benchmark-study-run.ts"
+    "backtest:benchmark": "tsx src/strategy-benchmark-study-run.ts",
+    "paper:authority:simulate": "node dist/paper-authority-fencing-run.js"
   },
   "dependencies": {
     "@hth/contracts": "workspace:*",
