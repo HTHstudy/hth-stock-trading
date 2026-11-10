@@ -93,3 +93,11 @@ ORDER_INFO는 09:00–09:10 KST에 3 TPS다. 조회에 지수 백오프·jitter�
 [공식 원문과 종목 조사](TOSS_RESEARCH_API_2026_11_09.md)를 따른다. REST는 version 1.2.28·SHA-256 `c5918961335ccd6b091577e307dc06ed505b58f83e4d99f0c4617de14ceb036a`로 11/6 원문과 전체 바이트가 같았다. KO/JPM 과거 일봉은 기존 종목·캔들·미국 캘린더·인증 projection으로 수집하며 새 endpoint/DTO를 추가하지 않는다.
 
 현재 공식 AsyncAPI는 1.2.3·SHA-256 `46669a360d4c5c6485c157624825e599f5dc55f8b9f66b9b3bcf3bfc3b9e7512`다. 연결 중 토큰 재검증과 만료·재발급 등 무효화 시 auth-revoked 후 종료를 명시하며 최신 overview와 일치한다. 이전 1.2.2 기반의 만료 후 연결 지속 설명을 현재 설계 가정으로 사용하지 않는다. 고정 TTL 숫자나 실제 서버의 만료 동작은 이번 공개 문서 조사로 검증되지 않았다. 실제 WS 연결/자연 갱신 검증을 대신하지 않으며 이번 REST 수집을 WS 수명 검증으로 확대하지 않는다.
+
+## 2026-11-10 구실행 권한 폐기 설계의 공개 명세 확인
+
+REST 1.2.28 원문 SHA-256은 `c5918961335ccd6b091577e307dc06ed505b58f83e4d99f0c4617de14ceb036a`, AsyncAPI 원문은 `46669a360d4c5c6485c157624825e599f5dc55f8b9f66b9b3bcf3bfc3b9e7512`로 직전 확인본과 같았다. 공개 Auth operation은 POST /oauth2/token만 확인했다. 토큰 재발급에 의한 이전 토큰 무효화와 구 client 자격의 발급 권한 폐기를 구분한다. [공식 OpenAPI](https://openapi.tossinvest.com/openapi-docs/latest/openapi.json)
+
+[FAQ](https://openapi.tossinvest.com/openapi-docs/faq.md)는 WTS 키 재발급을 설명하지만, 그 조작이 모든 기존 토큰/연결과 재발급 경로를 언제/어떤 범위로 차단하는지는 이번 확인으로 확정하지 않았다. overview/AsyncAPI의 연결 중 무효화 설명을 REST client 전체 회수의 보장으로 확대하지 않는다. 확인 범위에서 회수 operation을 발견하지 못했다는 뜻이며 WTS 관리 기능이 없다는 결론은 아니다.
+
+FAQ SHA-256은 `6ad4c02b8e785f7de1a067398736e69b546069f8d1e74d89e294a1a774c1a1da`, overview는 `bef057d9babe9a389b78c430e7dfeaa6859cb09adf0e1906c3728a57c8972204`다. 원문은 메모리에서 조회했고 인증/키 재발급/토큰·시세·계좌 API를 호출하지 않았다. [권한 폐기 설계안](PAPER_AUTHORITY_FENCING_DESIGN.md)의 provider-fence 근거는 아직 미검증이며 새 endpoint/DTO·회수 명령·실제 주문 기능을 추가하지 않는다.
