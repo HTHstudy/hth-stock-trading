@@ -66,7 +66,8 @@
     "commission:review": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker commission:review",
     "backtest:strategies": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker backtest:strategies",
     "backtest:benchmark": "corepack pnpm build:packages && corepack pnpm --filter @hth/worker backtest:benchmark",
-    "paper:authority:simulate": "corepack pnpm --filter @hth/worker paper:authority:simulate"
+    "paper:authority:simulate": "corepack pnpm --filter @hth/worker paper:authority:simulate",
+    "db:authority:lab": "corepack pnpm --filter @hth/database db:authority:lab"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
