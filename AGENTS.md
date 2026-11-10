@@ -108,3 +108,5 @@ worker 서비스는 [운영 정책](docs/WORKER_SERVICE.md)을 따른다. 기본
 - 일반 정규장 60표본 감독과 Paper 선행 자료 연결은 `docs/REGULAR_OBSERVATION_SUPERVISION.md`를 따른다. regular job/시장/거래일·세션·기한·최종 60 healthy·journal/토큰 증거를 고정하고 기존 예약 차단·단일 자식·자동 재시도 금지를 유지한다. 선택적 supervision UUID 경로는 고정 루트 파일만 읽고 실패를 legacy fallback으로 우회하지 않는다. 재개 직전 supervision/관측 hash와 15분을 다시 검사하며 조회를 예약/재개·실거래 권한으로 확대하지 않는다.
 
 - 권한 폐기의 비적용 검증기는 `docs/PAPER_AUTHORITY_FENCING_SIMULATION.md`를 따른다. synthetic-fixture 입력과 내장 demo만 사용하며 실제 증거/권한을 인증하지 않는다. consistent-synthetic-scenario와 입력 hash를 승인으로 쓰지 않고 모든 실제 권한·예외·재개 플래그를 false로 유지한다. collector·원본/환경파일·DB·broker·HTTP·운영 gate에 연결하거나 파일 입출력/실행 옵션을 추가하지 않는다.
+
+- DB 권한 실험은 `docs/DATABASE_AUTHORITY_LAB.md`를 따른다. 기본 미리보기이며 명시적 실행/통합 검사만 직접 생성한 일회용 로컬 컨테이너의 가짜 자격·tmpfs DB를 사용한다. 기존 URL/컨테이너/볼륨·Docker context를 받지 않고 운영 collector/예약 예외와 연결하지 않는다. 고정 실패 코드를 사용하며 소유 ID 정리 실패·불확실 create를 성공/추측 삭제/자동 재시도로 바꾸지 않는다.

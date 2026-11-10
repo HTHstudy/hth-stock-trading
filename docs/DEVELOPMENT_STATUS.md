@@ -22,6 +22,8 @@
 
 ## 현재 상태 — 2026-11-10
 
+11월 10일 [일회용 PostgreSQL 권한 실험](DATABASE_AUTHORITY_LAB.md)을 구현했다. 기본 preview·명시적 execute만 제공하고 직접 만든 localhost/tmpfs DB에서 비밀번호/PUBLIC/CONNECT·기존 idle/트랜잭션 세션·준비 상태 잔존·NOLOGIN/SET ROLE과 membership 제거 7조건을 확인했다. CLI/receipt/민감값·불확실 create·소유 ID 정리 단위 29개와 별도 Docker DB 통합 1개가 통과했다. 실제 URL·계좌·원본·Toss·운영 권한·예약/재개는 변경하지 않았으며 결과의 operatingEvidence/canResume는 false다. 최종 로컬 verify:ci는 별도 일회용 전용 DB에서 138파일·1,275개 테스트(테스트 구간 66.66초)와 포맷·린트·타입·빌드·두 Compose 설정을 통과했다. 원격 CI/운영 증거로 확대하지 않는다.
+
 11월 10일 [권한 폐기 증거 확보 가능성 검토](PAPER_AUTHORITY_EVIDENCE_FEASIBILITY.md)를 완료했다. DB의 공식 조회/통제 수단과 실행 환경 범위·secret 격리의 부족분, Toss 전체 회수 보장의 미확인을 구분했다. 공개 네 문서 hash는 직전 확인과 같았으며 11조건 수집 경로·미발송 공급자 문의·병렬 가능한 일회용 DB 실험/범위 설계를 정리했다. 실제 환경/DB/원본 감사·collector·권한 변경·예약/재개는 하지 않았고 기존 차단을 유지한다. 문서만 변경해 링크·포맷·diff를 검사하며 이전 1,245개 테스트 결과를 이번 실환경 검증으로 쓰지 않는다.
 
 11월 10일 [권한 폐기 비적용 합성 검증기](PAPER_AUTHORITY_FENCING_SIMULATION.md)를 구현했다. 가짜 세 경계 근거·기준/승인 바인딩·원본/원장/이력 보존·scope/시간/CAS/정리 상태를 검사하고, 완비 사례도 실제 인증/권한/예외/재개를 false로 유지한다. 기본 preview와 내장 5개 demo만 제공하며 원본 파일·DB·broker·collector·운영 gate에 연결하지 않는다. 실제 a407 처리·정책 적용·관측/재개는 하지 않았다. 이번 핵심/CLI 133개, 새 일회용 전용 DB의 전체 로컬 `verify:ci` 136파일·1,245개 테스트(테스트 구간 66.81초)와 포맷·린트·타입·빌드·두 Compose 설정을 통과했다. 원격 CI·실제 외부 권한 확인으로 확대하지 않는다.
