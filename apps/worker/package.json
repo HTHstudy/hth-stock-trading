@@ -76,7 +76,8 @@
     "commission:review": "tsx src/commission-review-run.ts",
     "backtest:strategies": "tsx src/strategy-study-run.ts",
     "backtest:benchmark": "tsx src/strategy-benchmark-study-run.ts",
-    "paper:authority:simulate": "node dist/paper-authority-fencing-run.js"
+    "paper:authority:simulate": "node dist/paper-authority-fencing-run.js",
+    "runtime:secret:lab": "node dist/runtime-secret-lab-run.js"
   },
   "dependencies": {
     "@hth/contracts": "workspace:*",
