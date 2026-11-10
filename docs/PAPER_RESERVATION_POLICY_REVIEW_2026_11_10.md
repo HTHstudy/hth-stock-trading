@@ -8,6 +8,8 @@ a407(`a4072920-6191-48e9-bc0e-76def63dd4a0`)은 연결된 당시의 독립 소�
 
 코드·기존 문서의 검토와 함께 11월 10일 파일 기반 예약 조회는 available·limited=false·rejectedCount=1·unresolvedCount=1·retiredCount=0·awaiting-result 0건을 반환했다. 현재 프로세스 생존이나 DB 원장을 확인한 결과가 아니다. 실제 운영 DB·키·시세·관측·프로세스 제어·예약 처리 기록·마이그레이션은 수행하지 않았다. 같은 작업에서 추가한 [고정 설정 합성 복구 검사](PAPER_FIXED_SETTINGS_VALIDATION.md)는 별도 범위이며 a407의 종료 근거로 쓰지 않는다.
 
+후속 [구실행 권한 폐기 기반 설계안](PAPER_AUTHORITY_FENCING_DESIGN.md)에서 세 경계·증거 계약·실패 전이·현재 코드의 변경 지점을 구체화했다. 설계 진행과 정책 적용은 구분하며, 현행 차단과 독립 종료 조건은 변경하지 않았다.
+
 ## a407에서 확인된 것과 확인되지 않은 것
 
 | 항목            | 기존 문서의 기록                                                                                                  | 정책상 의미와 한계                                                                             |

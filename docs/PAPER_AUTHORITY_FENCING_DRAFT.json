@@ -1,0 +1,83 @@
+{
+  "formatVersion": "paper-authority-fencing-design-document-v1",
+  "documentOnly": true,
+  "preparedOn": "2026-11-10",
+  "state": "design-draft-not-implemented-not-applied",
+  "purpose": "future-paper-execution-admissibility-after-independently-verified-authority-retirement",
+  "scope": "readonly-and-paper-only",
+  "historicalClosureUnchanged": true,
+  "historicalOutcomeVerified": false,
+  "historicalCountsPreserved": true,
+  "requiredFenceDomains": [
+    "runtime-launch-and-secret-access",
+    "database-new-and-existing-connections",
+    "broker-credentials-tokens-and-sessions"
+  ],
+  "authorityScopeHash": null,
+  "legacyGeneration": null,
+  "nextGeneration": null,
+  "originalEvidenceBundleHash": null,
+  "beforeLedgerHash": null,
+  "afterLedgerHash": null,
+  "policyApprovalHash": null,
+  "maintenanceApprovalHash": null,
+  "evidenceReferences": [],
+  "evidenceTrust": "independent-authoritative-source-and-effective-enforcement-required-not-self-asserted-hash",
+  "brokerProviderFeasibility": "unverified-no-revocation-operation-confirmed-in-public-openapi",
+  "databaseScopeMigration": "separate-review-required-if-host-port-database-or-role-changes",
+  "proposedStages": [
+    "draft",
+    "policy-and-maintenance-approval-pending",
+    "maintenance-blocked",
+    "external-authority-fence-pending",
+    "ledger-and-original-evidence-review-pending",
+    "generation-cas-pending",
+    "stopped-revalidation-required"
+  ],
+  "failurePolicy": {
+    "defaultDecision": "blocked",
+    "automaticRetry": false,
+    "automaticOldAuthorityRestoration": false,
+    "legacyFallback": false,
+    "missingOrUnknownEvidence": "blocked",
+    "incompleteScope": "blocked",
+    "changedOriginalFiles": "blocked",
+    "newUnknownRun": "blocked",
+    "casConflict": "blocked"
+  },
+  "forbiddenShortcuts": [
+    "fabricate-past-exit",
+    "change-or-hide-original-files",
+    "set-unresolved-count-to-zero",
+    "new-empty-db-or-account",
+    "generation-number-only",
+    "new-token-only",
+    "password-rotation-with-existing-sessions",
+    "manual-checkmark-only"
+  ],
+  "publicSourceChecks": {
+    "restVersion": "1.2.28",
+    "restSha256": "c5918961335ccd6b091577e307dc06ed505b58f83e4d99f0c4617de14ceb036a",
+    "asyncSha256": "46669a360d4c5c6485c157624825e599f5dc55f8b9f66b9b3bcf3bfc3b9e7512",
+    "faqSha256": "6ad4c02b8e785f7de1a067398736e69b546069f8d1e74d89e294a1a774c1a1da",
+    "overviewSha256": "bef057d9babe9a389b78c430e7dfeaa6859cb09adf0e1906c3728a57c8972204",
+    "authOperationsObserved": ["POST /oauth2/token"],
+    "links": [
+      "https://openapi.tossinvest.com/openapi-docs/latest/openapi.json",
+      "https://openapi.tossinvest.com/openapi-docs/faq.md",
+      "https://www.postgresql.org/docs/17/ddl-priv.html",
+      "https://www.postgresql.org/docs/17/functions-admin.html"
+    ]
+  },
+  "nextDevelopmentScope": "offline-fake-evidence-verifier-only-no-collector-apply-or-runtime-exception",
+  "currentDecision": "blocked-unverified",
+  "dbAccessed": false,
+  "credentialsChanged": false,
+  "processesControlled": false,
+  "policyApplied": false,
+  "scheduled": false,
+  "resumeRequested": false,
+  "executionEnabled": false,
+  "canResume": false,
+  "hash": "0733b301f5362abc9b8d9923aa481f41f835dfa906da7748b9ed7e1eca283f2b"
+}
