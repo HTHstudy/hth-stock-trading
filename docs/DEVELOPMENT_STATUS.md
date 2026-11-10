@@ -22,6 +22,8 @@
 
 ## 현재 상태 — 2026-11-10
 
+11월 10일 [일회용 파일/컨테이너 권한 실험](RUNTIME_SECRET_LAB.md)을 구현했다. 새 local 볼륨의 가짜 값과 network=none 컨테이너 3개로 동일 UID/공유 mount·0700·다른 UID의 0600/0700 거부·0644 우회·마운트 부재·read-only 읽기/쓰기와 내용 보존 8조건을 재현했다. host/daemon 통제 폐기·운영 증거/canResume는 false이며 기존 서비스·DB/계좌·실제 파일/자격·예약/재개는 변경하지 않았다. CI는 기존 Node 24 이미지의 명시적 사전 준비만 추가했다. 관련 단위 34개·새 Docker 통합 1개, 최종 로컬 verify:ci 140파일·1,310개 테스트(테스트 구간 74.81초)와 포맷·린트·타입·빌드·두 Compose 설정이 통과했다. 새 일회용 전용 DB만 사용했으며 원격 CI/운영 격리 증거로 확대하지 않는다.
+
 11월 10일 [구실행과 새 secret의 실행 환경 분리 설계](RUNTIME_SECRET_ISOLATION_DESIGN.md)를 완료했다. API/worker를 현행 UID·비밀값 기반 IPC의 신뢰 범위로 유지하고 구실행으로부터 관리 OS 주체·daemon·실행 정의·새 공급 경로를 분리하는 조건을 정의했다. 프로젝트명/컨테이너 UID·Compose secrets 선언만으로 격리됐다고 판단하지 않는다. 관리 접근 행렬·전환/중단 순서·file loader/IPC 변경 지점과 가짜 secret 실험의 다음 작업을 정리했다. 문서 검사만 수행했고 실제 PC/서비스·DB/자격·관측/예약/재개는 변경하지 않았다.
 
 11월 10일 [일회용 PostgreSQL 권한 실험](DATABASE_AUTHORITY_LAB.md)을 구현했다. 기본 preview·명시적 execute만 제공하고 직접 만든 localhost/tmpfs DB에서 비밀번호/PUBLIC/CONNECT·기존 idle/트랜잭션 세션·준비 상태 잔존·NOLOGIN/SET ROLE과 membership 제거 7조건을 확인했다. CLI/receipt/민감값·불확실 create·소유 ID 정리 단위 29개와 별도 Docker DB 통합 1개가 통과했다. 실제 URL·계좌·원본·Toss·운영 권한·예약/재개는 변경하지 않았으며 결과의 operatingEvidence/canResume는 false다. 최종 로컬 verify:ci는 별도 일회용 전용 DB에서 138파일·1,275개 테스트(테스트 구간 66.66초)와 포맷·린트·타입·빌드·두 Compose 설정을 통과했다. 원격 CI/운영 증거로 확대하지 않는다.

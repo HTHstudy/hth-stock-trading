@@ -69,3 +69,7 @@ Husky 추가 후 Linux 전체 검증은 75개 파일·453개 테스트와 format
 ## 일회용 DB 권한 실험
 
 [DB 권한 실험](DATABASE_AUTHORITY_LAB.md)의 통합 테스트는 자체 컨테이너를 생성해 역할/세션을 시험한다. 기존 TEST_DATABASE_URL의 역할/권한은 변경하지 않는다. 전체 검사에는 로컬 `/var/run/docker.sock`과 캐시된 `postgres:17-alpine` 이미지가 필요하며, 통합 suite 활성 상태에서 누락되면 실패한다. 관련 단위 검사는 가짜 Docker만 사용한다. 원격 Docker/임의 DB 대상 옵션은 없다.
+
+## 일회용 파일·컨테이너 권한 실험
+
+[실행 환경 권한 실험](RUNTIME_SECRET_LAB.md)은 가짜 값만 담은 새 local 볼륨과 network=none 컨테이너 3개를 사용한다. 전체 검사에는 캐시된 `node:24-slim` 이미지도 필요하며 GitHub Actions는 verify:ci 전에 명시적으로 준비한다. 단위 검사는 가짜 Docker만, 통합 검사는 자체 자원만 사용한다. 기존 TEST_DATABASE_URL은 suite 선택/검증에만 사용하고 그 DB에 연결하지 않는다.

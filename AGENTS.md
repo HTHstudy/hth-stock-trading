@@ -110,3 +110,5 @@ worker 서비스는 [운영 정책](docs/WORKER_SERVICE.md)을 따른다. 기본
 - 권한 폐기의 비적용 검증기는 `docs/PAPER_AUTHORITY_FENCING_SIMULATION.md`를 따른다. synthetic-fixture 입력과 내장 demo만 사용하며 실제 증거/권한을 인증하지 않는다. consistent-synthetic-scenario와 입력 hash를 승인으로 쓰지 않고 모든 실제 권한·예외·재개 플래그를 false로 유지한다. collector·원본/환경파일·DB·broker·HTTP·운영 gate에 연결하거나 파일 입출력/실행 옵션을 추가하지 않는다.
 
 - DB 권한 실험은 `docs/DATABASE_AUTHORITY_LAB.md`를 따른다. 기본 미리보기이며 명시적 실행/통합 검사만 직접 생성한 일회용 로컬 컨테이너의 가짜 자격·tmpfs DB를 사용한다. 기존 URL/컨테이너/볼륨·Docker context를 받지 않고 운영 collector/예약 예외와 연결하지 않는다. 고정 실패 코드를 사용하며 소유 ID 정리 실패·불확실 create를 성공/추측 삭제/자동 재시도로 바꾸지 않는다.
+
+- 실행 환경 권한 실험은 `docs/RUNTIME_SECRET_LAB.md`를 따른다. 기본 미리보기·가짜 값·직접 만든 local 볼륨/컨테이너만 사용하고 원본 파일/자격·기존 마운트를 입력받지 않는다. 실제 host/daemon 격리·권한 폐기·재개 증거로 쓰지 않으며 소유 확인/정리 실패를 우회하거나 이름을 추측해 삭제하지 않는다.
