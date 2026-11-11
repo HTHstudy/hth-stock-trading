@@ -7,8 +7,18 @@ import { tokenDto } from './dto.js';
 
 export type TossFetch = (url: string, init: RequestInit) => Promise<Response>;
 export type RateGroup =
-  'AUTH' | 'ACCOUNT' | 'ASSET' | 'STOCK' | 'MARKET_DATA' | 'MARKET_DATA_CHART' | 'MARKET_INFO' | 'ORDER_INFO';
+  | 'AUTH'
+  | 'ACCOUNT'
+  | 'ASSET'
+  | 'STOCK'
+  | 'MARKET_DATA'
+  | 'MARKET_DATA_CHART'
+  | 'MARKET_INFO'
+  | 'ORDER_INFO'
+  | 'ORDER_HISTORY';
 export type ReadPath =
+  | '/api/v1/orders'
+  | `/api/v1/orders/${string}`
   | '/api/v1/accounts'
   | '/api/v1/holdings'
   | '/api/v1/stocks'
@@ -41,6 +51,7 @@ const initialLimits: Record<RateGroup, number> = {
   MARKET_DATA_CHART: 20,
   MARKET_INFO: 3,
   ORDER_INFO: 3,
+  ORDER_HISTORY: 5,
 };
 
 export function createTransport(options: TossOptions) {
@@ -236,6 +247,22 @@ export function createTransport(options: TossOptions) {
     query = new URLSearchParams(),
     account?: string,
   ): Promise<T> {
+    if (path.startsWith('/api/v1/orders/')) {
+      const segment = path.slice('/api/v1/orders/'.length);
+      try {
+        const decoded = decodeURIComponent(segment);
+        if (
+          !segment ||
+          decoded === '.' ||
+          decoded === '..' ||
+          encodeURIComponent(decoded) !== segment ||
+          new URL(path, baseUrl).pathname !== path
+        )
+          throw new Error('Invalid order reference');
+      } catch {
+        throw new BrokerError('INVALID_INPUT');
+      }
+    }
     let refreshed = false;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const accessToken = await getToken();

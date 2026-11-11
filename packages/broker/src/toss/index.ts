@@ -16,6 +16,8 @@ import {
   usCalendarDto,
 } from './dto.js';
 import { createTransport } from './transport.js';
+import { createOrderLookup } from './orders.js';
+import type { BrokerOrderLookup } from '../orders.js';
 import type { TossOptions } from './transport.js';
 
 export type { TossFetch, TossOptions } from './transport.js';
@@ -152,12 +154,14 @@ function mapDay(
 }
 
 export type TossReadonlyBroker = ReadonlyBroker &
-  BrokerCommissionLookup & { readTokenLifecycle(): TokenLifecycleSnapshot };
+  BrokerCommissionLookup &
+  BrokerOrderLookup & { readTokenLifecycle(): TokenLifecycleSnapshot };
 
 export function createTossReadonlyBroker(options: TossOptions): TossReadonlyBroker {
   const transport = createTransport(options);
   return {
     id: 'toss',
+    ...createOrderLookup(transport),
     readTokenLifecycle: transport.readTokenLifecycle,
     async listAccounts() {
       const data = await transport.get('/api/v1/accounts', 'ACCOUNT', accountsDto);
