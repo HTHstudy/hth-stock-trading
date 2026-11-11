@@ -1,0 +1,787 @@
+{
+  "formatVersion": "strategy-neighbor-review-summary-v1",
+  "protocolBytesHash": "7c5cf56c0fa8a8cc92dd17bd4f09d303eded5d2d26ffdf27afc2c8c001fcbd6c",
+  "strategyConditions": 216,
+  "benchmarkEvaluations": 72,
+  "uniqueBenchmarkConditions": 24,
+  "repeatsMatched": 12,
+  "originalBaselineReportsMatched": 72,
+  "originalBenchmarkEvaluationsMatched": 72,
+  "originalFilesPreserved": 28,
+  "independentHoldoutVerified": false,
+  "pointInTime": false,
+  "strategySelected": false,
+  "executionEnabled": false,
+  "parameters": [
+    {
+      "family": "moving-average-cross",
+      "parameters": {
+        "fastPeriod": 3,
+        "slowPeriod": 20
+      },
+      "base": {
+        "positive": 8,
+        "negative": 4,
+        "noFills": 0,
+        "comparable": 12,
+        "beatsBenchmark": 4,
+        "openPositionCases": 9,
+        "unfilledAtEndCases": 3
+      },
+      "stress": {
+        "positive": 7,
+        "negative": 5,
+        "noFills": 0,
+        "comparable": 12,
+        "beatsBenchmark": 4,
+        "openPositionCases": 9,
+        "unfilledAtEndCases": 3
+      }
+    },
+    {
+      "family": "moving-average-cross",
+      "parameters": {
+        "fastPeriod": 5,
+        "slowPeriod": 20
+      },
+      "base": {
+        "positive": 6,
+        "negative": 5,
+        "noFills": 1,
+        "comparable": 11,
+        "beatsBenchmark": 2,
+        "openPositionCases": 7,
+        "unfilledAtEndCases": 1
+      },
+      "stress": {
+        "positive": 4,
+        "negative": 7,
+        "noFills": 1,
+        "comparable": 11,
+        "beatsBenchmark": 2,
+        "openPositionCases": 7,
+        "unfilledAtEndCases": 1
+      }
+    },
+    {
+      "family": "moving-average-cross",
+      "parameters": {
+        "fastPeriod": 8,
+        "slowPeriod": 20
+      },
+      "base": {
+        "positive": 7,
+        "negative": 4,
+        "noFills": 1,
+        "comparable": 11,
+        "beatsBenchmark": 4,
+        "openPositionCases": 6,
+        "unfilledAtEndCases": 1
+      },
+      "stress": {
+        "positive": 7,
+        "negative": 4,
+        "noFills": 1,
+        "comparable": 11,
+        "beatsBenchmark": 3,
+        "openPositionCases": 6,
+        "unfilledAtEndCases": 1
+      }
+    },
+    {
+      "family": "channel-breakout",
+      "parameters": {
+        "entryPeriod": 20,
+        "exitPeriod": 8
+      },
+      "base": {
+        "positive": 5,
+        "negative": 7,
+        "noFills": 0,
+        "comparable": 12,
+        "beatsBenchmark": 2,
+        "openPositionCases": 5,
+        "unfilledAtEndCases": 1
+      },
+      "stress": {
+        "positive": 5,
+        "negative": 7,
+        "noFills": 0,
+        "comparable": 12,
+        "beatsBenchmark": 1,
+        "openPositionCases": 5,
+        "unfilledAtEndCases": 1
+      }
+    },
+    {
+      "family": "channel-breakout",
+      "parameters": {
+        "entryPeriod": 20,
+        "exitPeriod": 10
+      },
+      "base": {
+        "positive": 5,
+        "negative": 7,
+        "noFills": 0,
+        "comparable": 12,
+        "beatsBenchmark": 3,
+        "openPositionCases": 7,
+        "unfilledAtEndCases": 1
+      },
+      "stress": {
+        "positive": 5,
+        "negative": 7,
+        "noFills": 0,
+        "comparable": 12,
+        "beatsBenchmark": 1,
+        "openPositionCases": 7,
+        "unfilledAtEndCases": 1
+      }
+    },
+    {
+      "family": "channel-breakout",
+      "parameters": {
+        "entryPeriod": 20,
+        "exitPeriod": 12
+      },
+      "base": {
+        "positive": 5,
+        "negative": 7,
+        "noFills": 0,
+        "comparable": 12,
+        "beatsBenchmark": 3,
+        "openPositionCases": 7,
+        "unfilledAtEndCases": 0
+      },
+      "stress": {
+        "positive": 5,
+        "negative": 7,
+        "noFills": 0,
+        "comparable": 12,
+        "beatsBenchmark": 2,
+        "openPositionCases": 7,
+        "unfilledAtEndCases": 0
+      }
+    },
+    {
+      "family": "mean-reversion",
+      "parameters": {
+        "period": 20,
+        "entryDeviationBps": "150"
+      },
+      "base": {
+        "positive": 5,
+        "negative": 5,
+        "noFills": 2,
+        "comparable": 10,
+        "beatsBenchmark": 1,
+        "openPositionCases": 1,
+        "unfilledAtEndCases": 1
+      },
+      "stress": {
+        "positive": 4,
+        "negative": 6,
+        "noFills": 2,
+        "comparable": 10,
+        "beatsBenchmark": 1,
+        "openPositionCases": 1,
+        "unfilledAtEndCases": 1
+      }
+    },
+    {
+      "family": "mean-reversion",
+      "parameters": {
+        "period": 20,
+        "entryDeviationBps": "200"
+      },
+      "base": {
+        "positive": 5,
+        "negative": 5,
+        "noFills": 2,
+        "comparable": 10,
+        "beatsBenchmark": 1,
+        "openPositionCases": 1,
+        "unfilledAtEndCases": 0
+      },
+      "stress": {
+        "positive": 4,
+        "negative": 6,
+        "noFills": 2,
+        "comparable": 10,
+        "beatsBenchmark": 1,
+        "openPositionCases": 1,
+        "unfilledAtEndCases": 0
+      }
+    },
+    {
+      "family": "mean-reversion",
+      "parameters": {
+        "period": 20,
+        "entryDeviationBps": "250"
+      },
+      "base": {
+        "positive": 5,
+        "negative": 5,
+        "noFills": 2,
+        "comparable": 10,
+        "beatsBenchmark": 2,
+        "openPositionCases": 1,
+        "unfilledAtEndCases": 0
+      },
+      "stress": {
+        "positive": 4,
+        "negative": 6,
+        "noFills": 2,
+        "comparable": 10,
+        "beatsBenchmark": 1,
+        "openPositionCases": 1,
+        "unfilledAtEndCases": 0
+      }
+    }
+  ],
+  "groups": [
+    {
+      "symbol": "AAPL",
+      "from": "2026-01-02",
+      "to": "2026-04-30",
+      "dataset": "research-jan-apr",
+      "family": "moving-average-cross",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-9.3",
+      "stressMaxNetPnl": "3.08",
+      "stressMixedSignsAmongFilled": true
+    },
+    {
+      "symbol": "AAPL",
+      "from": "2026-05-01",
+      "to": "2026-08-31",
+      "dataset": "research-may-aug",
+      "family": "moving-average-cross",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-3.46",
+      "stressMaxNetPnl": "6.03",
+      "stressMixedSignsAmongFilled": true
+    },
+    {
+      "symbol": "AAPL",
+      "from": "2026-09-01",
+      "to": "2026-10-30",
+      "dataset": "validation-sep-oct",
+      "family": "moving-average-cross",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-1.01",
+      "stressMaxNetPnl": "11.93",
+      "stressMixedSignsAmongFilled": true
+    },
+    {
+      "symbol": "AAPL",
+      "from": "2026-01-02",
+      "to": "2026-04-30",
+      "dataset": "research-jan-apr",
+      "family": "channel-breakout",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-24.9",
+      "stressMaxNetPnl": "-18.99",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "AAPL",
+      "from": "2026-05-01",
+      "to": "2026-08-31",
+      "dataset": "research-may-aug",
+      "family": "channel-breakout",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-34.7",
+      "stressMaxNetPnl": "-25.22",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "AAPL",
+      "from": "2026-09-01",
+      "to": "2026-10-30",
+      "dataset": "validation-sep-oct",
+      "family": "channel-breakout",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-5.54",
+      "stressMaxNetPnl": "-5.54",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "AAPL",
+      "from": "2026-01-02",
+      "to": "2026-04-30",
+      "dataset": "research-jan-apr",
+      "family": "mean-reversion",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-7.88",
+      "stressMaxNetPnl": "-4.08",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "AAPL",
+      "from": "2026-05-01",
+      "to": "2026-08-31",
+      "dataset": "research-may-aug",
+      "family": "mean-reversion",
+      "allNeighborsPositiveBothCosts": true,
+      "allNeighborsBeatBenchmarkBothCosts": true,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "14.22",
+      "stressMaxNetPnl": "18.28",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "AAPL",
+      "from": "2026-09-01",
+      "to": "2026-10-30",
+      "dataset": "validation-sep-oct",
+      "family": "mean-reversion",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 3,
+      "stressMinNetPnl": null,
+      "stressMaxNetPnl": null,
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "MSFT",
+      "from": "2026-01-02",
+      "to": "2026-04-30",
+      "dataset": "us-msft-research-jan-apr",
+      "family": "moving-average-cross",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": true,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-13.48",
+      "stressMaxNetPnl": "0.4",
+      "stressMixedSignsAmongFilled": true
+    },
+    {
+      "symbol": "MSFT",
+      "from": "2026-05-01",
+      "to": "2026-08-31",
+      "dataset": "us-msft-research-may-aug",
+      "family": "moving-average-cross",
+      "allNeighborsPositiveBothCosts": true,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "45.93",
+      "stressMaxNetPnl": "102.44",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "MSFT",
+      "from": "2026-09-01",
+      "to": "2026-10-30",
+      "dataset": "us-msft-validation-sep-oct",
+      "family": "moving-average-cross",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 2,
+      "stressMinNetPnl": "-11.52",
+      "stressMaxNetPnl": "-11.52",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "MSFT",
+      "from": "2026-01-02",
+      "to": "2026-04-30",
+      "dataset": "us-msft-research-jan-apr",
+      "family": "channel-breakout",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": true,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-13.35",
+      "stressMaxNetPnl": "-13.35",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "MSFT",
+      "from": "2026-05-01",
+      "to": "2026-08-31",
+      "dataset": "us-msft-research-may-aug",
+      "family": "channel-breakout",
+      "allNeighborsPositiveBothCosts": true,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "29.64",
+      "stressMaxNetPnl": "58.77",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "MSFT",
+      "from": "2026-09-01",
+      "to": "2026-10-30",
+      "dataset": "us-msft-validation-sep-oct",
+      "family": "channel-breakout",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-19.18",
+      "stressMaxNetPnl": "-11.38",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "MSFT",
+      "from": "2026-01-02",
+      "to": "2026-04-30",
+      "dataset": "us-msft-research-jan-apr",
+      "family": "mean-reversion",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-30.94",
+      "stressMaxNetPnl": "-27.61",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "MSFT",
+      "from": "2026-05-01",
+      "to": "2026-08-31",
+      "dataset": "us-msft-research-may-aug",
+      "family": "mean-reversion",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-25.93",
+      "stressMaxNetPnl": "-25.93",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "MSFT",
+      "from": "2026-09-01",
+      "to": "2026-10-30",
+      "dataset": "us-msft-validation-sep-oct",
+      "family": "mean-reversion",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 3,
+      "stressMinNetPnl": null,
+      "stressMaxNetPnl": null,
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "KO",
+      "from": "2023-01-01",
+      "to": "2023-12-31",
+      "dataset": "ko-2023",
+      "family": "moving-average-cross",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": true,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-1.48",
+      "stressMaxNetPnl": "1.47",
+      "stressMixedSignsAmongFilled": true
+    },
+    {
+      "symbol": "KO",
+      "from": "2024-01-01",
+      "to": "2024-12-31",
+      "dataset": "ko-2024",
+      "family": "moving-average-cross",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-10.56",
+      "stressMaxNetPnl": "-5.75",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "KO",
+      "from": "2025-01-01",
+      "to": "2025-12-31",
+      "dataset": "ko-2025",
+      "family": "moving-average-cross",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-11.74",
+      "stressMaxNetPnl": "-4.5",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "KO",
+      "from": "2023-01-01",
+      "to": "2023-12-31",
+      "dataset": "ko-2023",
+      "family": "channel-breakout",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-2.97",
+      "stressMaxNetPnl": "-2.72",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "KO",
+      "from": "2024-01-01",
+      "to": "2024-12-31",
+      "dataset": "ko-2024",
+      "family": "channel-breakout",
+      "allNeighborsPositiveBothCosts": true,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "0.96",
+      "stressMaxNetPnl": "2.87",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "KO",
+      "from": "2025-01-01",
+      "to": "2025-12-31",
+      "dataset": "ko-2025",
+      "family": "channel-breakout",
+      "allNeighborsPositiveBothCosts": true,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "2.91",
+      "stressMaxNetPnl": "2.91",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "KO",
+      "from": "2023-01-01",
+      "to": "2023-12-31",
+      "dataset": "ko-2023",
+      "family": "mean-reversion",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-7.51",
+      "stressMaxNetPnl": "-3.99",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "KO",
+      "from": "2024-01-01",
+      "to": "2024-12-31",
+      "dataset": "ko-2024",
+      "family": "mean-reversion",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-5.72",
+      "stressMaxNetPnl": "-4.49",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "KO",
+      "from": "2025-01-01",
+      "to": "2025-12-31",
+      "dataset": "ko-2025",
+      "family": "mean-reversion",
+      "allNeighborsPositiveBothCosts": true,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "1.82",
+      "stressMaxNetPnl": "4.9",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "JPM",
+      "from": "2023-01-01",
+      "to": "2023-12-31",
+      "dataset": "jpm-2023",
+      "family": "moving-average-cross",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-4.33",
+      "stressMaxNetPnl": "19.82",
+      "stressMixedSignsAmongFilled": true
+    },
+    {
+      "symbol": "JPM",
+      "from": "2024-01-01",
+      "to": "2024-12-31",
+      "dataset": "jpm-2024",
+      "family": "moving-average-cross",
+      "allNeighborsPositiveBothCosts": true,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "3.62",
+      "stressMaxNetPnl": "16.85",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "JPM",
+      "from": "2025-01-01",
+      "to": "2025-12-31",
+      "dataset": "jpm-2025",
+      "family": "moving-average-cross",
+      "allNeighborsPositiveBothCosts": true,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "5.34",
+      "stressMaxNetPnl": "21.25",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "JPM",
+      "from": "2023-01-01",
+      "to": "2023-12-31",
+      "dataset": "jpm-2023",
+      "family": "channel-breakout",
+      "allNeighborsPositiveBothCosts": true,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "13.65",
+      "stressMaxNetPnl": "14.6",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "JPM",
+      "from": "2024-01-01",
+      "to": "2024-12-31",
+      "dataset": "jpm-2024",
+      "family": "channel-breakout",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-11.4",
+      "stressMaxNetPnl": "-11.4",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "JPM",
+      "from": "2025-01-01",
+      "to": "2025-12-31",
+      "dataset": "jpm-2025",
+      "family": "channel-breakout",
+      "allNeighborsPositiveBothCosts": true,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "10.55",
+      "stressMaxNetPnl": "25.94",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "JPM",
+      "from": "2023-01-01",
+      "to": "2023-12-31",
+      "dataset": "jpm-2023",
+      "family": "mean-reversion",
+      "allNeighborsPositiveBothCosts": false,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "-2.71",
+      "stressMaxNetPnl": "-1.29",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "JPM",
+      "from": "2024-01-01",
+      "to": "2024-12-31",
+      "dataset": "jpm-2024",
+      "family": "mean-reversion",
+      "allNeighborsPositiveBothCosts": true,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "18.06",
+      "stressMaxNetPnl": "21.15",
+      "stressMixedSignsAmongFilled": false
+    },
+    {
+      "symbol": "JPM",
+      "from": "2025-01-01",
+      "to": "2025-12-31",
+      "dataset": "jpm-2025",
+      "family": "mean-reversion",
+      "allNeighborsPositiveBothCosts": true,
+      "allNeighborsBeatBenchmarkBothCosts": false,
+      "stressNoFills": 0,
+      "stressMinNetPnl": "4.95",
+      "stressMaxNetPnl": "11.4",
+      "stressMixedSignsAmongFilled": false
+    }
+  ],
+  "sourceResults": [
+    {
+      "symbol": "AAPL",
+      "family": "moving-average-cross",
+      "resultHash": "a2329e42b8ef81dc0bf2a3a8bb8160cc31427856a735ea1a5f2d25e4cc4d8aa0",
+      "snapshotHash": "d696308817d3a2859586860d32090dbfbdc2140079c0c9ae5f99415600e507b2"
+    },
+    {
+      "symbol": "AAPL",
+      "family": "channel-breakout",
+      "resultHash": "08598c43841249eff49c946b681f14e1043d19015492e3d809dc2b80b60ade37",
+      "snapshotHash": "62a59e5f205035f95b2602780a9231ee486edf811d2a22f08b7a300ceec5518f"
+    },
+    {
+      "symbol": "AAPL",
+      "family": "mean-reversion",
+      "resultHash": "729966e731d60d188fc1942df62cd76ac0056d8c95e325e22ae1b8b0c335366d",
+      "snapshotHash": "a1e1b84519bea5b97677f8a007ff0086cc1156b00433a302687c8ba9f701d1cb"
+    },
+    {
+      "symbol": "MSFT",
+      "family": "moving-average-cross",
+      "resultHash": "85fe13915102e2fdfda4c0271f39c6bde6ef0b215a66bae84f35f5c927f90b07",
+      "snapshotHash": "9db7b14c61e0230265c45f5e37b89fd0cf993b537c73455e745292f214c3888e"
+    },
+    {
+      "symbol": "MSFT",
+      "family": "channel-breakout",
+      "resultHash": "b6c395c1a617f873897b35833b3a6974e376de605493e8899c170d132bc4da3d",
+      "snapshotHash": "41679f2fe55690b42da48f50949d224b6aed95e34c767f6a9de92d78abfc9cff"
+    },
+    {
+      "symbol": "MSFT",
+      "family": "mean-reversion",
+      "resultHash": "56c68e33f2772b5ab036c52fe52a8d0df90630e4df20489b267c3453032b81ca",
+      "snapshotHash": "0bce162fbad349334bc067a8c69be4e7ea336bb75f05a04fb24ba141121ecd96"
+    },
+    {
+      "symbol": "KO",
+      "family": "moving-average-cross",
+      "resultHash": "8fbb007b3e1fdf34462a2292c8084accda8bc839b3c15adc7c470f66b130700c",
+      "snapshotHash": "7f41a6fbd546e5a6841382747e83c22a9fa27abcd0fe0a3e4711d6db97e2f790"
+    },
+    {
+      "symbol": "KO",
+      "family": "channel-breakout",
+      "resultHash": "99c59ca8e2cf2b8923070e6e675f016ada669794b017b53dcc40eaa0189041ea",
+      "snapshotHash": "87637701548320b2e455943887ff64eb97b926cd9c6d9d42d631a75116892915"
+    },
+    {
+      "symbol": "KO",
+      "family": "mean-reversion",
+      "resultHash": "2100e27afa09e29212b4d3ce5a09ba4f146c181c1c7830a628efe8eff1e0186e",
+      "snapshotHash": "2a578ee993c345726d50eb9019035b25c591d730dd5182ac1434a83980186fab"
+    },
+    {
+      "symbol": "JPM",
+      "family": "moving-average-cross",
+      "resultHash": "8d05a647fad39232a52c97e03a397a7f784c3fff0bba0bf18e50acc9347fda53",
+      "snapshotHash": "0bb496a0fbb5b32d9ff600fa00ed963d86a78594cdc091d2f3f5cd2706062267"
+    },
+    {
+      "symbol": "JPM",
+      "family": "channel-breakout",
+      "resultHash": "1b2fd10b3a46986de705631d67cba60bba41bcf82f77f82a1ef92470d23e4618",
+      "snapshotHash": "3818245bb6a2223885f06d83e6786768b575ca8e93423dec85c9c5d5be7f9743"
+    },
+    {
+      "symbol": "JPM",
+      "family": "mean-reversion",
+      "resultHash": "8459185c8dfb910002b026cb261b86f68876dc209d243871d645c54b741300dc",
+      "snapshotHash": "4f9f83ffba34c1005f8f1b1e3339528b02396c618729932b7493f923195fff84"
+    }
+  ],
+  "summaryHash": "87a59586cece2ab39f5fbbb508ef208d95f3caedfb97edf35c20631e2d6b926c"
+}
