@@ -101,3 +101,7 @@ REST 1.2.28 원문 SHA-256은 `c5918961335ccd6b091577e307dc06ed505b58f83e4d99f0c
 [FAQ](https://openapi.tossinvest.com/openapi-docs/faq.md)는 WTS 키 재발급을 설명하지만, 그 조작이 모든 기존 토큰/연결과 재발급 경로를 언제/어떤 범위로 차단하는지는 이번 확인으로 확정하지 않았다. overview/AsyncAPI의 연결 중 무효화 설명을 REST client 전체 회수의 보장으로 확대하지 않는다. 확인 범위에서 회수 operation을 발견하지 못했다는 뜻이며 WTS 관리 기능이 없다는 결론은 아니다.
 
 FAQ SHA-256은 `6ad4c02b8e785f7de1a067398736e69b546069f8d1e74d89e294a1a774c1a1da`, overview는 `bef057d9babe9a389b78c430e7dfeaa6859cb09adf0e1906c3728a57c8972204`다. 원문은 메모리에서 조회했고 인증/키 재발급/토큰·시세·계좌 API를 호출하지 않았다. [권한 폐기 설계안](PAPER_AUTHORITY_FENCING_DESIGN.md)의 provider-fence 근거는 아직 미검증이며 새 endpoint/DTO·회수 명령·실제 주문 기능을 추가하지 않는다.
+
+## 2026-11-11 주문 목록·상세 읽기 전용 구현 전 확인
+
+REST 1.2.28의 원문 SHA-256은 `c5918961335ccd6b091577e307dc06ed505b58f83e4d99f0c4617de14ceb036a`로 동일하다. GET /api/v1/orders와 GET /api/v1/orders/{orderId}의 query/header·Order/OrderExecution/OrderStatus/PaginatedOrderResponse·공식 200 예제 6개를 확인했다. OPEN은 전량/limit·cursor 무시, CLOSED는 기본 20/최대 100·cursor와 KST 생성일 필터이며 CLOSED에도 PARTIAL_FILLED가 포함된다. status/orderType/timeInForce의 미지 코드는 보존한다. 실제 주문 API를 호출하거나 생성/정정/취소를 구현하지 않았다. 조회 범위와 대사 미구현 경계는 [주문 읽기 전용 연동](ORDER_READONLY.md)을 따른다.
