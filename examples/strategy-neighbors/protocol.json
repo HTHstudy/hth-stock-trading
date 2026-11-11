@@ -1,0 +1,340 @@
+{
+  "formatVersion": "strategy-neighbor-review-protocol-v1",
+  "fixedOn": "2026-11-11",
+  "purpose": "exploratory-parameter-sensitivity",
+  "mode": "paper",
+  "executionEnabled": false,
+  "strategySelected": false,
+  "independentHoldoutVerified": false,
+  "pointInTime": false,
+  "alreadyViewedInputs": true,
+  "families": [
+    {
+      "id": "moving-average-cross",
+      "version": "1.0.0",
+      "baseline": {
+        "fastPeriod": 5,
+        "slowPeriod": 20
+      },
+      "parameters": [
+        {
+          "fastPeriod": 3,
+          "slowPeriod": 20
+        },
+        {
+          "fastPeriod": 5,
+          "slowPeriod": 20
+        },
+        {
+          "fastPeriod": 8,
+          "slowPeriod": 20
+        }
+      ]
+    },
+    {
+      "id": "channel-breakout",
+      "version": "1.0.0",
+      "baseline": {
+        "entryPeriod": 20,
+        "exitPeriod": 10
+      },
+      "parameters": [
+        {
+          "entryPeriod": 20,
+          "exitPeriod": 8
+        },
+        {
+          "entryPeriod": 20,
+          "exitPeriod": 10
+        },
+        {
+          "entryPeriod": 20,
+          "exitPeriod": 12
+        }
+      ]
+    },
+    {
+      "id": "mean-reversion",
+      "version": "1.0.0",
+      "baseline": {
+        "period": 20,
+        "entryDeviationBps": "200"
+      },
+      "parameters": [
+        {
+          "period": 20,
+          "entryDeviationBps": "150"
+        },
+        {
+          "period": 20,
+          "entryDeviationBps": "200"
+        },
+        {
+          "period": 20,
+          "entryDeviationBps": "250"
+        }
+      ]
+    }
+  ],
+  "costs": {
+    "base": {
+      "buyFeeBps": "10",
+      "initialCash": "1000",
+      "priceTick": "0.01",
+      "quantity": "1",
+      "sellFeeBps": "30",
+      "sellTaxBps": "0",
+      "slippageBps": "5"
+    },
+    "stress": {
+      "buyFeeBps": "20",
+      "initialCash": "1000",
+      "priceTick": "0.01",
+      "quantity": "1",
+      "sellFeeBps": "60",
+      "sellTaxBps": "0",
+      "slippageBps": "10"
+    }
+  },
+  "benchmark": {
+    "entryAfterClosedCandles": 21
+  },
+  "datasets": [
+    {
+      "symbol": "AAPL",
+      "id": "research-jan-apr",
+      "contentHash": "e5ee9e3b0c02c6943c8fc038b9d0cfbafa3caf17ac552d95c2191558f622f18b",
+      "request": {
+        "adjusted": false,
+        "from": "2026-01-02",
+        "instrument": {
+          "market": "US",
+          "symbol": "AAPL"
+        },
+        "interval": "1d",
+        "source": "toss",
+        "to": "2026-04-30"
+      },
+      "role": "research"
+    },
+    {
+      "symbol": "AAPL",
+      "id": "research-may-aug",
+      "contentHash": "1117834f221cb39fe827a1a3f7e79fd1fc052ad63253b95b4225eaa5037c2dc6",
+      "request": {
+        "adjusted": false,
+        "from": "2026-05-01",
+        "instrument": {
+          "market": "US",
+          "symbol": "AAPL"
+        },
+        "interval": "1d",
+        "source": "toss",
+        "to": "2026-08-31"
+      },
+      "role": "research"
+    },
+    {
+      "symbol": "AAPL",
+      "id": "validation-sep-oct",
+      "contentHash": "daa36a2e7f5f0a9c447941dcac2ac000ffbab5db30e11f5bfd93f79d643d22f9",
+      "request": {
+        "adjusted": false,
+        "from": "2026-09-01",
+        "instrument": {
+          "market": "US",
+          "symbol": "AAPL"
+        },
+        "interval": "1d",
+        "source": "toss",
+        "to": "2026-10-30"
+      },
+      "role": "research"
+    },
+    {
+      "symbol": "MSFT",
+      "id": "us-msft-research-jan-apr",
+      "contentHash": "a0b57af8962dd2373268607e3be471f7f87328eed42a2dd74dfb7f71ea4ead0a",
+      "request": {
+        "adjusted": false,
+        "from": "2026-01-02",
+        "instrument": {
+          "market": "US",
+          "symbol": "MSFT"
+        },
+        "interval": "1d",
+        "source": "toss",
+        "to": "2026-04-30"
+      },
+      "role": "research"
+    },
+    {
+      "symbol": "MSFT",
+      "id": "us-msft-research-may-aug",
+      "contentHash": "81db5540edcb644ec7fdf299428e8c6fd136b841586bfdb5372679f894dae768",
+      "request": {
+        "adjusted": false,
+        "from": "2026-05-01",
+        "instrument": {
+          "market": "US",
+          "symbol": "MSFT"
+        },
+        "interval": "1d",
+        "source": "toss",
+        "to": "2026-08-31"
+      },
+      "role": "research"
+    },
+    {
+      "symbol": "MSFT",
+      "id": "us-msft-validation-sep-oct",
+      "contentHash": "41ec658d72976359372b4dbce6ae61d31ddce696d5411a84505d004ae105c7be",
+      "request": {
+        "adjusted": false,
+        "from": "2026-09-01",
+        "instrument": {
+          "market": "US",
+          "symbol": "MSFT"
+        },
+        "interval": "1d",
+        "source": "toss",
+        "to": "2026-10-30"
+      },
+      "role": "research"
+    },
+    {
+      "symbol": "KO",
+      "id": "ko-2023",
+      "contentHash": "eedf5e97f71e62b23f5f649fbb102cbc0400b78fd9d19ac5e3a65a050f3064ce",
+      "request": {
+        "adjusted": false,
+        "from": "2023-01-01",
+        "instrument": {
+          "market": "US",
+          "symbol": "KO"
+        },
+        "interval": "1d",
+        "source": "toss",
+        "to": "2023-12-31"
+      },
+      "role": "research"
+    },
+    {
+      "symbol": "KO",
+      "id": "ko-2024",
+      "contentHash": "8baf46048e671fb32dd06c22746c5d4e12db83d879e8b5a2360bc1e9d2d2f348",
+      "request": {
+        "adjusted": false,
+        "from": "2024-01-01",
+        "instrument": {
+          "market": "US",
+          "symbol": "KO"
+        },
+        "interval": "1d",
+        "source": "toss",
+        "to": "2024-12-31"
+      },
+      "role": "research"
+    },
+    {
+      "symbol": "KO",
+      "id": "ko-2025",
+      "contentHash": "4932c36a0c567256809d61f4ac1b967d7a1286dac5450677e4b9b680beb2db69",
+      "request": {
+        "adjusted": false,
+        "from": "2025-01-01",
+        "instrument": {
+          "market": "US",
+          "symbol": "KO"
+        },
+        "interval": "1d",
+        "source": "toss",
+        "to": "2025-12-31"
+      },
+      "role": "research"
+    },
+    {
+      "symbol": "JPM",
+      "id": "jpm-2023",
+      "contentHash": "08bfbfc5735977d3d1619ef4581bdd2088adff46a42a90168da76570bd564603",
+      "request": {
+        "adjusted": false,
+        "from": "2023-01-01",
+        "instrument": {
+          "market": "US",
+          "symbol": "JPM"
+        },
+        "interval": "1d",
+        "source": "toss",
+        "to": "2023-12-31"
+      },
+      "role": "research"
+    },
+    {
+      "symbol": "JPM",
+      "id": "jpm-2024",
+      "contentHash": "4bb8bcdbf7902be2dd8101b3b95dbc8aec94ca243c6194a294334380ef030287",
+      "request": {
+        "adjusted": false,
+        "from": "2024-01-01",
+        "instrument": {
+          "market": "US",
+          "symbol": "JPM"
+        },
+        "interval": "1d",
+        "source": "toss",
+        "to": "2024-12-31"
+      },
+      "role": "research"
+    },
+    {
+      "symbol": "JPM",
+      "id": "jpm-2025",
+      "contentHash": "fe3e92e33e00097ce99cc9e7710fe1c8ccebb70d84dddda49e47b7292a37b38a",
+      "request": {
+        "adjusted": false,
+        "from": "2025-01-01",
+        "instrument": {
+          "market": "US",
+          "symbol": "JPM"
+        },
+        "interval": "1d",
+        "source": "toss",
+        "to": "2025-12-31"
+      },
+      "role": "research"
+    }
+  ],
+  "workload": {
+    "manifests": 12,
+    "strategyConditions": 216,
+    "benchmarkEvaluations": 72,
+    "uniqueBenchmarkConditions": 24,
+    "repeatsPerCondition": 2,
+    "allConditionsRequired": true
+  },
+  "reviewRules": {
+    "positive": "filled and netPnl > 0",
+    "benchmarkComparable": "both candidate and matching benchmark have fills",
+    "allNeighborsPositive": "all three neighbors have fills and positive netPnl in both costs for the same symbol/period",
+    "allNeighborsBeatBenchmark": "all three neighbors are comparable and netPnlDifference > 0 in both costs for the same symbol/period",
+    "tiesAndNoFills": "never count as positive or benchmark advantage",
+    "crossSymbolPnlAggregation": false,
+    "parameterSelection": "no best-parameter selection or automatic adoption",
+    "allResultsRequired": true
+  },
+  "preserveFuturePlan": {
+    "symbols": ["AAPL", "MSFT"],
+    "from": "2026-11-09",
+    "to": "2027-02-26",
+    "readOrCollectFutureInputs": false
+  },
+  "limitations": [
+    "daily-inputs-not-paper-minute-signals",
+    "one-share-unmatched-capital-exposure",
+    "survivorship-and-posthoc-input-selection",
+    "no-dividend-or-terminal-liquidation-adjustment",
+    "no-independent-holdout-or-profitability-claim",
+    "not-PBO-CSCV-or-statistical-significance"
+  ]
+}
