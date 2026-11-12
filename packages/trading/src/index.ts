@@ -38,3 +38,4 @@ export { buyAndHold } from './strategy/buy-and-hold.js';
 export { calculateCapitalExposure } from './backtest/capital-exposure.js';
 
 export { reconcileOrderObservations } from './execution/order-reconciliation.js';
+export { reviewSyntheticOrderBinding } from './execution/synthetic-order-binding.js';

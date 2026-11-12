@@ -245,3 +245,6 @@ export type { BuyAndHoldConfig } from './benchmark-strategy.js';
 
 export { orderReconciliationReportSchema } from './order-reconciliation-report.js';
 export type { OrderReconciliationReport } from './order-reconciliation-report.js';
+
+export { syntheticOrderBindingInputSchema, syntheticOrderBindingReviewSchema } from './synthetic-order-binding.js';
+export type { SyntheticOrderBindingInput, SyntheticOrderBindingReview } from './synthetic-order-binding.js';
