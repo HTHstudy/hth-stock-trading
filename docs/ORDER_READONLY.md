@@ -43,6 +43,8 @@ Toss 응답에 별도 market 필드가 없어 지원 통화 KRW/USD로 KR/US를 
 
 공식 예제·KR/US·부분 체결·CLOSED/PARTIAL_FILLED·unknown 코드·nullable/선택 필드·고정밀 십진·KST 날짜·opaque ID/cursor 인코딩, 입력 인증 전 거부·페이지 정합성·원문 비노출·기존 token/limiter 재사용·실패 재시도/취소를 주입한 가짜 fetch로 검사한다. 이 테스트는 실제 broker·계좌·토큰·주문 API를 호출하지 않는다. 새 라이브러리·스키마 마이그레이션·서비스는 없다.
 
+후속 [누적 snapshot 대사](ORDER_RECONCILIATION.md)는 공통 계약·worker 변환·순수 비교까지 구현했다. 원장 반영/실제 실행은 연결하지 않았다.
+
 ## 최종 로컬 검증
 
 주문 조회 전용 가짜 fetch 테스트 64개와 전체 verify:ci 141파일·1,374개 테스트(테스트 구간 89.76초)가 통과했다. 최종 전체 검사는 새 일회용 localhost 전용 hth_readonly_test DB에서 기본 병렬 설정으로 실행했으며 포맷·린트·타입·전체 빌드·두 Compose 설정·문서 링크·diff 검사도 통과했다. 원격 CI/실연결/실제 체결 대사 검증을 의미하지 않는다. 실제 계좌·키·DB·원본 예약은 사용하지 않았다.

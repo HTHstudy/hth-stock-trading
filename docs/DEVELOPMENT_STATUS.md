@@ -20,7 +20,9 @@
 
 11월 9일 [저장된 96조건 비교 검토](STRATEGY_COMPARISON_REVIEW.md)를 완료했다. 네 종목·세 기간의 후보 72조건과 단순 보유 24조건을 빠짐없이 검토했고, 비용별 비교 가능 33조건 중 대조군보다 순손익이 높은 것은 기본 6·스트레스 4조건이었다. 0체결을 제외하고 비용에 따른 부호/상대 비교 역전·MDD·보유 시간·취득원가·잔량·미체결을 구분했다. Decimal 집계와 독립 Python Decimal 검산이 일치하며 원본 snapshot 바이트를 보존했다. 현재 후보의 주전략 채택은 보류하고 기존 이동평균은 기술 검증용으로 유지한다. 문서와 private 검토 기록만 작성했으며 broker·DB·전략 재실행·Paper 설정·미래 확인 계획은 변경하지 않았다.
 
-## 현재 상태 — 2026-11-11
+## 현재 상태 — 2026-11-12
+
+11월 12일 [누적 주문 snapshot의 체결 대사](ORDER_RECONCILIATION.md)를 구현했다. 공통 strict 계약·worker 상태 변환과 broker/DB에 의존하지 않는 순수 Decimal 비교로 중복/부분 체결 증가·늦은 비용/환급·역행·unknown/기준 누락을 구분한다. 첫 snapshot이나 null 비용을 신규 체결/0원으로 만들지 않으며 모든 결과의 canApplyToLedger/ownershipVerified/executionEnabled/canResend/canResume는 false다. 실제 조회·원장/계좌·주문/예약/재개는 연결하지 않았다. 관련 가짜 입력 테스트 60개와 새 일회용 전용 DB의 최종 로컬 verify:ci 143파일·1,434개 테스트(테스트 구간 61.98초), 포맷·린트·타입·빌드·두 Compose 설정 검사를 통과했다. 원격 CI/실연결·실제 원장 대사로 확대하지 않는다.
 
 11월 11일 [주문 목록·상세 조회 capability](ORDER_READONLY.md)를 추가했다. 공식 OpenAPI/overview를 재확인해 GET 두 경로·ORDER_HISTORY 5TPS와 같은 worker transport/token manager를 사용하고, 기존 ReadonlyBroker에 필수 메서드는 추가하지 않았다. 누적 체결/비용·부분 체결·unknown 상태와 null/누락을 보존하며 CLOSED를 완료 체결로 간주하지 않는다. 호출 경로는 HTTP/worker main/CLI에 연결하지 않았고 가짜 fetch로만 검증했다. 실제 조회·주문 생성/정정/취소·DB/ownership·관측/예약/Paper 재개는 실행하지 않았다. 조회 전용 테스트 64개와 새 일회용 전용 DB의 최종 로컬 verify:ci 141파일·1,374개 테스트(테스트 구간 89.76초), 포맷·린트·타입·빌드·두 Compose 설정을 통과했다. 원격 CI/실연결·실제 체결 대사로 확대하지 않는다. 다음 핵심 작업은 누적 snapshot의 체결 대사다.
 
