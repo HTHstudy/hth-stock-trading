@@ -22,6 +22,8 @@
 
 ## 현재 상태 — 2026-11-12
 
+11월 12일 [합성 주문 대사 기준 저장소](ORDER_REVIEW_STORE.md)를 추가했다. 별도 두 테이블에 최초/마지막 관측·기대 version/hash CAS·영구 operation ID·receipt 연결을 기록하고, review/blocked는 기준을 유지한 채 보류한다. 재초기화/새 UUID로 같은 scope/주문을 다시 시작하지 못하며 과거 사건 변조·삭제를 조회/재처리/진행에서 검사한다. factory는 testing 경로의 명시적 synthetic-fixture·전용 localhost DB만 허용하고 기본 앱/HTTP/CLI에는 연결하지 않는다. 실제 원장·주문·계좌·Paper/예약/재개는 변경하지 않았고 마이그레이션은 파일 생성과 새 전용 테스트 DB 적용만 했다. 추가 단위 13개·통합 20개와 최종 로컬 verify:ci 146파일·1,467개 테스트(테스트 구간 76.74초), 포맷·린트·타입·전체 빌드·두 Compose 설정 검사를 통과했다. 원격 Actions/실연결 검증은 아니다.
+
 11월 12일 [누적 주문 snapshot의 체결 대사](ORDER_RECONCILIATION.md)를 구현했다. 공통 strict 계약·worker 상태 변환과 broker/DB에 의존하지 않는 순수 Decimal 비교로 중복/부분 체결 증가·늦은 비용/환급·역행·unknown/기준 누락을 구분한다. 첫 snapshot이나 null 비용을 신규 체결/0원으로 만들지 않으며 모든 결과의 canApplyToLedger/ownershipVerified/executionEnabled/canResend/canResume는 false다. 실제 조회·원장/계좌·주문/예약/재개는 연결하지 않았다. 관련 가짜 입력 테스트 60개와 새 일회용 전용 DB의 최종 로컬 verify:ci 143파일·1,434개 테스트(테스트 구간 61.98초), 포맷·린트·타입·빌드·두 Compose 설정 검사를 통과했다. 원격 CI/실연결·실제 원장 대사로 확대하지 않는다.
 
 11월 11일 [주문 목록·상세 조회 capability](ORDER_READONLY.md)를 추가했다. 공식 OpenAPI/overview를 재확인해 GET 두 경로·ORDER_HISTORY 5TPS와 같은 worker transport/token manager를 사용하고, 기존 ReadonlyBroker에 필수 메서드는 추가하지 않았다. 누적 체결/비용·부분 체결·unknown 상태와 null/누락을 보존하며 CLOSED를 완료 체결로 간주하지 않는다. 호출 경로는 HTTP/worker main/CLI에 연결하지 않았고 가짜 fetch로만 검증했다. 실제 조회·주문 생성/정정/취소·DB/ownership·관측/예약/Paper 재개는 실행하지 않았다. 조회 전용 테스트 64개와 새 일회용 전용 DB의 최종 로컬 verify:ci 141파일·1,374개 테스트(테스트 구간 89.76초), 포맷·린트·타입·빌드·두 Compose 설정을 통과했다. 원격 CI/실연결·실제 체결 대사로 확대하지 않는다. 다음 핵심 작업은 누적 snapshot의 체결 대사다.
