@@ -1,3 +1,7 @@
+import type { currencySchema, decimalSchema } from './primitives.js';
+export { currencySchema, decimalSchema, instantSchema } from './primitives.js';
+export { orderObservationSchema, observedOrderStateSchema } from './order-observation.js';
+export type { OrderObservation } from './order-observation.js';
 export {
   paperValidationStatusSchema,
   paperValidationRunSchema,
@@ -140,9 +144,6 @@ export type {
 } from './historical.js';
 
 export const marketSchema = z.enum(['KR', 'US']);
-export const currencySchema = z.enum(['KRW', 'USD']);
-export const decimalSchema = z.string().regex(/^-?\d+(\.\d+)?$/);
-export const instantSchema = z.iso.datetime({ offset: true });
 export const paperModeSchema = z.literal('paper').default('paper');
 
 export type Market = z.infer<typeof marketSchema>;

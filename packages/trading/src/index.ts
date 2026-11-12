@@ -36,3 +36,5 @@ export { meanReversion } from './strategy/mean-reversion.js';
 
 export { buyAndHold } from './strategy/buy-and-hold.js';
 export { calculateCapitalExposure } from './backtest/capital-exposure.js';
+
+export { reconcileOrderObservations } from './execution/order-reconciliation.js';
