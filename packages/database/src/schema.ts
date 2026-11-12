@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  integer,
   check,
   date,
   numeric,
@@ -335,5 +336,50 @@ export const paperCostBasis = pgTable(
       'paper_basis_amounts',
       sql`${table.quantity} >= 0 AND ${table.quantity} = trunc(${table.quantity}) AND ${table.quantity} < 'Infinity'::numeric AND ${table.amount} >= 0 AND ${table.amount} < 'Infinity'::numeric AND (${table.quantity} > 0 OR ${table.amount} = 0)`,
     ),
+  ],
+);
+
+// Offline synthetic review journal only. No account/Paper ledger relationships.
+export const orderReviewStreams = pgTable(
+  'order_review_streams',
+  {
+    id: uuid('id').primaryKey(),
+    source: text('source').notNull(),
+    scope: text('scope').notNull(),
+    referenceHash: text('reference_hash').notNull(),
+    initialObservation: jsonb('initial_observation').$type<unknown>().notNull(),
+    initialObservationHash: text('initial_observation_hash').notNull(),
+    version: integer('version').notNull(),
+    status: text('status').notNull(),
+    observation: jsonb('observation').$type<unknown>().notNull(),
+    observationHash: text('observation_hash').notNull(),
+    stateHash: text('state_hash').notNull(),
+    eventCount: integer('event_count').notNull(),
+    lastReceiptHash: text('last_receipt_hash'),
+  },
+  (t) => [
+    uniqueIndex('order_review_identity').on(t.scope, t.referenceHash),
+    check('order_review_source', sql`${t.source} = 'synthetic-fixture'`),
+    check('order_review_event_bound', sql`${t.eventCount} >= 0 AND ${t.eventCount} <= 512`),
+    check('order_review_version', sql`${t.version} >= 0`),
+    check('order_review_status', sql`${t.status} IN ('ready','quarantined')`),
+  ],
+);
+export const orderReviewEvents = pgTable(
+  'order_review_events',
+  {
+    streamId: uuid('stream_id')
+      .notNull()
+      .references(() => orderReviewStreams.id),
+    operationId: uuid('operation_id').notNull(),
+    sequence: integer('sequence').notNull(),
+    request: jsonb('request').$type<unknown>().notNull(),
+    requestHash: text('request_hash').notNull(),
+    receipt: jsonb('receipt').$type<unknown>().notNull(),
+    receiptHash: text('receipt_hash').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.streamId, t.operationId] }),
+    uniqueIndex('order_review_sequence').on(t.streamId, t.sequence),
   ],
 );

@@ -50,6 +50,13 @@
       "when": 1793238772082,
       "tag": "0006_complete_molecule_man",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794443498701,
+      "tag": "0007_synthetic_order_review",
+      "breakpoints": true
     }
   ]
 }
