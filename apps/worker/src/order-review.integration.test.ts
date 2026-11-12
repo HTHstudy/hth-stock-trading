@@ -2,32 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { expect, it, vi } from 'vitest';
 import { createDatabase, contentHash } from '@hth/database';
 import { createSyntheticOrderReviewStore, migrateTestDatabase, testDatabaseUrl } from '@hth/database/testing';
-import type { BrokerOrder } from '@hth/broker';
+import { syntheticOrder } from '../test/order-review-fixture.js';
 import { toOrderObservation } from './order-observation.js';
-function syntheticOrder(): BrokerOrder {
-  return {
-    reference: 'synthetic-source-order',
-    instrument: { market: 'US', symbol: 'AAPL' },
-    side: 'BUY',
-    currency: 'USD',
-    type: { value: 'LIMIT', known: true },
-    validity: { value: 'DAY', known: true },
-    status: { value: 'PENDING', known: true },
-    requestedQuantity: '5',
-    limitPrice: '110',
-    requestedAmount: null,
-    orderedAt: '2026-11-12T01:00:00.000Z',
-    execution: {
-      quantity: '0',
-      averagePrice: null,
-      amount: '0',
-      commission: '0',
-      tax: '0',
-      lastFilledAt: null,
-      settlementDate: null,
-    },
-  };
-}
 it.skipIf(!process.env.TEST_DATABASE_URL)(
   '가짜 주문 source→worker 변환→영구 대사 기준의 중복/증가 경로를 연결한다',
   async () => {
