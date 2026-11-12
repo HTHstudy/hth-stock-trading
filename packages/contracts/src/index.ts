@@ -242,3 +242,6 @@ export type {
 
 export { buyAndHoldConfigSchema } from './benchmark-strategy.js';
 export type { BuyAndHoldConfig } from './benchmark-strategy.js';
+
+export { orderReconciliationReportSchema } from './order-reconciliation-report.js';
+export type { OrderReconciliationReport } from './order-reconciliation-report.js';

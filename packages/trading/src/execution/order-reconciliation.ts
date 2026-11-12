@@ -1,6 +1,6 @@
 import { Decimal } from 'decimal.js';
 import { orderObservationSchema } from '@hth/contracts';
-import type { OrderObservation } from '@hth/contracts';
+import type { OrderObservation, OrderReconciliationReport } from '@hth/contracts';
 
 const Money = Decimal.clone({ precision: 100 });
 const terminal = new Set(['filled', 'canceled', 'rejected', 'replaced']);
@@ -12,28 +12,7 @@ const safety = {
   canResend: false,
   canResume: false,
 } as const;
-type Reason =
-  | 'INPUT_INVALID'
-  | 'BASELINE_REQUIRED'
-  | 'IDENTITY_CHANGED'
-  | 'DEFINITION_CHANGED'
-  | 'OBSERVATION_REVERSED'
-  | 'CONFLICTING_OBSERVATION'
-  | 'TIMELINE_INVALID'
-  | 'QUANTITY_REVERSED'
-  | 'AMOUNT_REVERSED'
-  | 'TERMINAL_CHANGED'
-  | 'STATE_QUANTITY_MISMATCH'
-  | 'UNKNOWN_DEFINITION_OR_STATE'
-  | 'CHANGE_REJECTION_RECORD'
-  | 'AMOUNT_ORDER_UNSUPPORTED'
-  | 'TOTALS_UNKNOWN'
-  | 'FILL_TIME_UNKNOWN'
-  | 'FILL_TIME_REVERSED'
-  | 'AMOUNT_NOT_INCREASED'
-  | 'AMOUNT_CORRECTION'
-  | 'AVERAGE_PRICE_CORRECTION'
-  | 'COST_CORRECTION_WITH_FILL';
+type Reason = OrderReconciliationReport['reasons'][number];
 const amountKeys = ['quantity', 'averagePrice', 'amount', 'commission', 'tax'] as const;
 function equalMoney(a: string | null | undefined, b: string | null | undefined) {
   return a == null || b == null ? a === b : new Money(a).eq(b);
@@ -62,19 +41,12 @@ function sameContents(a: OrderObservation, b: OrderObservation) {
 }
 /** Compares observations only. It cannot claim account ownership or book a fill. */
 export function reconcileOrderObservations(previous: unknown, next: unknown) {
-  type Outcome =
-    | 'blocked'
-    | 'baseline-required'
-    | 'unchanged'
-    | 'progress'
-    | 'cost-adjustment'
-    | 'metadata-change'
-    | 'review-required';
+  type Outcome = OrderReconciliationReport['outcome'];
   const finish = (
     outcome: Outcome,
     reasons: Reason[],
     delta: { quantity: string; amount: string | null; commission: string | null; tax: string | null } | null = null,
-  ) => ({
+  ): OrderReconciliationReport => ({
     formatVersion: 'order-reconciliation-v1' as const,
     outcome,
     reasons,
