@@ -11,6 +11,7 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  unique,
   uuid,
   bigint,
   primaryKey,
@@ -381,5 +382,107 @@ export const orderReviewEvents = pgTable(
   (t) => [
     primaryKey({ columns: [t.streamId, t.operationId] }),
     uniqueIndex('order_review_sequence').on(t.streamId, t.sequence),
+  ],
+);
+
+// Synthetic identity registry only; isolated from Paper accounts and financial ledgers.
+export const syntheticBindingAccounts = pgTable(
+  'synthetic_binding_accounts',
+  {
+    accountId: uuid('account_id').primaryKey(),
+    brokerId: text('broker_id').notNull(),
+    environment: text('environment').notNull(),
+    scope: text('scope').notNull(),
+    version: integer('version').notNull(),
+    intentCount: integer('intent_count').notNull(),
+    bindingCount: integer('binding_count').notNull(),
+    eventCount: integer('event_count').notNull(),
+    lastReceiptHash: text('last_receipt_hash'),
+    stateHash: text('state_hash').notNull(),
+  },
+  (t) => [
+    uniqueIndex('synthetic_binding_scope').on(t.scope),
+    check('synthetic_binding_environment', sql`${t.environment} = 'synthetic-fixture'`),
+    check(
+      'synthetic_binding_counts',
+      sql`${t.intentCount} BETWEEN 0 AND 256 AND ${t.bindingCount} BETWEEN 0 AND ${t.intentCount} AND ${t.eventCount} BETWEEN 0 AND 512 AND ${t.version} = ${t.intentCount} + ${t.bindingCount}`,
+    ),
+  ],
+);
+export const syntheticBindingIntents = pgTable(
+  'synthetic_binding_intents',
+  {
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => syntheticBindingAccounts.accountId),
+    intentId: uuid('intent_id').notNull(),
+    dedupeKey: text('dedupe_key').notNull(),
+    payload: jsonb('payload').$type<unknown>().notNull(),
+    payloadHash: text('payload_hash').notNull(),
+    createdVersion: integer('created_version').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.accountId, t.intentId] }),
+    uniqueIndex('synthetic_binding_intent_signal').on(t.accountId, t.dedupeKey),
+    unique('synthetic_binding_intent_hash').on(t.accountId, t.intentId, t.payloadHash),
+    uniqueIndex('synthetic_binding_intent_version').on(t.accountId, t.createdVersion),
+    check('synthetic_binding_intent_version_bound', sql`${t.createdVersion} BETWEEN 1 AND 512`),
+  ],
+);
+export const syntheticOrderBindings = pgTable(
+  'synthetic_order_bindings',
+  {
+    bindingId: uuid('binding_id').primaryKey(),
+    accountId: uuid('account_id').notNull(),
+    intentId: uuid('intent_id').notNull(),
+    intentHash: text('intent_hash').notNull(),
+    dedupeKey: text('dedupe_key').notNull(),
+    orderReference: text('order_reference').notNull(),
+    payload: jsonb('payload').$type<unknown>().notNull(),
+    payloadHash: text('payload_hash').notNull(),
+    evidence: jsonb('evidence').$type<unknown>().notNull(),
+    evidenceHash: text('evidence_hash').notNull(),
+    createdVersion: integer('created_version').notNull(),
+    operationId: uuid('operation_id').notNull(),
+  },
+  (t) => [
+    unique('synthetic_binding_account_id').on(t.accountId, t.bindingId),
+    uniqueIndex('synthetic_binding_intent').on(t.accountId, t.intentId),
+    uniqueIndex('synthetic_binding_signal').on(t.accountId, t.dedupeKey),
+    uniqueIndex('synthetic_binding_order').on(t.accountId, t.orderReference),
+    uniqueIndex('synthetic_binding_version').on(t.accountId, t.createdVersion),
+    foreignKey({
+      columns: [t.accountId, t.intentId, t.intentHash],
+      foreignColumns: [
+        syntheticBindingIntents.accountId,
+        syntheticBindingIntents.intentId,
+        syntheticBindingIntents.payloadHash,
+      ],
+    }),
+    check('synthetic_binding_version_bound', sql`${t.createdVersion} BETWEEN 1 AND 512`),
+  ],
+);
+export const syntheticBindingEvents = pgTable(
+  'synthetic_binding_events',
+  {
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => syntheticBindingAccounts.accountId),
+    operationId: uuid('operation_id').notNull(),
+    sequence: integer('sequence').notNull(),
+    bindingId: uuid('binding_id'),
+    request: jsonb('request').$type<unknown>().notNull(),
+    requestHash: text('request_hash').notNull(),
+    receipt: jsonb('receipt').$type<unknown>().notNull(),
+    receiptHash: text('receipt_hash').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.accountId, t.operationId] }),
+    uniqueIndex('synthetic_binding_event_sequence').on(t.accountId, t.sequence),
+    foreignKey({
+      columns: [t.accountId, t.bindingId],
+      foreignColumns: [syntheticOrderBindings.accountId, syntheticOrderBindings.bindingId],
+    }),
+    check('synthetic_binding_event_bound', sql`${t.sequence} BETWEEN 1 AND 512`),
   ],
 );

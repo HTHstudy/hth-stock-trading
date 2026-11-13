@@ -57,6 +57,13 @@
       "when": 1794443498701,
       "tag": "0007_synthetic_order_review",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794531746244,
+      "tag": "0008_synthetic_order_bindings",
+      "breakpoints": true
     }
   ]
 }
