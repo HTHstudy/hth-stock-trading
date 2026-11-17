@@ -97,10 +97,7 @@ const fail = () => {
 };
 
 /** Dedicated synthetic identity registry. No default database/worker/HTTP wiring or financial writes. */
-export function createSyntheticOrderBindingStore(
-  database: ReturnType<typeof createDatabase>,
-  connectionString: string,
-) {
+function bindingRepository(database: ReturnType<typeof createDatabase>, connectionString: string) {
   try {
     if (
       new URL(dedicatedPaperDatabaseUrl(connectionString)).href !==
@@ -136,6 +133,12 @@ export function createSyntheticOrderBindingStore(
           'ORDER_BINDING_LIMIT',
           'ORDER_BINDING_OPERATION_REUSED',
           'ORDER_BINDING_REVIEW_REQUIRED',
+          'SYNTHETIC_LEDGER_MISSING',
+          'SYNTHETIC_LEDGER_INPUT_INVALID',
+          'SYNTHETIC_LEDGER_INTEGRITY_FAILED',
+          'SYNTHETIC_LEDGER_CONFLICT',
+          'SYNTHETIC_LEDGER_LIMIT',
+          'SYNTHETIC_LEDGER_BINDING_INVALID',
         ]);
         throw new Error(
           error instanceof Error && allowed.has(error.message) ? error.message : 'ORDER_BINDING_TRANSACTION_FAILED',
@@ -304,7 +307,7 @@ export function createSyntheticOrderBindingStore(
     registry: { complete: true as const, bindings: s.bindings.map((b) => b.payload) },
     ...safety,
   });
-  return {
+  const store = {
     async initialize(input: unknown) {
       const c = parse(initializeSchema, input);
       const state = {
@@ -463,4 +466,27 @@ export function createSyntheticOrderBindingStore(
       });
     },
   };
+  return {
+    store,
+    withState: <T>(id: string, operation: (tx: Tx, state: Snapshot) => Promise<T>) =>
+      transaction(async (tx) => operation(tx, await load(tx, id))),
+  };
+}
+
+export function createSyntheticOrderBindingStore(
+  database: ReturnType<typeof createDatabase>,
+  connectionString: string,
+) {
+  return bindingRepository(database, connectionString).store;
+}
+type BindingTx = Parameters<Parameters<ReturnType<typeof createDatabase>['db']['transaction']>[0]>[0];
+type BindingState = Parameters<Parameters<ReturnType<typeof bindingRepository>['withState']>[1]>[1];
+/** Package-internal transaction reuse; intentionally absent from the public testing entrypoint. */
+export function withSyntheticBindingState<T>(
+  database: ReturnType<typeof createDatabase>,
+  connectionString: string,
+  accountId: string,
+  operation: (tx: BindingTx, state: BindingState) => Promise<T>,
+): Promise<T> {
+  return bindingRepository(database, connectionString).withState(accountId, operation);
 }

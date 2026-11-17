@@ -64,6 +64,13 @@
       "when": 1794531746244,
       "tag": "0008_synthetic_order_bindings",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794885182235,
+      "tag": "0009_synthetic_ledger",
+      "breakpoints": true
     }
   ]
 }

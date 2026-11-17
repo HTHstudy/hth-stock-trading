@@ -486,3 +486,99 @@ export const syntheticBindingEvents = pgTable(
     check('synthetic_binding_event_bound', sql`${t.sequence} BETWEEN 1 AND 512`),
   ],
 );
+
+export const syntheticLedgerAccounts = pgTable(
+  'synthetic_ledger_accounts',
+  {
+    accountId: uuid('account_id')
+      .primaryKey()
+      .references(() => syntheticBindingAccounts.accountId),
+    initial: jsonb('initial').$type<unknown>().notNull(),
+    initialHash: text('initial_hash').notNull(),
+    state: jsonb('state').$type<unknown>().notNull(),
+    stateHash: text('state_hash').notNull(),
+    version: integer('version').notNull(),
+  },
+  (t) => [check('synthetic_ledger_version', sql`${t.version} BETWEEN 0 AND 544`)],
+);
+export const syntheticLedgerOrders = pgTable(
+  'synthetic_ledger_orders',
+  {
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => syntheticLedgerAccounts.accountId),
+    bindingId: uuid('binding_id').primaryKey(),
+    registration: jsonb('registration').$type<unknown>().notNull(),
+    registrationHash: text('registration_hash').notNull(),
+    createdVersion: integer('created_version').notNull(),
+    observedCount: integer('observed_count').notNull(),
+    observedHash: text('observed_hash').notNull(),
+  },
+  (t) => [
+    unique('synthetic_ledger_order_account').on(t.accountId, t.bindingId),
+    foreignKey({
+      columns: [t.accountId, t.bindingId],
+      foreignColumns: [syntheticOrderBindings.accountId, syntheticOrderBindings.bindingId],
+    }),
+    check(
+      'synthetic_ledger_order_counts',
+      sql`${t.createdVersion} BETWEEN 1 AND 544 AND ${t.observedCount} BETWEEN 0 AND 512`,
+    ),
+  ],
+);
+export const syntheticLedgerObservations = pgTable(
+  'synthetic_ledger_observations',
+  {
+    accountId: uuid('account_id').notNull(),
+    bindingId: uuid('binding_id').notNull(),
+    sequence: integer('sequence').notNull(),
+    observation: jsonb('observation').$type<unknown>().notNull(),
+    observationHash: text('observation_hash').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.accountId, t.bindingId, t.sequence] }),
+    foreignKey({
+      columns: [t.accountId, t.bindingId],
+      foreignColumns: [syntheticLedgerOrders.accountId, syntheticLedgerOrders.bindingId],
+    }),
+    check('synthetic_ledger_observation_sequence', sql`${t.sequence} BETWEEN 1 AND 512`),
+  ],
+);
+export const syntheticLedgerMutations = pgTable(
+  'synthetic_ledger_mutations',
+  {
+    accountId: uuid('account_id').notNull(),
+    version: integer('version').notNull(),
+    bindingId: uuid('binding_id').notNull(),
+    sequence: integer('sequence'),
+    kind: text('kind').notNull(),
+    beforeHash: text('before_hash').notNull(),
+    afterHash: text('after_hash').notNull(),
+    receipt: jsonb('receipt').$type<unknown>().notNull(),
+    receiptHash: text('receipt_hash').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.accountId, t.version] }),
+    uniqueIndex('synthetic_ledger_application_key').on(t.accountId, t.bindingId, t.sequence),
+    uniqueIndex('synthetic_ledger_register_key')
+      .on(t.accountId, t.bindingId)
+      .where(sql`${t.kind} = 'register'`),
+    foreignKey({
+      columns: [t.accountId, t.bindingId],
+      foreignColumns: [syntheticLedgerOrders.accountId, syntheticLedgerOrders.bindingId],
+    }),
+    foreignKey({
+      columns: [t.accountId, t.bindingId, t.sequence],
+      foreignColumns: [
+        syntheticLedgerObservations.accountId,
+        syntheticLedgerObservations.bindingId,
+        syntheticLedgerObservations.sequence,
+      ],
+    }),
+    check(
+      'synthetic_ledger_mutation_kind',
+      sql`(${t.kind}='register' AND ${t.sequence} IS NULL) OR (${t.kind}='apply' AND ${t.sequence} IS NOT NULL AND ${t.sequence} BETWEEN 1 AND 512)`,
+    ),
+    check('synthetic_ledger_mutation_version', sql`${t.version} BETWEEN 1 AND 544`),
+  ],
+);
