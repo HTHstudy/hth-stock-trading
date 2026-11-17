@@ -121,3 +121,5 @@ flowchart LR
 후속 [합성 연결 검사](ORDER_BINDING_REVIEW.md)는 위 순서 1의 공통 strict 계약과 순수 함수를 구현했다. 실제 바인딩 저장/원장/접수 인증은 여전히 미구현이며 설계의 운용 권한을 부여하지 않는다.
 
 11월 13일 후속 [합성 연결 영구 저장소](ORDER_BINDING_STORE.md)를 전용 테스트 DB capability로 추가했다. 선기록 의도/고유 연결·복합 FK/CAS·불변 이력만 다루며 실제 인증/금융 적용은 하지 않는다.
+
+11월 17일 순서 3의 [합성 금융 모델과 영구 적용](SYNTHETIC_LEDGER.md)을 추가했다. 명시적 native-currency-unsettled-v1의 범위만 검증하며 실제 비용/정산·부족액/정정 회계·운용 gate와 실제 주문 전송은 여전히 별도다.

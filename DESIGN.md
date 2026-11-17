@@ -44,6 +44,8 @@ Strategy는 버전·설정과 닫힌 캔들·해당 전략 소유 수량을 입�
 
 ## 4. 주문 의도·상태·대사
 
+[합성 금융 모델](docs/SYNTHETIC_LEDGER.md)은 별도 전용 테스트 DB에서 누적 체결의 관측/적용·고유 적용 키·현금/소유권/원가의 원자성을 검증한다. Paper quote-proxy-v1·실제 원장/주문 전송과 분리하며 모든 실제 권한은 false다.
+
 [주문 의도·계좌·전략 소유권 연결 설계](docs/ORDER_BINDING_DESIGN.md)는 관측 기준과 금융 적용 기준, 영구 바인딩/적용 키·계좌 잠금·수동 보유 보호를 정의한다. 현재 문서 설계이며 실제 주문/원장 적용은 구현하지 않았다. 아래 전송 상태도는 향후 계획이고, 종료 후 변경·금액 정정은 해당 설계의 근거/검토 절차 없이 자동 적용하지 않는다.
 
 현재 Paper 전용으로 INTENT_RECORDED·READY·PARTIALLY_FILLED·FILLED·RISK_REJECTED·ABORTED와 영구 dedupe, 계좌 행 잠금 안의 리스크 재평가·예약/해제·정지·worker lease·복구 확인을 구현했다. 내부 합성 체결은 현금·전략 소유권·원가·누적 비용과 잔량을 함께 반영한다. [Paper 실행기](docs/PAPER_WORKER.md)가 단일 lease·heartbeat·원장 복구·관측 손익·순차 tick을 합성 데이터로 검증한다. [체결 정책](docs/PAPER_FILLS.md)을 따른다. [Paper 원장](docs/PAPER_LEDGER.md)을 따른다. 아래 SUBMITTING 이후 전송·체결·대사는 아직 구현하지 않았다.
