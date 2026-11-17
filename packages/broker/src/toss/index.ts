@@ -1,11 +1,19 @@
 import { currencySchema, instantSchema, marketSchema } from '@hth/contracts';
 import type { Candle, Currency, InstrumentId, Market, TokenLifecycleSnapshot } from '@hth/contracts';
 import { z } from 'zod';
-import type { BrokerCommissionLookup, CandleQuery, MarketDay, MarketSession, ReadonlyBroker } from '../index.js';
+import type {
+  BrokerCommissionLookup,
+  BrokerSellableQuantityLookup,
+  CandleQuery,
+  MarketDay,
+  MarketSession,
+  ReadonlyBroker,
+} from '../index.js';
 import { BrokerError } from '../errors.js';
 import {
   accountsDto,
   buyingPowerDto,
+  sellableQuantityDto,
   candlesDto,
   commissionsDto,
   exchangeRateDto,
@@ -155,6 +163,7 @@ function mapDay(
 
 export type TossReadonlyBroker = ReadonlyBroker &
   BrokerCommissionLookup &
+  BrokerSellableQuantityLookup &
   BrokerOrderLookup & { readTokenLifecycle(): TokenLifecycleSnapshot };
 
 export function createTossReadonlyBroker(options: TossOptions): TossReadonlyBroker {
@@ -195,6 +204,23 @@ export function createTossReadonlyBroker(options: TossOptions): TossReadonlyBrok
       );
       if (supportedCurrency(data.result.currency) !== currency) throw new BrokerError('INVALID_RESPONSE');
       return { currency, amount: data.result.cashBuyingPower };
+    },
+    async getSellableQuantity(account, instrument) {
+      const { reference } = input(accountSchema, account);
+      const checked = input(instrumentSchema.strict(), instrument);
+      const symbol = checked.symbol.toUpperCase();
+      if (checked.market === 'KR' && !/^[A-Z0-9]{6}$/.test(symbol)) throw new BrokerError('INVALID_INPUT');
+      const data = await transport.get(
+        '/api/v1/sellable-quantity',
+        'ORDER_INFO',
+        sellableQuantityDto,
+        new URLSearchParams({ symbol }),
+        reference,
+      );
+      const quantity = data.result.sellableQuantity;
+      if (checked.market === 'KR' && /[1-9]/.test(quantity.split('.')[1] ?? ''))
+        throw new BrokerError('INVALID_RESPONSE');
+      return { instrument: { market: checked.market, symbol }, quantity };
     },
     async getCommissionRates(account) {
       const { reference } = input(accountSchema, account);

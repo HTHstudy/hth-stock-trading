@@ -19,6 +19,17 @@ export interface BrokerCommissionLookup {
   getCommissionRates(account: BrokerAccount): Promise<readonly BrokerCommissionRate[]>;
 }
 
+/** Read-only broker availability, not strategy ownership or a sell authorization. */
+export interface BrokerSellableQuantityLookup {
+  getSellableQuantity(
+    account: BrokerAccount,
+    instrument: InstrumentId,
+  ): Promise<{
+    readonly instrument: InstrumentId;
+    readonly quantity: DecimalString;
+  }>;
+}
+
 export interface Holding {
   readonly instrument: InstrumentId;
   readonly quantity: DecimalString;

@@ -136,3 +136,6 @@ export const krCalendarDto = z.object({
 export const usCalendarDto = z.object({
   result: z.object({ today: usDay, previousBusinessDay: usDay, nextBusinessDay: usDay }),
 });
+
+// Projection of the official SellableQuantityResponse. Native quantity is preserved.
+export const sellableQuantityDto = z.object({ result: z.object({ sellableQuantity: nonnegative }) });
