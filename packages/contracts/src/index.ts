@@ -248,3 +248,14 @@ export type { OrderReconciliationReport } from './order-reconciliation-report.js
 
 export { syntheticOrderBindingInputSchema, syntheticOrderBindingReviewSchema } from './synthetic-order-binding.js';
 export type { SyntheticOrderBindingInput, SyntheticOrderBindingReview } from './synthetic-order-binding.js';
+
+export {
+  syntheticLedgerPositionSchema,
+  syntheticLedgerOrderSchema,
+  syntheticLedgerStateSchema,
+  syntheticLedgerInitializationSchema,
+  syntheticLedgerRegistrationSchema,
+  syntheticLedgerApplicationSchema,
+  syntheticLedgerEffectSchema,
+} from './synthetic-ledger.js';
+export type { SyntheticLedgerState, SyntheticLedgerEffect } from './synthetic-ledger.js';

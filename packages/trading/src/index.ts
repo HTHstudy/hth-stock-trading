@@ -39,3 +39,10 @@ export { calculateCapitalExposure } from './backtest/capital-exposure.js';
 
 export { reconcileOrderObservations } from './execution/order-reconciliation.js';
 export { reviewSyntheticOrderBinding } from './execution/synthetic-order-binding.js';
+export {
+  initializeSyntheticLedger,
+  registerSyntheticLedgerOrder,
+  applySyntheticLedgerObservation,
+} from './execution/synthetic-ledger.js';
+export type { SyntheticLedgerResult } from './execution/synthetic-ledger.js';
+export { syntheticLedgerStateIssue } from './execution/synthetic-ledger.js';
