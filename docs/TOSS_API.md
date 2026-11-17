@@ -105,3 +105,7 @@ FAQ SHA-256은 `6ad4c02b8e785f7de1a067398736e69b546069f8d1e74d89e294a1a774c1a1da
 ## 2026-11-11 주문 목록·상세 읽기 전용 구현 전 확인
 
 REST 1.2.28의 원문 SHA-256은 `c5918961335ccd6b091577e307dc06ed505b58f83e4d99f0c4617de14ceb036a`로 동일하다. GET /api/v1/orders와 GET /api/v1/orders/{orderId}의 query/header·Order/OrderExecution/OrderStatus/PaginatedOrderResponse·공식 200 예제 6개를 확인했다. OPEN은 전량/limit·cursor 무시, CLOSED는 기본 20/최대 100·cursor와 KST 생성일 필터이며 CLOSED에도 PARTIAL_FILLED가 포함된다. status/orderType/timeInForce의 미지 코드는 보존한다. 실제 주문 API를 호출하거나 생성/정정/취소를 구현하지 않았다. 조회 범위와 대사 미구현 경계는 [주문 읽기 전용 연동](ORDER_READONLY.md)을 따른다.
+
+## 2026-11-17 전송 전 공식 자료 재확인
+
+[접수·전송 계약](ORDER_TRANSPORT_DESIGN.md)의 공개 원문 네 개와 hash를 확인했다. REST 1.2.28은 직전 원문과 같고 AsyncAPI는 1.2.3이다. 생성 응답/조회의 clientOrderId 차이, 취소/정정의 새 orderId, WS filledAt 부재와 거래 내역의 settled/주문 연결 부재를 구분했다. 실제 POST는 구현/호출하지 않았다. 읽기 전용 [매도 가능 수량](SELLABLE_QUANTITY.md)만 기존 token manager/ORDER_INFO transport에 추가했으며 실제 계좌 조회도 실행하지 않았다.

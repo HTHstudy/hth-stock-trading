@@ -44,6 +44,8 @@ Strategy는 버전·설정과 닫힌 캔들·해당 전략 소유 수량을 입�
 
 ## 4. 주문 의도·상태·대사
 
+[실제 전송 계약](docs/ORDER_TRANSPORT_DESIGN.md)은 client key 조회 부재·10분 멱등·접수/체결 구분·정정/취소 새 ID·첫 부분 체결/실제 금융 기준의 남은 범위를 정의한다. 현재 실제 주문 adapter/전송/운용 권한은 구현하지 않았다.
+
 [합성 금융 모델](docs/SYNTHETIC_LEDGER.md)은 별도 전용 테스트 DB에서 누적 체결의 관측/적용·고유 적용 키·현금/소유권/원가의 원자성을 검증한다. Paper quote-proxy-v1·실제 원장/주문 전송과 분리하며 모든 실제 권한은 false다.
 
 [주문 의도·계좌·전략 소유권 연결 설계](docs/ORDER_BINDING_DESIGN.md)는 관측 기준과 금융 적용 기준, 영구 바인딩/적용 키·계좌 잠금·수동 보유 보호를 정의한다. 현재 문서 설계이며 실제 주문/원장 적용은 구현하지 않았다. 아래 전송 상태도는 향후 계획이고, 종료 후 변경·금액 정정은 해당 설계의 근거/검토 절차 없이 자동 적용하지 않는다.
@@ -57,11 +59,12 @@ stateDiagram-v2
   INTENT_RECORDED --> READY: 한도/현금/수량 예약
   READY --> SUBMITTING: 전송 시도 먼저 저장
   READY --> ABORTED: 정지 또는 입력 만료
-  SUBMITTING --> OPEN: broker 접수 확인
+  SUBMITTING --> ACKNOWLEDGED: 같은 시도의 접수 근거 확인
+  ACKNOWLEDGED --> OPEN: 바인딩된 상세 조회
+  ACKNOWLEDGED --> FILLED: 바인딩된 상세 조회
   SUBMITTING --> UNKNOWN: timeout/불확실 응답
   SUBMITTING --> REJECTED: 확정 거절
-  UNKNOWN --> OPEN: 대사 성공
-  UNKNOWN --> FILLED: 대사 성공
+  UNKNOWN --> ACKNOWLEDGED: 원래 시도에 연결된 근거 확인
   OPEN --> PARTIALLY_FILLED
   OPEN --> FILLED
   OPEN --> CANCEL_PENDING
@@ -71,12 +74,12 @@ stateDiagram-v2
   CANCEL_PENDING --> FILLED: 취소와 체결 경합
 ```
 
-도표는 주요 경로다. 정정·취소 실패는 요청 attempt의 결과로 기록하며 원주문을 거절 상태로 바꾸지 않는다. 정정은 새 broker ID가 생길 수 있어 parent/child 연결과 수량 예약 이전을 유지한다. 종료 상태의 누적 체결 증가도 현재 순수 대사에서는 차단한다. 향후 broker 근거를 확인하는 별도 보정 절차가 마련되기 전에는 원장을 자동 변경하지 않는다. 상태 문자열의 크기 비교나 무조건적인 terminal 덮어쓰기를 금지한다.
+도표는 주요 경로다. 정정·취소 실패는 요청 attempt의 결과로 기록하며 원주문을 거절 상태로 바꾸지 않는다. 공식 정정·취소 응답은 원주문과 다른 새 broker ID를 반환하므로 원주문/operation/새 ID의 연결을 보존한다. 취소 접수만으로 원주문 종료·예약 해제를 선언하지 않는다. 종료 상태의 누적 체결 증가도 현재 순수 대사에서는 차단한다. 향후 broker 근거를 확인하는 별도 보정 절차가 마련되기 전에는 원장을 자동 변경하지 않는다. 상태 문자열의 크기 비교나 무조건적인 terminal 덮어쓰기를 금지한다.
 
 1. 전략 평가 키와 주문 의도를 DB unique 제약으로 먼저 기록한다.
 2. 리스크 검증과 예약을 transaction으로 완료한다. HTTP 통신 동안 DB transaction을 유지하지 않는다.
 3. 단일 worker가 version compare-and-set으로 의도를 claim하고 `SUBMITTING`과 attempt를 commit한 뒤 전송한다.
-4. broker ID·상태·누적 체결을 기록한다. 불확실하면 `UNKNOWN`으로 남겨 동일 종목의 신규 실행을 차단한다.
+4. 유효한 생성 응답은 broker ID/접수 근거만 ACKNOWLEDGED로 기록하고, 상태·누적 체결은 바인딩된 조회로 확인한다. 불확실하면 `UNKNOWN`으로 남겨 동일 종목의 신규 실행을 차단한다.
 5. 향후 WebSocket 주문 이벤트와 REST snapshot의 근거/순서를 대사한다. 관측 기준과 별도의 적용 기준·영구 적용 키를 사용해 누락/중복을 막는다. 금액은 검증된 누적 체결대금 차이를 사용하며 평균가 변경만으로 대금을 복원하거나 원가를 자동 보정하지 않는다. 누적 금액/비용 정정은 별도 검토한다.
 
 `clientOrderId`는 내부 영구 중복 키와 별개다. 토스의 멱등성 보장은 10분에 한정되므로 자동 재전송을 기본 금지한다. future implementation에서 동일 요청/동일 키/보장 기간 내 재시도를 허용하려면 별도 검증된 정책을 추가한다. 기간 초과·broker ID 미확인·응답 누락 시 수동 검토까지 보류한다. 새 키를 만들어 재시도하지 않는다.
