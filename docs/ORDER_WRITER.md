@@ -36,4 +36,4 @@ POST는 GET 재시도 루프와 분리한다. 인증/한도 대기 중 취소처
 
 가짜 통신으로 production 사전 차단, 정확한 요청/header, 가격/수량·추가 필드 거부, echo 누락/불일치, HTTP/JSON/timeout/취소의 불확실성, 동시 중복·요청 변경·10분 이후 재사용·상한, 공유 토큰/한도를 검증한다. 기존 관측은 새 주문 오류를 허용된 관측 실패 코드로만 기록한다.
 
-다음은 [전송 계약](ORDER_TRANSPORT_DESIGN.md)의 2단계다. 실제용 불변 의도/attempt, 전송 전 커밋·계좌 제어/lease CAS, ACKNOWLEDGED/UNKNOWN 저장, 실제 금융 opening baseline과 첫 누적 체결/비용을 전용 테스트 DB에서 검증한다. 이후 운영 gate/중단·조회 복구와 별도의 제한된 실계좌 실행 승인이 필요하다. 현재 구현을 실거래 가능 상태로 표시하지 않는다.
+[주문 시도 영속 기록](ORDER_ATTEMPT_JOURNAL.md)으로 2단계의 의도/attempt·결과 저장과 재접속 후 재전송 금지를 가짜 통신/전용 테스트 DB에서 구현했다. 실제 자원/금융 적용은 여전히 미구현이다. 남은 범위는 [전송 계약](ORDER_TRANSPORT_DESIGN.md)의 2단계를 따른다. 실제용 불변 의도/attempt, 전송 전 커밋·계좌 제어/lease CAS, ACKNOWLEDGED/UNKNOWN 저장, 실제 금융 opening baseline과 첫 누적 체결/비용을 전용 테스트 DB에서 검증한다. 이후 운영 gate/중단·조회 복구와 별도의 제한된 실계좌 실행 승인이 필요하다. 현재 구현을 실거래 가능 상태로 표시하지 않는다.

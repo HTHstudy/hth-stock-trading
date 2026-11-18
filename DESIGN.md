@@ -44,7 +44,7 @@ Strategy는 버전·설정과 닫힌 캔들·해당 전략 소유 수량을 입�
 
 ## 4. 주문 의도·상태·대사
 
-[실제 전송 계약](docs/ORDER_TRANSPORT_DESIGN.md)은 client key 조회 부재·10분 멱등·접수/체결 구분·정정/취소 새 ID·첫 부분 체결/실제 금융 기준의 남은 범위를 정의한다. [기본 비활성 주문 writer](docs/ORDER_WRITER.md)는 제한 profile의 요청과 단일 전송/응답 처리를 가짜 통신으로 구현했다. 실제 전송/운용 권한·실제용 의도/attempt 영속화는 구현하지 않았다.
+[실제 전송 계약](docs/ORDER_TRANSPORT_DESIGN.md)은 client key 조회 부재·10분 멱등·접수/체결 구분·정정/취소 새 ID·첫 부분 체결/실제 금융 기준의 남은 범위를 정의한다. [기본 비활성 주문 writer](docs/ORDER_WRITER.md)는 제한 profile의 요청과 단일 전송/응답 처리를 가짜 통신으로 구현했다. [주문 시도 기록](docs/ORDER_ATTEMPT_JOURNAL.md)은 별도 전용 테스트 DB/mock 통신으로 의도/attempt·결과 영속화와 재접속 후 재전송 금지를 검증한다. 실제 전송/운용 권한·자원 예약/금융 적용은 구현하지 않았다.
 
 [합성 금융 모델](docs/SYNTHETIC_LEDGER.md)은 별도 전용 테스트 DB에서 누적 체결의 관측/적용·고유 적용 키·현금/소유권/원가의 원자성을 검증한다. Paper quote-proxy-v1·실제 원장/주문 전송과 분리하며 모든 실제 권한은 false다.
 
