@@ -70,3 +70,4 @@ export async function migrateDedicatedPaperDatabase(
 export { createSyntheticOrderReviewStore } from './order-review.js';
 export { createSyntheticOrderBindingStore } from './synthetic-order-binding.js';
 export { createSyntheticLedgerStore } from './synthetic-ledger.js';
+export { createOrderAttemptTestStore } from './order-attempt.js';

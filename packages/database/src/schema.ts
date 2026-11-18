@@ -582,3 +582,45 @@ export const syntheticLedgerMutations = pgTable(
     check('synthetic_ledger_mutation_version', sql`${t.version} BETWEEN 1 AND 544`),
   ],
 );
+
+export const orderAttemptAccounts = pgTable(
+  'order_attempt_accounts',
+  {
+    accountId: uuid('account_id').primaryKey(),
+    context: jsonb('context').$type<unknown>().notNull(),
+    contextHash: text('context_hash').notNull(),
+    version: integer('version').notNull(),
+    headHash: text('head_hash').notNull(),
+  },
+  (t) => [check('order_attempt_account_version', sql`${t.version} BETWEEN 0 AND 512`)],
+);
+export const orderAttemptEvents = pgTable(
+  'order_attempt_events',
+  {
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => orderAttemptAccounts.accountId),
+    sequence: integer('sequence').notNull(),
+    operationId: uuid('operation_id').notNull().unique(),
+    kind: text('kind').notNull(),
+    intentKey: uuid('intent_key'),
+    clientKey: uuid('client_key'),
+    signalKey: uuid('signal_key'),
+    attemptKey: uuid('attempt_key'),
+    claimedIntent: uuid('claimed_intent'),
+    resolvedAttempt: uuid('resolved_attempt'),
+    event: jsonb('event').$type<unknown>().notNull(),
+    eventHash: text('event_hash').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.accountId, t.sequence] }),
+    uniqueIndex('order_attempt_intent_key').on(t.intentKey),
+    uniqueIndex('order_attempt_client_key').on(t.clientKey),
+    uniqueIndex('order_attempt_signal_key').on(t.accountId, t.signalKey),
+    uniqueIndex('order_attempt_key').on(t.attemptKey),
+    uniqueIndex('order_attempt_single_claim').on(t.claimedIntent),
+    uniqueIndex('order_attempt_single_result').on(t.resolvedAttempt),
+    check('order_attempt_event_sequence', sql`${t.sequence} BETWEEN 1 AND 512`),
+    check('order_attempt_event_kind', sql`${t.kind} IN ('open','pause','heartbeat','intent','attempt','result')`),
+  ],
+);

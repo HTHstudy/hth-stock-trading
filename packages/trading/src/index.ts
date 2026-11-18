@@ -46,3 +46,5 @@ export {
 } from './execution/synthetic-ledger.js';
 export type { SyntheticLedgerResult } from './execution/synthetic-ledger.js';
 export { syntheticLedgerStateIssue } from './execution/synthetic-ledger.js';
+export { initialOrderAttemptState, evolveOrderAttempt } from './execution/order-attempt.js';
+export type { OrderAttemptState } from './execution/order-attempt.js';

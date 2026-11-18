@@ -259,3 +259,20 @@ export {
   syntheticLedgerEffectSchema,
 } from './synthetic-ledger.js';
 export type { SyntheticLedgerState, SyntheticLedgerEffect } from './synthetic-ledger.js';
+
+export {
+  orderAttemptContextSchema,
+  durableOrderRequestSchema,
+  durableOrderIntentSchema,
+  durableOrderResultSchema,
+  orderAttemptCommandSchema,
+  orderAttemptEventDataSchema,
+  storedOrderAttemptEventSchema,
+} from './order-attempt.js';
+export type {
+  OrderAttemptContext,
+  DurableOrderIntent,
+  DurableOrderResult,
+  OrderAttemptEventData,
+  StoredOrderAttemptEvent,
+} from './order-attempt.js';
