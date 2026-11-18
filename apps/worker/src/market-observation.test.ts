@@ -169,3 +169,15 @@ it('다른 출처·중복/누락 종목·잘못된 응답은 즉시 중단한다
   context.config.source = 'toss-readonly';
   expect(await context.run()).toMatchObject({ status: 'failed', samples: 1 });
 });
+
+it.each(['ORDER_EXECUTION_DISABLED', 'ORDER_ATTEMPT_CONFLICT', 'ORDER_ATTEMPT_LIMIT'] as const)(
+  '관측과 무관한 주문 오류 %s는 고정된 관측 실패 코드로만 기록한다',
+  async (code) => {
+    const context = await fixture();
+    context.source.mockRejectedValue(new BrokerError(code));
+    expect(await context.run()).toMatchObject({ status: 'failed', samples: 3, errors: { OBSERVATION_FAILED: 3 } });
+    expect(context.record).toHaveBeenCalledTimes(3);
+    for (let n = 1; n <= 3; n++)
+      expect(context.record).toHaveBeenNthCalledWith(n, expect.objectContaining({ error: 'OBSERVATION_FAILED' }));
+  },
+);

@@ -197,7 +197,7 @@ export async function runMarketObservation(
           : signal.aborted
             ? 'CANCELLED'
             : reason instanceof BrokerError
-              ? reason.code
+              ? (errorSchema.safeParse(reason.code).data ?? 'OBSERVATION_FAILED')
               : reason instanceof z.ZodError ||
                   (reason instanceof Error &&
                     [

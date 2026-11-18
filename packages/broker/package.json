@@ -11,6 +11,10 @@
     "./toss": {
       "types": "./dist/toss/index.d.ts",
       "import": "./dist/toss/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js"
     }
   },
   "scripts": {

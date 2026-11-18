@@ -15,7 +15,8 @@ export type RateGroup =
   | 'MARKET_DATA_CHART'
   | 'MARKET_INFO'
   | 'ORDER_INFO'
-  | 'ORDER_HISTORY';
+  | 'ORDER_HISTORY'
+  | 'ORDER';
 export type ReadPath =
   | '/api/v1/orders'
   | `/api/v1/orders/${string}`
@@ -53,9 +54,13 @@ const initialLimits: Record<RateGroup, number> = {
   MARKET_INFO: 3,
   ORDER_INFO: 3,
   ORDER_HISTORY: 5,
+  ORDER: 10,
 };
 
-export function createTransport(options: TossOptions) {
+export function createTransport(options: TossOptions, mode: 'readonly' | 'mock-writer' = 'readonly') {
+  if (mode !== 'readonly' && mode !== 'mock-writer') throw new BrokerError('INVALID_INPUT');
+  if (mode === 'mock-writer' && !options.fetch) throw new BrokerError('INVALID_INPUT');
+  const origin = mode === 'mock-writer' ? 'https://toss-writer.invalid' : baseUrl;
   if (
     !options.clientId.trim() ||
     !options.clientSecret.trim() ||
@@ -129,13 +134,15 @@ export function createTransport(options: TossOptions) {
     }
   }
 
-  async function send(path: string, init: RequestInit, group: RateGroup) {
+  async function send(path: string, init: RequestInit, group: RateGroup, started?: () => void) {
     await acquire(group);
     checkCancelled();
     const timeout = AbortSignal.timeout(options.timeoutMs ?? 5000);
     const signal = options.signal ? AbortSignal.any([timeout, options.signal]) : timeout;
     try {
-      const response = await fetcher(`${baseUrl}${path}`, { ...init, signal, redirect: 'error' });
+      if (signal.aborted) throw new BrokerError(options.signal?.aborted ? 'CANCELLED' : 'TIMEOUT');
+      started?.();
+      const response = await fetcher(`${origin}${path}`, { ...init, signal, redirect: 'error' });
       observe(group, response.headers);
       let payload: unknown;
       try {
@@ -317,5 +324,32 @@ export function createTransport(options: TossOptions) {
     throw new BrokerError('UPSTREAM_UNAVAILABLE');
   }
 
-  return { get, readTokenLifecycle: lifecycle.read };
+  async function postOrderOnce(body: string, account: string) {
+    if (mode !== 'mock-writer') throw new BrokerError('ORDER_EXECUTION_DISABLED');
+    let dispatched = false;
+    try {
+      const accessToken = await getToken();
+      const result = await send(
+        '/api/v1/orders',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'X-Tossinvest-Account': account,
+          },
+          body,
+        },
+        'ORDER',
+        () => {
+          dispatched = true;
+        },
+      );
+      return { kind: 'response' as const, ...result };
+    } catch (error) {
+      const safe = error instanceof BrokerError ? error : new BrokerError('NETWORK_ERROR');
+      return { kind: dispatched ? ('unknown' as const) : ('not-sent' as const), code: safe.code, status: safe.status };
+    }
+  }
+  return { get, postOrderOnce, readTokenLifecycle: lifecycle.read };
 }

@@ -9,7 +9,10 @@ export type BrokerErrorCode =
   | 'UPSTREAM_UNAVAILABLE'
   | 'NETWORK_ERROR'
   | 'TIMEOUT'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'ORDER_EXECUTION_DISABLED'
+  | 'ORDER_ATTEMPT_CONFLICT'
+  | 'ORDER_ATTEMPT_LIMIT';
 
 export class BrokerError extends Error {
   constructor(

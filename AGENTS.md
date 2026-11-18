@@ -8,7 +8,7 @@
 
 - 개인용 국내·미국주식 자동매매 시스템이다. 현재는 읽기 전용 토스 연동과 localhost 대시보드를 제공한다.
 - 기본 모드는 `paper`이다. 현재 버전은 `live` 설정 자체를 거부한다.
-- 실제 주문 생성·정정·취소 API를 구현하거나 호출하지 않는다. 향후 실거래 구현은 별도 작업으로 진행한다.
+- 2026-11-18 사용자 승인으로 실제 주문 연동 코드 구현은 허용한다. 기본 비활성·가짜 통신 테스트만 허용하며 실제 주문 생성·정정·취소 API 호출, 실거래 활성화·배포·사용자 DB 마이그레이션은 금지한다. 현재 단계는 LIMIT+DAY·정수 수량 생성 profile부터 구현하고 정정/취소는 후속 범위로 둔다.
 - API 키가 존재한다는 이유로 실거래를 활성화하지 않는다. 테스트는 실제 증권사 API를 호출하지 않는다.
 - `.env`, 토큰, 계좌 번호, 원본 계좌 응답을 커밋하거나 로그에 남기지 않는다.
 
@@ -18,7 +18,7 @@
 - `apps/api`: Fastify HTTP 서버. 외부 입력과 환경변수는 Zod로 검증한다.
 - `apps/worker`: 읽기 전용 확인·캔들 수집·대시보드 IPC와 별도 Paper 실행기. 기본 main은 대기하며 토큰은 읽기 전용 worker만 발급한다.
 - `packages/contracts`: JSON 계약, 통화·시장·시간 타입, 안전 설정 검증. Node 전용 코드를 넣지 않는다.
-- `packages/broker`: 증권사 포트와 읽기 전용 Toss adapter. 외부 DTO는 adapter 안에서만 사용한다.
+- `packages/broker`: 증권사 포트와 읽기 전용 Toss adapter·기본 비활성 주문 writer. 주문 wire 검증은 testing export의 가짜 fetch/고정 .invalid 세션만 사용한다. 외부 DTO는 adapter 안에서만 사용한다.
 - `packages/trading`: market-data, strategy, risk, execution, backtest 도메인. 전략은 broker와 DB를 import하지 않는다.
 - `packages/database`: Drizzle 스키마와 DB 연결. 금액·수량은 numeric/십진 문자열로 취급한다.
 - 각 패키지 공개 export로만 접근한다. 순환 의존와 다른 패키지 내부 경로 접근을 금지한다.

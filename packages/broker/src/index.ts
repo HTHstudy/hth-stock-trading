@@ -94,3 +94,4 @@ export interface ReadonlyBroker {
 export { BrokerError } from './errors.js';
 
 export type { BrokerOrder, BrokerOrderCode, BrokerOrderLookup, BrokerOrderPage, BrokerOrderQuery } from './orders.js';
+export type { BrokerLimitOrderRequest, BrokerOrderSubmissionResult, BrokerOrderWriter } from './order-writer.js';
