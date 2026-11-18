@@ -109,3 +109,7 @@ REST 1.2.28의 원문 SHA-256은 `c5918961335ccd6b091577e307dc06ed505b58f83e4d99
 ## 2026-11-17 전송 전 공식 자료 재확인
 
 [접수·전송 계약](ORDER_TRANSPORT_DESIGN.md)의 공개 원문 네 개와 hash를 확인했다. REST 1.2.28은 직전 원문과 같고 AsyncAPI는 1.2.3이다. 생성 응답/조회의 clientOrderId 차이, 취소/정정의 새 orderId, WS filledAt 부재와 거래 내역의 settled/주문 연결 부재를 구분했다. 실제 POST는 구현/호출하지 않았다. 읽기 전용 [매도 가능 수량](SELLABLE_QUANTITY.md)만 기존 token manager/ORDER_INFO transport에 추가했으며 실제 계좌 조회도 실행하지 않았다.
+
+## 2026-11-18 기본 비활성 주문 writer 구현 전 재확인
+
+공개 REST OpenAPI 1.2.28과 FAQ를 다시 GET해 원문 SHA-256이 각각 `c5918961335ccd6b091577e307dc06ed505b58f83e4d99f0c4617de14ceb036a`, `6ad4c02b8e785f7de1a067398736e69b546069f8d1e74d89e294a1a774c1a1da`로 동일함을 확인했다. 생성의 수량 oneOf, LIMIT price·DAY, clientOrderId/응답 echo 선택성·10분 멱등, 미국 가격 정밀도와 ORDER 한도를 확인했다. [주문 writer](ORDER_WRITER.md)는 명세보다 좁은 profile과 필수 echo를 사용하고 production POST를 거부한다. 가짜 통신 테스트만 수행했으며 토큰/계좌/실제 주문 API는 호출하지 않았다.
