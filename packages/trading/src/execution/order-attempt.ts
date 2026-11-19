@@ -220,6 +220,32 @@ export function evolveOrderAttempt(
       releaseAttemptResources(resources, data.intentId, data.reason, at);
       break;
     }
+
+    case 'recovery-review':
+    case 'recovery-detail': {
+      const attempt = state.attempts.find((item) => item.attemptId === data.attemptId);
+      if (!context || !state.paused || !attempt || attempt.result?.outcome === 'not-sent')
+        return refuse('RECOVERY_BLOCKED');
+      if (data.kind === 'recovery-review') {
+        const known = attempt.result?.outcome === 'acknowledged';
+        if (known !== (data.reason === 'detail-inconclusive')) refuse('RECOVERY_BLOCKED');
+        break;
+      }
+      if (attempt.result?.outcome !== 'acknowledged' || attempt.result.reference !== data.reference)
+        return refuse('RECOVERY_BLOCKED');
+      if (data.evidence.outcome === 'observed') {
+        const { observation } = data.evidence;
+        if (
+          observation.scope !== context.scopeHash ||
+          observation.orderReference !== data.reference ||
+          Date.parse(observation.observedAt) > now ||
+          Date.parse(observation.observedAt) < Date.parse(attempt.claimedAt)
+        )
+          refuse('RECOVERY_BLOCKED');
+      }
+      // Recovery evidence is in the journal. The financial projection is unchanged.
+      break;
+    }
   }
   return state;
 }

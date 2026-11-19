@@ -71,23 +71,24 @@ const errorCode = z.enum([
   'ORDER_ATTEMPT_CONFLICT',
   'ORDER_ATTEMPT_LIMIT',
 ]);
+const orderReference = z
+  .string()
+  .min(1)
+  .max(512)
+  .refine(
+    (v) =>
+      v !== '.' &&
+      v !== '..' &&
+      [...v].every((c) => {
+        const n = c.codePointAt(0)!;
+        return n >= 32 && n !== 127 && !(n >= 0xd800 && n <= 0xdfff);
+      }),
+  );
 export const durableOrderResultSchema = z.discriminatedUnion('outcome', [
   z.strictObject({
     ...safety,
     outcome: z.literal('acknowledged'),
-    reference: z
-      .string()
-      .min(1)
-      .max(512)
-      .refine(
-        (v) =>
-          v !== '.' &&
-          v !== '..' &&
-          [...v].every((c) => {
-            const n = c.codePointAt(0)!;
-            return n >= 32 && n !== 127 && !(n >= 0xd800 && n <= 0xdfff);
-          }),
-      ),
+    reference: orderReference,
     status: z.literal(200),
   }),
   z.strictObject({
@@ -151,6 +152,20 @@ export const orderAttemptEventDataSchema = z.discriminatedUnion('kind', [
     kind: z.literal('resource-release'),
     intentId: uuid,
     reason: z.enum(['local-canceled', 'intent-expired', 'not-sent', 'canceled', 'expired']),
+  }),
+  z.strictObject({
+    kind: z.literal('recovery-review'),
+    attemptId: uuid,
+    reason: z.enum(['no-correlated-evidence', 'unverified-candidate', 'detail-inconclusive']),
+  }),
+  z.strictObject({
+    kind: z.literal('recovery-detail'),
+    attemptId: uuid,
+    reference: orderReference,
+    evidence: z.discriminatedUnion('outcome', [
+      z.strictObject({ outcome: z.literal('observed'), observation: orderObservationSchema }),
+      z.strictObject({ outcome: z.enum(['http-404', 'unavailable', 'invalid-response']) }),
+    ]),
   }),
 ]);
 export const orderAttemptCommandSchema = z.strictObject({

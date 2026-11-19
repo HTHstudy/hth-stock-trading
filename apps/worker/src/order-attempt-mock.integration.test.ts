@@ -4,6 +4,7 @@ import { createDatabase, contentHash } from '@hth/database';
 import { createOrderAttemptTestStore, migrateTestDatabase, testDatabaseUrl } from '@hth/database/testing';
 import { createTossOrderMockSession } from '@hth/broker/testing';
 import { createTossOrderWriter } from '@hth/broker/toss';
+import { collectMockOrderRecoveryDetail } from './order-attempt-recovery.js';
 import { dispatchOrderAttemptMockOnce } from './order-attempt-mock.js';
 import type { OrderAttemptEventData, DurableOrderIntent } from '@hth/contracts';
 const enabled = Boolean(process.env.TEST_DATABASE_URL);
@@ -237,4 +238,128 @@ it.skipIf(!enabled)('시도 커밋 뒤 확인한 자원 불일치는 가짜 인�
   const snapshot = await other.read(f.accountId);
   expect(snapshot.state.attempts[0]!.result).toBeNull();
   expect(snapshot.state.resources?.reservation?.cashRemaining).toBe('351000');
+});
+
+async function recoveryFixture(acknowledged = true) {
+  const f = await fixture(true);
+  if (acknowledged) await dispatchOrderAttemptMockOnce(f.options);
+  else await store.record(f.accountId, f.options.claim);
+  const paused = await store.record(f.accountId, command(await store.read(f.accountId), { kind: 'pause' }));
+  const input = {
+    accountId: f.accountId,
+    attemptId: f.attemptId,
+    operationId: randomUUID(),
+    expectedVersion: paused.snapshot.version,
+    expectedStateHash: paused.snapshot.stateHash,
+  };
+  const reference = `mock-${f.attemptId}`;
+  const orderedAt = paused.snapshot.state.attempts[0]!.claimedAt;
+  const detail = {
+    orderId: reference,
+    symbol: '005930',
+    side: 'BUY',
+    orderType: 'LIMIT',
+    timeInForce: 'DAY',
+    status: 'PARTIAL_FILLED',
+    price: '70000',
+    quantity: '5',
+    currency: 'KRW',
+    orderedAt,
+    execution: {
+      filledQuantity: '2',
+      averageFilledPrice: '70000',
+      filledAmount: '140000',
+      commission: '7',
+      tax: '0',
+      filledAt: orderedAt,
+      settlementDate: null,
+    },
+  };
+  const readDetail = vi.fn(async () => json({ result: detail }));
+  const fetcher = vi.fn(async (url: string, init: RequestInit) => {
+    expect(new URL(url).origin).toBe('https://toss-writer.invalid');
+    if (new URL(url).pathname === '/oauth2/token')
+      return json({ access_token: 'fake-token', token_type: 'Bearer', expires_in: 3600 });
+    expect(init.method).toBe('GET');
+    expect(new URL(url).pathname).toBe(`/api/v1/orders/${reference}`);
+    expect(new Headers(init.headers).get('x-tossinvest-account')).toBe('42');
+    return readDetail();
+  });
+  const session = createTossOrderMockSession({ clientId: 'fake-client', clientSecret: 'fake-secret', fetch: fetcher });
+  return { ...f, input, session, lookupFetch: fetcher, readDetail, detail, paused: paused.snapshot };
+}
+it.skipIf(!enabled)('저장된 접수 ID만 조회하고 증거를 재조회해도 통신과 기장은 반복하지 않는다', async () => {
+  const f = await recoveryFixture();
+  const found = await collectMockOrderRecoveryDetail(store, f.session, f.input);
+  expect(found.event.data).toMatchObject({
+    kind: 'recovery-detail',
+    evidence: { outcome: 'observed', observation: { state: 'partial', execution: { quantity: '2' } } },
+  });
+  expect(found.snapshot.state).toEqual(f.paused.state);
+  expect(found.mockDispatchClaimed).toBe(false);
+  f.lookupFetch.mockClear();
+  expect((await collectMockOrderRecoveryDetail(other, f.session, f.input)).replayed).toBe(true);
+  expect(f.lookupFetch).not.toHaveBeenCalled();
+  if (found.event.data.kind !== 'recovery-detail' || found.event.data.evidence.outcome !== 'observed')
+    throw new Error('FIXTURE_EVIDENCE_REQUIRED');
+  const observed = await store.record(
+    f.accountId,
+    command(found.snapshot, {
+      kind: 'observe-fill',
+      attemptId: f.attemptId,
+      observation: found.event.data.evidence.observation,
+    }),
+  );
+  const booked = await other.record(
+    f.accountId,
+    command(observed.snapshot, { kind: 'apply-fill', attemptId: f.attemptId, observationSequence: 1 }),
+  );
+  expect(booked.snapshot.state.resources?.balances.cash.KRW).toBe('259993');
+});
+it.skipIf(!enabled)('응답 유실 시 주문 ID를 추정 조회하지 않고 수동 사유만 보존한다', async () => {
+  const f = await recoveryFixture(false);
+  await expect(collectMockOrderRecoveryDetail(store, f.session, f.input)).rejects.toThrow(
+    'ORDER_ATTEMPT_RECOVERY_BLOCKED',
+  );
+  expect(f.lookupFetch).not.toHaveBeenCalled();
+  const review = await store.record(
+    f.accountId,
+    command(f.paused, { kind: 'recovery-review', attemptId: f.attemptId, reason: 'unverified-candidate' }),
+  );
+  expect(review.snapshot.state).toEqual(f.paused.state);
+  expect(review.event.data).toEqual({
+    kind: 'recovery-review',
+    attemptId: f.attemptId,
+    reason: 'unverified-candidate',
+  });
+  expect((await other.read(f.accountId)).state.resources?.reservation?.cashRemaining).toBe('351000');
+  await expect(
+    store.record(
+      f.accountId,
+      command(review.snapshot, { kind: 'resource-release', intentId: f.intent.intentId, reason: 'not-sent' }),
+    ),
+  ).rejects.toThrow('ORDER_ATTEMPT_RESOURCE_RELEASE_BLOCKED');
+});
+it.skipIf(!enabled).each(['http-404', 'invalid-response'] as const)(
+  '상세 조회 실패 %s는 접수나 예약을 변경하지 않는다',
+  async (outcome) => {
+    const f = await recoveryFixture();
+    f.readDetail.mockResolvedValueOnce(
+      outcome === 'http-404'
+        ? new Response('{}', { status: 404 })
+        : json({ result: { ...f.detail, orderId: 'unrelated-order' } }),
+    );
+    const recorded = await collectMockOrderRecoveryDetail(store, f.session, f.input);
+    expect(recorded.event.data).toMatchObject({ kind: 'recovery-detail', evidence: { outcome } });
+    expect(recorded.snapshot.state).toEqual(f.paused.state);
+  },
+);
+it.skipIf(!enabled)('조회 도중 계좌 제어가 바뀌면 낡은 증거를 저장하지 않는다', async () => {
+  const f = await recoveryFixture();
+  f.readDetail.mockImplementationOnce(async () => {
+    await other.record(f.accountId, command(f.paused, { kind: 'open', ownerId: randomUUID() }));
+    return json({ result: f.detail });
+  });
+  await expect(collectMockOrderRecoveryDetail(store, f.session, f.input)).rejects.toThrow('ORDER_ATTEMPT_STALE');
+  expect((await other.read(f.accountId)).journal.some((event) => event.data.kind === 'recovery-detail')).toBe(false);
 });
