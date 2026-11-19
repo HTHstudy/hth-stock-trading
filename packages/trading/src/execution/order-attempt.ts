@@ -1,7 +1,21 @@
-import type { DurableOrderIntent, DurableOrderResult, OrderAttemptEventData } from '@hth/contracts';
+import type {
+  DurableOrderIntent,
+  DurableOrderResult,
+  OrderAttemptContext,
+  OrderAttemptEventData,
+} from '@hth/contracts';
 import { observeAttemptFill, applyAttemptFill } from './order-attempt-fills.js';
 import type { AttemptFillState } from './order-attempt-fills.js';
+import {
+  openAttemptResources,
+  observeAttemptResources,
+  requireReconciled,
+  reserveAttemptResources,
+  bookAttemptResources,
+} from './order-attempt-resources.js';
+import type { AttemptResources } from './order-attempt-resources.js';
 export interface OrderAttemptState {
+  resources?: AttemptResources;
   paused: boolean;
   epoch: number;
   ownerId: string | null;
@@ -30,7 +44,7 @@ export function evolveOrderAttempt(
   data: OrderAttemptEventData,
   at: string,
   intentHash: string | null = null,
-  scopeHash?: string,
+  context?: OrderAttemptContext,
 ): OrderAttemptState {
   const state = structuredClone(previous),
     now = Date.parse(at);
@@ -79,6 +93,11 @@ export function evolveOrderAttempt(
       if (Date.parse(found.intent.expiresAt) <= now) refuse('INTENT_EXPIRED');
       if (state.attempts.some((a) => a.intentId === data.intentId || a.attemptId === data.attemptId))
         refuse('ALREADY_CLAIMED');
+      if (context?.source === 'mock-resource-v1') {
+        if (!state.resources || state.resources.reservation?.intentId !== data.intentId)
+          return refuse('RESOURCE_UNAVAILABLE');
+        requireReconciled(state.resources, at);
+      }
       // No unresolved/accepted predecessor is bypassed by inventing another client key.
       if (state.attempts.length) refuse('REVIEW_REQUIRED');
       state.attempts.push({
@@ -113,14 +132,31 @@ export function evolveOrderAttempt(
           attempt.fills,
           original.intent,
           attempt.result.reference,
-          scopeHash,
+          context?.scopeHash,
           data.observation,
           at,
           attempt.claimedAt,
         );
       } else {
         attempt.fills = applyAttemptFill(attempt.fills, original.intent, data.observationSequence);
+        if (state.resources) bookAttemptResources(state.resources, original.intent, attempt.fills.applications.at(-1)!);
       }
+      break;
+    }
+    case 'resource-opening':
+      if (context?.source !== 'mock-resource-v1' || !state.paused || state.resources || state.attempts.length)
+        return refuse('RESOURCE_INVALID');
+      state.resources = openAttemptResources(data.opening);
+      break;
+    case 'resource-observe':
+      if (context?.source !== 'mock-resource-v1' || !state.resources) return refuse('RESOURCE_INVALID');
+      observeAttemptResources(state.resources, data.observation, context, at);
+      break;
+    case 'resource-reserve': {
+      const original = state.intents.find(({ intent }) => intent.intentId === data.intentId);
+      if (context?.source !== 'mock-resource-v1' || !state.resources || !original || state.attempts.length)
+        return refuse('RESOURCE_UNAVAILABLE');
+      reserveAttemptResources(state.resources, original.intent, data.cashBudget, at);
       break;
     }
   }

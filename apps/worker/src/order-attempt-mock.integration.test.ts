@@ -28,7 +28,7 @@ const command = (snapshot: { version: number; stateHash: string }, data: OrderAt
 });
 const json = (value: unknown) =>
   new Response(JSON.stringify(value), { status: 200, headers: { 'Content-Type': 'application/json' } });
-async function fixture() {
+async function fixture(withResources = false) {
   const accountId = randomUUID(),
     ownerId = randomUUID(),
     attemptId = randomUUID();
@@ -48,8 +48,37 @@ async function fixture() {
     expiresAt: new Date(Date.now() + 600000).toISOString(),
     internalOpening: { quantity: '0', amount: '0', commission: '0', tax: '0' },
   };
-  await store.initialize({ source: 'mock-wire-v1', brokerId: 'toss', accountId, scopeHash: 'a'.repeat(64) });
-  await store.record(accountId, command(await store.read(accountId), { kind: 'intent', intent }));
+  const scopeHash = 'a'.repeat(64);
+  let snapshot = await store.initialize({
+    source: withResources ? 'mock-resource-v1' : 'mock-wire-v1',
+    brokerId: 'toss',
+    accountId,
+    scopeHash,
+  });
+  const cash = { KRW: '400000', USD: '0' };
+  if (withResources) {
+    const opening = await store.record(
+      accountId,
+      command(snapshot, { kind: 'resource-opening', opening: { cash, manual: [], managed: [] } }),
+    );
+    snapshot = (
+      await store.record(
+        accountId,
+        command(opening.snapshot, {
+          kind: 'resource-observe',
+          observation: { scopeHash, observedAt: opening.event.at, cash, holdings: [] },
+        }),
+      )
+    ).snapshot;
+  }
+  snapshot = (await store.record(accountId, command(snapshot, { kind: 'intent', intent }))).snapshot;
+  if (withResources)
+    snapshot = (
+      await store.record(
+        accountId,
+        command(snapshot, { kind: 'resource-reserve', intentId: intent.intentId, cashBudget: '351000' }),
+      )
+    ).snapshot;
   const opened = await store.record(accountId, command(await store.read(accountId), { kind: 'open', ownerId }));
   const claim = command(opened.snapshot, {
     kind: 'attempt',
@@ -179,4 +208,33 @@ it.skipIf(!enabled)('인증 실패는 writer 호출과 주문 POST 미진입을 
   expect(fetcher).toHaveBeenCalledTimes(1);
   await dispatchOrderAttemptMockOnce({ ...f.options, session: f.makeSession() });
   expect(f.fetcher).not.toHaveBeenCalled();
+});
+
+it.skipIf(!enabled)('시도 커밋 뒤 확인한 자원 불일치는 가짜 인증과 주문 호출을 모두 막는다', async () => {
+  const f = await fixture(true);
+  const read = vi.fn<typeof store.read>(async (id) => {
+    const snapshot = await store.read(id);
+    const event = snapshot.journal.at(-1)!;
+    expect(event.data.kind).toBe('attempt');
+    const changed = await other.record(
+      id,
+      command(snapshot, {
+        kind: 'resource-observe',
+        observation: {
+          scopeHash: snapshot.context.scopeHash,
+          observedAt: event.at,
+          cash: { KRW: '399000', USD: '0' },
+          holdings: [],
+        },
+      }),
+    );
+    return changed.snapshot;
+  });
+  await expect(dispatchOrderAttemptMockOnce({ ...f.options, store: { ...store, read } })).rejects.toThrow(
+    'ORDER_ATTEMPT_RESOURCE_UNRECONCILED',
+  );
+  expect(f.fetcher).not.toHaveBeenCalled();
+  const snapshot = await other.read(f.accountId);
+  expect(snapshot.state.attempts[0]!.result).toBeNull();
+  expect(snapshot.state.resources?.reservation?.cashRemaining).toBe('351000');
 });

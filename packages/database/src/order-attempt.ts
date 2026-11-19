@@ -82,6 +82,9 @@ export function createOrderAttemptTestStore(database: ReturnType<typeof createDa
         'FILL_MISMATCH',
         'FILL_REVIEW_REQUIRED',
         'FILL_SEQUENCE',
+        'RESOURCE_INVALID',
+        'RESOURCE_UNAVAILABLE',
+        'RESOURCE_UNRECONCILED',
       ].map((v) => `ORDER_ATTEMPT_${v}`);
       if (error instanceof Error && allowed.includes(error.message)) throw new Error(error.message);
       throw new Error('ORDER_ATTEMPT_DATABASE_FAILED');
@@ -134,7 +137,7 @@ export function createOrderAttemptTestStore(database: ReturnType<typeof createDa
           event.data,
           event.at,
           event.data.kind === 'intent' ? contentHash(event.data.intent) : null,
-          ctx.data.scopeHash,
+          ctx.data,
         );
       } catch {
         fail();
@@ -193,7 +196,7 @@ export function createOrderAttemptTestStore(database: ReturnType<typeof createDa
           command.data,
           at,
           command.data.kind === 'intent' ? contentHash(command.data.intent) : null,
-          before.context.scopeHash,
+          before.context,
         );
         const body = {
           operationId: command.operationId,

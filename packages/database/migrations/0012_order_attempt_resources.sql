@@ -1,0 +1,2 @@
+ALTER TABLE "order_attempt_events" DROP CONSTRAINT "order_attempt_event_kind";--> statement-breakpoint
+ALTER TABLE "order_attempt_events" ADD CONSTRAINT "order_attempt_event_kind" CHECK ("order_attempt_events"."kind" IN ('open','pause','heartbeat','intent','attempt','result','observe-fill','apply-fill','resource-opening','resource-observe','resource-reserve'));

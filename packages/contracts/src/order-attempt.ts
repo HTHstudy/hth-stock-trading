@@ -26,7 +26,7 @@ export const durableOrderRequestSchema = z
       : fraction.length <= (whole === '0' ? 4 : 2);
   });
 export const orderAttemptContextSchema = z.strictObject({
-  source: z.literal('mock-wire-v1'),
+  source: z.enum(['mock-wire-v1', 'mock-resource-v1']),
   accountId: uuid,
   brokerId: z.literal('toss'),
   scopeHash: orderAttemptHashSchema,
@@ -97,6 +97,23 @@ export const durableOrderResultSchema = z.discriminatedUnion('outcome', [
     status: z.number().int().min(100).max(599).nullable(),
   }),
 ]);
+const decimalCash = z.string().regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/);
+const cash = decimalCash.max(30);
+const units = z.string().regex(/^(?:0|[1-9]\d{0,22})$/);
+const instrument = durableOrderRequestSchema.shape.instrument;
+const funds = z.strictObject({ KRW: cash, USD: cash });
+const holding = z.strictObject({ instrument, quantity: units });
+const accountOpening = z.strictObject({
+  cash: funds,
+  manual: z.array(holding).max(32),
+  managed: z.array(holding.extend({ strategyId: uuid })).max(32),
+});
+const accountObservation = z.strictObject({
+  scopeHash: orderAttemptHashSchema,
+  observedAt: instant,
+  cash: z.strictObject({ KRW: decimalCash.max(64), USD: decimalCash.max(64) }),
+  holdings: z.array(holding.extend({ quantity: z.string().regex(/^(?:0|[1-9]\d{0,24})$/) })).max(64),
+});
 export const orderAttemptEventDataSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('open'), ownerId: uuid }),
   z.strictObject({ kind: z.literal('pause') }),
@@ -121,6 +138,9 @@ export const orderAttemptEventDataSchema = z.discriminatedUnion('kind', [
     attemptId: uuid,
     observationSequence: z.number().int().min(1).max(512),
   }),
+  z.strictObject({ kind: z.literal('resource-opening'), opening: accountOpening }),
+  z.strictObject({ kind: z.literal('resource-observe'), observation: accountObservation }),
+  z.strictObject({ kind: z.literal('resource-reserve'), intentId: uuid, cashBudget: cash.nullable() }),
 ]);
 export const orderAttemptCommandSchema = z.strictObject({
   operationId: uuid,

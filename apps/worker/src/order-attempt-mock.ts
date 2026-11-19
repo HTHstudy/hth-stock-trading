@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { orderAttemptCommandSchema } from '@hth/contracts';
+import { requireReconciledAttemptResources } from '@hth/trading';
 import type { DurableOrderResult } from '@hth/contracts';
 import type { createOrderAttemptTestStore } from '@hth/database/testing';
 import type { createTossOrderMockSession } from '@hth/broker/testing';
@@ -43,6 +44,8 @@ export async function dispatchOrderAttemptMockOnce(options: {
   const original = current.state.intents.find(({ intent }) => intent.intentId === attempt.intentId);
   if (!original || original.intentHash !== attempt.intentHash || Date.parse(original.intent.expiresAt) <= Date.now())
     throw new Error('ORDER_ATTEMPT_INTENT_EXPIRED');
+  if (current.context.source === 'mock-resource-v1')
+    requireReconciledAttemptResources(current.state.resources, new Date().toISOString());
   let result: DurableOrderResult;
   try {
     result = await options.session.writer.submitOrder({ reference: '42', type: 'BROKERAGE' }, original.intent.request);

@@ -21,9 +21,8 @@ beforeAll(async () => {
 afterAll(async () => {
   await Promise.all([db?.close(), otherDb?.close()]);
 });
-async function fixture() {
-  const f = orderAttemptFixture(),
-    id = f.context.accountId;
+async function fixture(f = orderAttemptFixture()) {
+  const id = f.context.accountId;
   await store.initialize(f.context);
   await store.record(id, attemptCommand(await store.read(id), { kind: 'intent', intent: f.intent }));
   const opened = await store.record(id, attemptCommand(await store.read(id), { kind: 'open', ownerId: f.ownerId }));
@@ -224,8 +223,8 @@ it.skipIf(!enabled)('이력과 head/version의 불일치는 복원/초기화하�
   await expect(store.initialize(f.context)).rejects.toThrow('ORDER_ATTEMPT_INTEGRITY_FAILED');
 });
 
-async function fillFixture() {
-  const f = await fixture();
+async function fillFixture(prepared?: Awaited<ReturnType<typeof fixture>>) {
+  const f = prepared ?? (await fixture());
   const claimed = await store.record(f.id, f.claim);
   const result = ack(f);
   if (result.outcome !== 'acknowledged') throw new Error('FIXTURE_ACK_REQUIRED');
@@ -363,4 +362,159 @@ it.skipIf(!enabled)('지정가를 넘는 매수 관측은 보존하되 기장하
     ),
   ).rejects.toThrow('ORDER_ATTEMPT_FILL_REVIEW_REQUIRED');
   expect((await other.read(f.id)).state.attempts[0]!.fills?.observations[0]!.observation).toEqual(observation);
+});
+
+async function resourceFixture(side: 'BUY' | 'SELL' = 'BUY', ownQuantity = '0') {
+  const input = orderAttemptFixture();
+  input.context.source = 'mock-resource-v1';
+  input.intent.request.side = side;
+  const f = await fixture(input);
+  const current = await store.read(f.id);
+  const paused = await store.record(f.id, attemptCommand(current, { kind: 'pause' }));
+  const instrument = f.intent.request.instrument;
+  const cash = { KRW: '400000', USD: '80' };
+  const opening = await store.record(
+    f.id,
+    attemptCommand(paused.snapshot, {
+      kind: 'resource-opening',
+      opening: {
+        cash,
+        manual: [{ instrument, quantity: '10' }],
+        managed: [
+          { instrument, strategyId: f.intent.strategyId, quantity: ownQuantity },
+          { instrument, strategyId: randomUUID(), quantity: '4' },
+        ],
+      },
+    }),
+  );
+  const observedAt = opening.event.at;
+  const observation = {
+    scopeHash: f.context.scopeHash,
+    observedAt,
+    cash,
+    holdings: [{ instrument, quantity: String(14 + Number(ownQuantity)) }],
+  };
+  const observed = await store.record(
+    f.id,
+    attemptCommand(opening.snapshot, { kind: 'resource-observe', observation }),
+  );
+  const active = await store.record(f.id, attemptCommand(observed.snapshot, { kind: 'open', ownerId: f.ownerId }));
+  if (f.claim.data.kind !== 'attempt') throw new Error('FIXTURE_CLAIM_REQUIRED');
+  return {
+    ...f,
+    observation,
+    opened: active.snapshot,
+    claim: attemptCommand(active.snapshot, { ...f.claim.data, epoch: active.snapshot.state.epoch }),
+  };
+}
+it.skipIf(!enabled)('현금 예약 뒤에만 시도를 만들고 첫 매수 기장을 자원과 원자적으로 반영한다', async () => {
+  const f = await resourceFixture();
+  await expect(store.record(f.id, f.claim)).rejects.toThrow('ORDER_ATTEMPT_RESOURCE_UNAVAILABLE');
+  const reserve = attemptCommand(f.opened, {
+    kind: 'resource-reserve',
+    intentId: f.intent.intentId,
+    cashBudget: '350020',
+  });
+  const held = await store.record(f.id, reserve);
+  expect((await other.record(f.id, reserve)).replayed).toBe(true);
+  expect(held.snapshot.state.resources?.reservation).toMatchObject({ cashRemaining: '350020', quantityRemaining: '5' });
+  const fill = await fillFixture({ ...f, claim: attemptCommand(held.snapshot, f.claim.data) });
+  const observation = { ...fill.observation };
+  const observed = await store.record(
+    f.id,
+    attemptCommand(fill.snapshot, { kind: 'observe-fill', attemptId: f.attemptId, observation }),
+  );
+  const applied = await other.record(
+    f.id,
+    attemptCommand(observed.snapshot, { kind: 'apply-fill', attemptId: f.attemptId, observationSequence: 1 }),
+  );
+  expect(applied.snapshot.state.resources).toMatchObject({
+    balances: {
+      cash: { KRW: '259993', USD: '80' },
+      manual: [{ quantity: '10' }],
+      managed: [{ quantity: '2' }, { quantity: '4' }],
+    },
+    reservation: { cashRemaining: '210013', quantityRemaining: '3' },
+    reconciliation: { differences: ['BALANCES_CHANGED'] },
+  });
+});
+it.skipIf(!enabled)('예약 후 불일치가 들어오면 시도를 막고 내부 잔액을 덮어쓰지 않는다', async () => {
+  const f = await resourceFixture();
+  const held = await store.record(
+    f.id,
+    attemptCommand(f.opened, { kind: 'resource-reserve', intentId: f.intent.intentId, cashBudget: '350020' }),
+  );
+  const mismatch = await store.record(
+    f.id,
+    attemptCommand(held.snapshot, {
+      kind: 'resource-observe',
+      observation: { ...f.observation, observedAt: held.event.at, cash: { ...f.observation.cash, KRW: '400001' } },
+    }),
+  );
+  await expect(other.record(f.id, attemptCommand(mismatch.snapshot, f.claim.data))).rejects.toThrow(
+    'ORDER_ATTEMPT_RESOURCE_UNRECONCILED',
+  );
+  expect((await other.read(f.id)).state.resources).toMatchObject({
+    balances: { cash: { KRW: '400000' } },
+    reconciliation: { differences: ['KRW'] },
+    reservation: { quantityRemaining: '5' },
+  });
+});
+it.skipIf(!enabled)('수동 및 다른 전략의 보유분으로 매도 예약을 만들 수 없다', async () => {
+  const f = await resourceFixture('SELL', '2');
+  await expect(
+    store.record(
+      f.id,
+      attemptCommand(f.opened, { kind: 'resource-reserve', intentId: f.intent.intentId, cashBudget: null }),
+    ),
+  ).rejects.toThrow('ORDER_ATTEMPT_RESOURCE_UNAVAILABLE');
+  expect((await other.read(f.id)).state.resources?.reservation).toBeNull();
+});
+it.skipIf(!enabled)('부분 매도는 같은 전략 수량만 차감하고 매도대금은 미정산 금액으로 보존한다', async () => {
+  const f = await resourceFixture('SELL', '5');
+  const held = await store.record(
+    f.id,
+    attemptCommand(f.opened, { kind: 'resource-reserve', intentId: f.intent.intentId, cashBudget: null }),
+  );
+  const fill = await fillFixture({ ...f, claim: attemptCommand(held.snapshot, f.claim.data) });
+  const observation = { ...fill.observation, side: 'SELL' as const };
+  const observed = await store.record(
+    f.id,
+    attemptCommand(fill.snapshot, { kind: 'observe-fill', attemptId: f.attemptId, observation }),
+  );
+  const applied = await other.record(
+    f.id,
+    attemptCommand(observed.snapshot, { kind: 'apply-fill', attemptId: f.attemptId, observationSequence: 1 }),
+  );
+  expect(applied.snapshot.state.resources).toMatchObject({
+    balances: {
+      cash: { KRW: '400000', USD: '80' },
+      manual: [{ quantity: '10' }],
+      managed: [{ quantity: '3' }, { quantity: '4' }],
+    },
+    receivables: { KRW: '139993', USD: '0' },
+    reservation: { quantityRemaining: '3' },
+  });
+});
+it.skipIf(!enabled)('비용으로 예약이 부족하면 체결 관측만 남기고 기장 및 보유분 변경을 되돌린다', async () => {
+  const f = await resourceFixture();
+  const held = await store.record(
+    f.id,
+    attemptCommand(f.opened, { kind: 'resource-reserve', intentId: f.intent.intentId, cashBudget: '350000' }),
+  );
+  const fill = await fillFixture({ ...f, claim: attemptCommand(held.snapshot, f.claim.data) });
+  const observed = await store.record(
+    f.id,
+    attemptCommand(fill.snapshot, { kind: 'observe-fill', attemptId: f.attemptId, observation: fill.observation }),
+  );
+  await expect(
+    other.record(
+      f.id,
+      attemptCommand(observed.snapshot, { kind: 'apply-fill', attemptId: f.attemptId, observationSequence: 1 }),
+    ),
+  ).rejects.toThrow('ORDER_ATTEMPT_RESOURCE_UNAVAILABLE');
+  const after = await other.read(f.id);
+  expect(after.stateHash).toBe(observed.snapshot.stateHash);
+  expect(after.state.attempts[0]!.fills).toMatchObject({ appliedCount: 0, observations: [expect.any(Object)] });
+  expect(after.state.resources?.reservation).toEqual(held.snapshot.state.resources?.reservation);
 });
