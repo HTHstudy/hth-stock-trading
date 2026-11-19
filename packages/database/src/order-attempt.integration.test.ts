@@ -518,3 +518,174 @@ it.skipIf(!enabled)('비용으로 예약이 부족하면 체결 관측만 남기
   expect(after.state.attempts[0]!.fills).toMatchObject({ appliedCount: 0, observations: [expect.any(Object)] });
   expect(after.state.resources?.reservation).toEqual(held.snapshot.state.resources?.reservation);
 });
+
+async function reservedForRelease() {
+  const f = await resourceFixture();
+  const held = await store.record(
+    f.id,
+    attemptCommand(f.opened, { kind: 'resource-reserve', intentId: f.intent.intentId, cashBudget: '350020' }),
+  );
+  return { ...f, held: held.snapshot, claim: attemptCommand(held.snapshot, f.claim.data) };
+}
+
+it.skipIf(!enabled).each(['canceled', 'expired'] as const)(
+  '종료 근거 %s의 마지막 부분 체결과 자원 대사 후 미체결 예약만 한 번 해제한다',
+  async (reason) => {
+    const f = await reservedForRelease();
+    const fill = await fillFixture(f);
+    const closedAt = fill.observation.observedAt;
+    const final = await store.record(
+      f.id,
+      attemptCommand(fill.snapshot, {
+        kind: 'resource-final',
+        attemptId: f.attemptId,
+        closedAt,
+        observation: { ...fill.observation, state: reason, ...(reason === 'canceled' ? { canceledAt: closedAt } : {}) },
+      }),
+    );
+    const paused = await store.record(f.id, attemptCommand(final.snapshot, { kind: 'pause' }));
+    const release = { kind: 'resource-release', intentId: f.intent.intentId, reason } as const;
+    await expect(other.record(f.id, attemptCommand(paused.snapshot, release))).rejects.toThrow(
+      'ORDER_ATTEMPT_RESOURCE_RELEASE_BLOCKED',
+    );
+    const applied = await store.record(
+      f.id,
+      attemptCommand(paused.snapshot, { kind: 'apply-fill', attemptId: f.attemptId, observationSequence: 1 }),
+    );
+    await expect(other.record(f.id, attemptCommand(applied.snapshot, release))).rejects.toThrow(
+      'ORDER_ATTEMPT_RESOURCE_RELEASE_BLOCKED',
+    );
+    const reconciled = await store.record(
+      f.id,
+      attemptCommand(applied.snapshot, {
+        kind: 'resource-observe',
+        observation: {
+          ...f.observation,
+          observedAt: applied.event.at,
+          cash: { KRW: '259993', USD: '80' },
+          holdings: [{ instrument: f.intent.request.instrument, quantity: '16' }],
+        },
+      }),
+    );
+    const command = attemptCommand(reconciled.snapshot, release);
+    const results = await Promise.all([store.record(f.id, command), other.record(f.id, command)]);
+    expect(results.map((item) => item.replayed).sort()).toEqual([false, true]);
+    const state = (await other.read(f.id)).state;
+    expect(state.resources).toMatchObject({ reservation: null, releases: [{ reason, cash: '210013', quantity: '3' }] });
+    expect(state.resources?.balances).toEqual(applied.snapshot.state.resources?.balances);
+    expect(state.attempts[0]!.fills?.appliedTotals.quantity).toBe('2');
+    await expect(store.record(f.id, attemptCommand(await other.read(f.id), release))).rejects.toThrow(
+      'ORDER_ATTEMPT_RESOURCE_RELEASE_BLOCKED',
+    );
+  },
+);
+
+it.skipIf(!enabled)('비용 누락이 있는 종료 근거는 보존하고 예약을 유지한다', async () => {
+  const f = await reservedForRelease();
+  const fill = await fillFixture(f);
+  const closedAt = fill.observation.observedAt;
+  const final = await store.record(
+    f.id,
+    attemptCommand(fill.snapshot, {
+      kind: 'resource-final',
+      attemptId: f.attemptId,
+      closedAt,
+      observation: {
+        ...fill.observation,
+        state: 'canceled',
+        canceledAt: closedAt,
+        execution: { ...fill.observation.execution, tax: null },
+      },
+    }),
+  );
+  const paused = await store.record(f.id, attemptCommand(final.snapshot, { kind: 'pause' }));
+  await expect(
+    store.record(
+      f.id,
+      attemptCommand(paused.snapshot, { kind: 'apply-fill', attemptId: f.attemptId, observationSequence: 1 }),
+    ),
+  ).rejects.toThrow('ORDER_ATTEMPT_FILL_REVIEW_REQUIRED');
+  await expect(
+    store.record(
+      f.id,
+      attemptCommand(paused.snapshot, { kind: 'resource-release', intentId: f.intent.intentId, reason: 'canceled' }),
+    ),
+  ).rejects.toThrow('ORDER_ATTEMPT_RESOURCE_RELEASE_BLOCKED');
+  expect((await other.read(f.id)).state.resources?.reservation).toEqual(f.held.state.resources?.reservation);
+});
+
+it.skipIf(!enabled).each([null, 'unknown', 'not-sent'] as const)(
+  '시도 결과 %s는 원래 미전송 결과만 예약을 해제한다',
+  async (outcome) => {
+    const f = await reservedForRelease();
+    const claimed = await store.record(f.id, f.claim);
+    let current = claimed.snapshot;
+    if (outcome) {
+      const result: DurableOrderResult = {
+        mode: 'mock',
+        executionEnabled: false,
+        ownershipVerified: false,
+        canApplyToLedger: false,
+        canResend: false,
+        replayed: false,
+        clientOrderId: f.intent.request.clientOrderId,
+        outcome,
+        code: 'TIMEOUT',
+        status: null,
+      };
+      current = (await store.record(f.id, attemptCommand(current, { kind: 'result', attemptId: f.attemptId, result })))
+        .snapshot;
+    }
+    current = (await store.record(f.id, attemptCommand(current, { kind: 'pause' }))).snapshot;
+    const command = attemptCommand(current, {
+      kind: 'resource-release',
+      intentId: f.intent.intentId,
+      reason: 'not-sent',
+    });
+    if (outcome === 'not-sent') {
+      expect((await other.record(f.id, command)).snapshot.state.resources).toMatchObject({
+        reservation: null,
+        releases: [{ reason: 'not-sent' }],
+      });
+    } else {
+      await expect(other.record(f.id, command)).rejects.toThrow('ORDER_ATTEMPT_RESOURCE_RELEASE_BLOCKED');
+      expect((await other.read(f.id)).state.resources?.reservation).toEqual(f.held.state.resources?.reservation);
+    }
+  },
+);
+it.skipIf(!enabled)('정지된 미전송 의도의 취소는 키와 해제 이력을 남기고 재예약을 막는다', async () => {
+  const f = await reservedForRelease();
+  const paused = await store.record(f.id, attemptCommand(f.held, { kind: 'pause' }));
+  await expect(
+    store.record(
+      f.id,
+      attemptCommand(paused.snapshot, {
+        kind: 'resource-release',
+        intentId: f.intent.intentId,
+        reason: 'intent-expired',
+      }),
+    ),
+  ).rejects.toThrow('ORDER_ATTEMPT_RESOURCE_RELEASE_BLOCKED');
+  const released = await store.record(
+    f.id,
+    attemptCommand(paused.snapshot, {
+      kind: 'resource-release',
+      intentId: f.intent.intentId,
+      reason: 'local-canceled',
+    }),
+  );
+  expect(released.snapshot.state.resources).toMatchObject({
+    reservation: null,
+    releases: [{ reason: 'local-canceled', cash: '350020', quantity: '5' }],
+  });
+  await expect(
+    other.record(
+      f.id,
+      attemptCommand(released.snapshot, {
+        kind: 'resource-reserve',
+        intentId: f.intent.intentId,
+        cashBudget: '350020',
+      }),
+    ),
+  ).rejects.toThrow('ORDER_ATTEMPT_RESOURCE_UNAVAILABLE');
+});

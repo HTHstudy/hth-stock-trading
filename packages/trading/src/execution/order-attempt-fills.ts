@@ -24,6 +24,7 @@ export function observeAttemptFill(
   observation: OrderObservation,
   recordedAt: string,
   claimedAt: string,
+  allowFinal = false,
 ): AttemptFillState {
   const { request } = intent;
   const { definition, instrument, execution } = observation;
@@ -58,12 +59,14 @@ export function observeAttemptFill(
   const missingEvidence =
     reconciliation.outcome === 'review-required' &&
     reconciliation.reasons.every((reason) => reason === 'TOTALS_UNKNOWN' || reason === 'FILL_TIME_UNKNOWN');
+  const supportedState = allowFinal
+    ? ['canceled', 'expired'].includes(observation.state) && quantity.lt(request.quantity)
+    : ['pending', 'partial', 'filled'].includes(observation.state) && observation.canceledAt == null;
   let review: Review | null = null;
   if (reconciliation.outcome === 'blocked') {
     review = 'OBSERVATION_CONFLICT';
   } else if (
-    !['pending', 'partial', 'filled'].includes(observation.state) ||
-    observation.canceledAt != null ||
+    !supportedState ||
     !quantity.isInteger() ||
     (!['unchanged', 'progress', 'metadata-change'].includes(reconciliation.outcome) && !missingEvidence)
   ) {

@@ -12,6 +12,7 @@ import {
   requireReconciled,
   reserveAttemptResources,
   bookAttemptResources,
+  releaseAttemptResources,
 } from './order-attempt-resources.js';
 import type { AttemptResources } from './order-attempt-resources.js';
 export interface OrderAttemptState {
@@ -30,6 +31,7 @@ export interface OrderAttemptState {
     result: DurableOrderResult | null;
     claimedAt: string;
     fills?: AttemptFillState;
+    final?: { reason: 'canceled' | 'expired'; sequence: number; recordedAt: string };
   }[];
 }
 export function initialOrderAttemptState(): OrderAttemptState {
@@ -123,11 +125,33 @@ export function evolveOrderAttempt(
     }
 
     case 'observe-fill':
+    case 'resource-final':
     case 'apply-fill': {
       const attempt = state.attempts.find((item) => item.attemptId === data.attemptId);
       if (!attempt || attempt.result?.outcome !== 'acknowledged') refuse('FILL_UNBOUND');
       const original = state.intents.find(({ intent }) => intent.intentId === attempt.intentId)!;
-      if (data.kind === 'observe-fill') {
+      if (data.kind === 'observe-fill' || data.kind === 'resource-final') {
+        if (attempt.final) refuse('RESOURCE_FINAL_INVALID');
+        if (data.kind === 'resource-final') {
+          const { observation } = data;
+          const reason = observation.state;
+          const closed = Date.parse(data.closedAt);
+          if (
+            context?.source !== 'mock-resource-v1' ||
+            state.resources?.reservation?.intentId !== attempt.intentId ||
+            (reason !== 'canceled' && reason !== 'expired') ||
+            closed < Date.parse(observation.definition.orderedAt) ||
+            closed > Date.parse(observation.observedAt) ||
+            (observation.execution.lastFilledAt && Date.parse(observation.execution.lastFilledAt) > closed) ||
+            (reason === 'canceled'
+              ? !observation.canceledAt || Date.parse(observation.canceledAt) !== closed
+              : observation.canceledAt != null)
+          )
+            return refuse('RESOURCE_FINAL_INVALID');
+          attempt.final = { reason, sequence: (attempt.fills?.observations.length ?? 0) + 1, recordedAt: at };
+          const reconciliation = state.resources.reconciliation;
+          if (reconciliation && !reconciliation.differences.length) reconciliation.differences = ['FINAL_OBSERVED'];
+        }
         attempt.fills = observeAttemptFill(
           attempt.fills,
           original.intent,
@@ -136,10 +160,18 @@ export function evolveOrderAttempt(
           data.observation,
           at,
           attempt.claimedAt,
+          data.kind === 'resource-final',
         );
       } else {
         attempt.fills = applyAttemptFill(attempt.fills, original.intent, data.observationSequence);
-        if (state.resources) bookAttemptResources(state.resources, original.intent, attempt.fills.applications.at(-1)!);
+        if (state.resources) {
+          bookAttemptResources(
+            state.resources,
+            original.intent,
+            attempt.fills.applications.at(-1)!,
+            data.observationSequence === attempt.final?.sequence,
+          );
+        }
       }
       break;
     }
@@ -157,6 +189,35 @@ export function evolveOrderAttempt(
       if (context?.source !== 'mock-resource-v1' || !state.resources || !original || state.attempts.length)
         return refuse('RESOURCE_UNAVAILABLE');
       reserveAttemptResources(state.resources, original.intent, data.cashBudget, at);
+      break;
+    }
+    case 'resource-release': {
+      const resources = state.resources;
+      const original = state.intents.find(({ intent }) => intent.intentId === data.intentId);
+      const attempt = state.attempts.find((item) => item.intentId === data.intentId);
+      if (context?.source !== 'mock-resource-v1' || !state.paused || !resources || !original)
+        return refuse('RESOURCE_RELEASE_BLOCKED');
+      switch (data.reason) {
+        case 'local-canceled':
+        case 'intent-expired':
+          if (attempt || (data.reason === 'intent-expired' && Date.parse(original.intent.expiresAt) > now))
+            refuse('RESOURCE_RELEASE_BLOCKED');
+          break;
+        case 'not-sent':
+          if (attempt?.result?.outcome !== 'not-sent') refuse('RESOURCE_RELEASE_BLOCKED');
+          break;
+        case 'canceled':
+        case 'expired':
+          if (
+            attempt?.final?.reason !== data.reason ||
+            attempt.fills?.appliedCount !== attempt.final.sequence ||
+            Date.parse(resources.reconciliation?.observation.observedAt ?? '') < Date.parse(attempt.final.recordedAt)
+          )
+            return refuse('RESOURCE_RELEASE_BLOCKED');
+          requireReconciled(resources, at);
+          break;
+      }
+      releaseAttemptResources(resources, data.intentId, data.reason, at);
       break;
     }
   }

@@ -141,6 +141,17 @@ export const orderAttemptEventDataSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('resource-opening'), opening: accountOpening }),
   z.strictObject({ kind: z.literal('resource-observe'), observation: accountObservation }),
   z.strictObject({ kind: z.literal('resource-reserve'), intentId: uuid, cashBudget: cash.nullable() }),
+  z.strictObject({
+    kind: z.literal('resource-final'),
+    attemptId: uuid,
+    closedAt: instant,
+    observation: orderObservationSchema.refine((v) => v.state === 'canceled' || v.state === 'expired'),
+  }),
+  z.strictObject({
+    kind: z.literal('resource-release'),
+    intentId: uuid,
+    reason: z.enum(['local-canceled', 'intent-expired', 'not-sent', 'canceled', 'expired']),
+  }),
 ]);
 export const orderAttemptCommandSchema = z.strictObject({
   operationId: uuid,

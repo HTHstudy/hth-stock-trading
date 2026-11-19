@@ -10,6 +10,7 @@ export const observedOrderStateSchema = z.enum([
   'cancel-pending',
   'replace-pending',
   'canceled',
+  'expired',
   'rejected',
   'replaced',
   'change-rejected',

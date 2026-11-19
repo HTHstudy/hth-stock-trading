@@ -85,6 +85,8 @@ export function createOrderAttemptTestStore(database: ReturnType<typeof createDa
         'RESOURCE_INVALID',
         'RESOURCE_UNAVAILABLE',
         'RESOURCE_UNRECONCILED',
+        'RESOURCE_RELEASE_BLOCKED',
+        'RESOURCE_FINAL_INVALID',
       ].map((v) => `ORDER_ATTEMPT_${v}`);
       if (error instanceof Error && allowed.includes(error.message)) throw new Error(error.message);
       throw new Error('ORDER_ATTEMPT_DATABASE_FAILED');

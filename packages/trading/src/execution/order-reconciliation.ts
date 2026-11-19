@@ -3,7 +3,7 @@ import { orderObservationSchema } from '@hth/contracts';
 import type { OrderObservation, OrderReconciliationReport } from '@hth/contracts';
 
 const Money = Decimal.clone({ precision: 100 });
-const terminal = new Set(['filled', 'canceled', 'rejected', 'replaced']);
+const terminal = new Set(['filled', 'canceled', 'expired', 'rejected', 'replaced']);
 const safety = {
   ledgerApplied: false,
   canApplyToLedger: false,

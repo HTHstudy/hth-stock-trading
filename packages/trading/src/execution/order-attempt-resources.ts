@@ -4,6 +4,7 @@ import type { AttemptFillState } from './order-attempt-fills.js';
 
 type Opening = Extract<OrderAttemptEventData, { kind: 'resource-opening' }>['opening'];
 type Observation = Extract<OrderAttemptEventData, { kind: 'resource-observe' }>['observation'];
+type ReleaseReason = Extract<OrderAttemptEventData, { kind: 'resource-release' }>['reason'];
 type Currency = keyof Opening['cash'];
 const Money = Decimal.clone({ precision: 100 });
 const marketKey = ({ instrument }: Opening['manual'][number]) => `${instrument.market}:${instrument.symbol}`;
@@ -19,6 +20,7 @@ export interface AttemptResources {
   receivables: Opening['cash'];
   reconciliation: { observation: Observation; differences: string[] } | null;
   reservation: { intentId: string; cashRemaining: string; quantityRemaining: string } | null;
+  releases?: { intentId: string; reason: ReleaseReason; at: string; cash: string; quantity: string }[];
 }
 
 export function openAttemptResources(opening: Opening): AttemptResources {
@@ -81,7 +83,12 @@ export function reserveAttemptResources(
   at: string,
 ) {
   requireReconciled(resources, at);
-  if (resources.reservation || Date.parse(intent.expiresAt) <= Date.parse(at)) fail('RESOURCE_UNAVAILABLE');
+  if (
+    resources.reservation ||
+    resources.releases?.some((entry) => entry.intentId === intent.intentId) ||
+    Date.parse(intent.expiresAt) <= Date.parse(at)
+  )
+    fail('RESOURCE_UNAVAILABLE');
   const { request } = intent;
   const quantity = new Money(request.quantity);
   const buy = request.side === 'BUY';
@@ -111,6 +118,7 @@ export function bookAttemptResources(
   resources: AttemptResources,
   intent: DurableOrderIntent,
   application: AttemptFillState['applications'][number],
+  final = false,
 ) {
   const reservation = resources.reservation;
   if (!reservation || reservation.intentId !== intent.intentId) return fail('RESOURCE_UNAVAILABLE');
@@ -127,7 +135,7 @@ export function bookAttemptResources(
   if (side === 'BUY') {
     const budget = new Money(reservation.cashRemaining).plus(cashEffect);
     const balance = new Money(resources.balances.cash[currency]).plus(cashEffect);
-    if (budget.lt(remaining.times(limitPrice)) || balance.lt(0) || (!position && managed.length >= 32))
+    if (budget.lt(final ? 0 : remaining.times(limitPrice)) || balance.lt(0) || (!position && managed.length >= 32))
       fail('RESOURCE_UNAVAILABLE');
     resources.balances.cash[currency] = balance.toFixed();
     reservation.cashRemaining = budget.toFixed();
@@ -142,4 +150,22 @@ export function bookAttemptResources(
   if (remaining.isZero()) resources.reservation = null;
   // Any economically applied fill invalidates the prior comparison, while preserving its evidence.
   if (resources.reconciliation) resources.reconciliation.differences = ['BALANCES_CHANGED'];
+}
+
+export function releaseAttemptResources(
+  resources: AttemptResources,
+  intentId: string,
+  reason: ReleaseReason,
+  at: string,
+) {
+  const reservation = resources.reservation;
+  if (!reservation || reservation.intentId !== intentId) return fail('RESOURCE_RELEASE_BLOCKED');
+  (resources.releases ??= []).push({
+    intentId,
+    reason,
+    at,
+    cash: reservation.cashRemaining,
+    quantity: reservation.quantityRemaining,
+  });
+  resources.reservation = null;
 }

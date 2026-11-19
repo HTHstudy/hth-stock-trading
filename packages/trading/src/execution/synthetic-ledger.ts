@@ -240,7 +240,7 @@ export function applySyntheticLedgerObservation(input: unknown): SyntheticLedger
   if (!order) return blocked('BINDING_INVALID');
   if (sequence !== order.sequence + 1) return blocked('SEQUENCE_INVALID');
   if (state.version - state.orders.length >= 512) return blocked('LIMIT');
-  if (next.state === 'replaced') return blocked('OBSERVATION_REVIEW_REQUIRED');
+  if (next.state === 'replaced' || next.state === 'expired') return blocked('OBSERVATION_REVIEW_REQUIRED');
   const report = reconcileOrderObservations(order.observation, next);
   if (report.outcome === 'cost-adjustment') return blocked('COST_REVIEW_REQUIRED');
   if (!['progress', 'unchanged', 'metadata-change'].includes(report.outcome))
