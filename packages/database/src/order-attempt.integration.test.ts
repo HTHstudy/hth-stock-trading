@@ -6,7 +6,7 @@ import { createOrderAttemptTestStore } from './order-attempt.js';
 import { orderAttemptAccounts as accounts, orderAttemptEvents as events } from './schema.js';
 import { testDatabaseUrl, migrateTestDatabase } from '../test/setup.js';
 import { orderAttemptFixture, attemptCommand } from '../test/order-attempt-fixtures.js';
-import type { DurableOrderResult } from '@hth/contracts';
+import type { DurableOrderResult, OrderObservation } from '@hth/contracts';
 const enabled = Boolean(process.env.TEST_DATABASE_URL);
 let db: ReturnType<typeof createDatabase>, otherDb: ReturnType<typeof createDatabase>;
 let store: ReturnType<typeof createOrderAttemptTestStore>, other: typeof store;
@@ -222,4 +222,145 @@ it.skipIf(!enabled)('이력과 head/version의 불일치는 복원/초기화하�
     .where(eq(accounts.accountId, f.id));
   await expect(store.read(f.id)).rejects.toThrow('ORDER_ATTEMPT_INTEGRITY_FAILED');
   await expect(store.initialize(f.context)).rejects.toThrow('ORDER_ATTEMPT_INTEGRITY_FAILED');
+});
+
+async function fillFixture() {
+  const f = await fixture();
+  const claimed = await store.record(f.id, f.claim);
+  const result = ack(f);
+  if (result.outcome !== 'acknowledged') throw new Error('FIXTURE_ACK_REQUIRED');
+  const saved = await store.record(
+    f.id,
+    attemptCommand(claimed.snapshot, { kind: 'result', attemptId: f.attemptId, result }),
+  );
+  const observation: OrderObservation = {
+    formatVersion: 'order-observation-v1',
+    scope: f.context.scopeHash,
+    observedAt: saved.event.at,
+    orderReference: result.reference,
+    instrument: f.intent.request.instrument,
+    side: 'BUY',
+    currency: 'KRW',
+    definition: { type: 'limit', validity: 'day', quantity: '5', limitPrice: '70000', orderedAt: claimed.event.at },
+    state: 'partial',
+    execution: {
+      quantity: '2',
+      amount: '140000',
+      averagePrice: '70000',
+      commission: '7',
+      tax: '0',
+      lastFilledAt: claimed.event.at,
+      settlementDate: null,
+    },
+  };
+  return { ...f, observation, snapshot: saved.snapshot };
+}
+it.skipIf(!enabled)('첫 부분 체결을 내부 0에서 기장하고 누적 전량 체결은 증가분만 반영한다', async () => {
+  const f = await fillFixture();
+  let current = await store.record(
+    f.id,
+    attemptCommand(f.snapshot, { kind: 'observe-fill', attemptId: f.attemptId, observation: f.observation }),
+  );
+  expect(current.snapshot.state.attempts[0]!.fills?.appliedTotals).toEqual(f.intent.internalOpening);
+  const apply = attemptCommand(current.snapshot, {
+    kind: 'apply-fill',
+    attemptId: f.attemptId,
+    observationSequence: 1,
+  });
+  const receipts = await Promise.all([store.record(f.id, apply), other.record(f.id, apply)]);
+  expect(receipts.map((item) => item.replayed).sort()).toEqual([false, true]);
+  expect(receipts[0]!.snapshot.state.attempts[0]!.fills?.applications).toEqual([
+    {
+      observationSequence: 1,
+      delta: { quantity: '2', amount: '140000', commission: '7', tax: '0' },
+      cashEffect: '-140007',
+    },
+  ]);
+  const latest = await other.read(f.id);
+  const endAt = latest.journal.at(-1)!.at;
+  const filled: OrderObservation = {
+    ...f.observation,
+    observedAt: endAt,
+    state: 'filled',
+    execution: { ...f.observation.execution, quantity: '5', amount: '350000', commission: '18', lastFilledAt: endAt },
+  };
+  current = await other.record(
+    f.id,
+    attemptCommand(latest, { kind: 'observe-fill', attemptId: f.attemptId, observation: filled }),
+  );
+  current = await store.record(
+    f.id,
+    attemptCommand(current.snapshot, { kind: 'apply-fill', attemptId: f.attemptId, observationSequence: 2 }),
+  );
+  expect(current.snapshot.state.attempts[0]!.fills?.applications.at(-1)).toEqual({
+    observationSequence: 2,
+    delta: { quantity: '3', amount: '210000', commission: '11', tax: '0' },
+    cashEffect: '-210011',
+  });
+  expect(current.snapshot).toMatchObject({ executionEnabled: false, canApplyToLedger: false, canResend: false });
+  await expect(other.record(f.id, attemptCommand(current.snapshot, { ...apply.data }))).rejects.toThrow(
+    'ORDER_ATTEMPT_FILL_SEQUENCE',
+  );
+});
+it.skipIf(!enabled)('null 비용과 미적용 구간을 보존하고 이후 완전한 자료로 건너뛰지 않는다', async () => {
+  const f = await fillFixture();
+  const observation = { ...f.observation, execution: { ...f.observation.execution, tax: null } };
+  const first = await store.record(
+    f.id,
+    attemptCommand(f.snapshot, { kind: 'observe-fill', attemptId: f.attemptId, observation }),
+  );
+  await expect(
+    other.record(
+      f.id,
+      attemptCommand(first.snapshot, { kind: 'apply-fill', attemptId: f.attemptId, observationSequence: 1 }),
+    ),
+  ).rejects.toThrow('ORDER_ATTEMPT_FILL_REVIEW_REQUIRED');
+  const next = await store.record(
+    f.id,
+    attemptCommand(first.snapshot, {
+      kind: 'observe-fill',
+      attemptId: f.attemptId,
+      observation: { ...f.observation, observedAt: first.event.at },
+    }),
+  );
+  await expect(
+    other.record(
+      f.id,
+      attemptCommand(next.snapshot, { kind: 'apply-fill', attemptId: f.attemptId, observationSequence: 2 }),
+    ),
+  ).rejects.toThrow('ORDER_ATTEMPT_FILL_SEQUENCE');
+  expect((await other.read(f.id)).state.attempts[0]!.fills).toMatchObject({
+    appliedCount: 0,
+    appliedTotals: f.intent.internalOpening,
+    applications: [],
+    observations: [{ observation, review: 'TOTALS_UNKNOWN' }, expect.any(Object)],
+  });
+});
+it.skipIf(!enabled)('원래 접수와 다른 범위·주문 참조·요청 가격은 저장하지 않는다', async () => {
+  const f = await fillFixture();
+  for (const observation of [
+    { ...f.observation, scope: 'b'.repeat(64) },
+    { ...f.observation, orderReference: 'different-mock-order' },
+    { ...f.observation, definition: { ...f.observation.definition, limitPrice: '60000' } },
+  ]) {
+    await expect(
+      store.record(f.id, attemptCommand(f.snapshot, { kind: 'observe-fill', attemptId: f.attemptId, observation })),
+    ).rejects.toThrow('ORDER_ATTEMPT_FILL_MISMATCH');
+  }
+  expect((await other.read(f.id)).version).toBe(f.snapshot.version);
+});
+it.skipIf(!enabled)('지정가를 넘는 매수 관측은 보존하되 기장하지 않는다', async () => {
+  const f = await fillFixture();
+  const observation = { ...f.observation, execution: { ...f.observation.execution, amount: '140001' } };
+  const observed = await store.record(
+    f.id,
+    attemptCommand(f.snapshot, { kind: 'observe-fill', attemptId: f.attemptId, observation }),
+  );
+  await expect(
+    other.record(
+      f.id,
+      attemptCommand(observed.snapshot, { kind: 'apply-fill', attemptId: f.attemptId, observationSequence: 1 }),
+    ),
+  ).rejects.toThrow('ORDER_ATTEMPT_FILL_REVIEW_REQUIRED');
+  expect((await other.read(f.id)).state.attempts[0]!.fills?.observations[0]!.observation).toEqual(observation);
 });

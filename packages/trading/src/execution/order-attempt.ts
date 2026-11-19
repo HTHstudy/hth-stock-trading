@@ -1,4 +1,6 @@
 import type { DurableOrderIntent, DurableOrderResult, OrderAttemptEventData } from '@hth/contracts';
+import { observeAttemptFill, applyAttemptFill } from './order-attempt-fills.js';
+import type { AttemptFillState } from './order-attempt-fills.js';
 export interface OrderAttemptState {
   paused: boolean;
   epoch: number;
@@ -12,6 +14,8 @@ export interface OrderAttemptState {
     ownerId: string;
     epoch: number;
     result: DurableOrderResult | null;
+    claimedAt: string;
+    fills?: AttemptFillState;
   }[];
 }
 export function initialOrderAttemptState(): OrderAttemptState {
@@ -26,6 +30,7 @@ export function evolveOrderAttempt(
   data: OrderAttemptEventData,
   at: string,
   intentHash: string | null = null,
+  scopeHash?: string,
 ): OrderAttemptState {
   const state = structuredClone(previous),
     now = Date.parse(at);
@@ -83,6 +88,7 @@ export function evolveOrderAttempt(
         ownerId: data.ownerId,
         epoch: data.epoch,
         result: null,
+        claimedAt: at,
       });
       break;
     }
@@ -94,6 +100,27 @@ export function evolveOrderAttempt(
         refuse('RESULT_CONFLICT');
       // Even after pause/lease expiry, retain the response of the original attempt as evidence only.
       found.result = data.result;
+      break;
+    }
+
+    case 'observe-fill':
+    case 'apply-fill': {
+      const attempt = state.attempts.find((item) => item.attemptId === data.attemptId);
+      if (!attempt || attempt.result?.outcome !== 'acknowledged') refuse('FILL_UNBOUND');
+      const original = state.intents.find(({ intent }) => intent.intentId === attempt.intentId)!;
+      if (data.kind === 'observe-fill') {
+        attempt.fills = observeAttemptFill(
+          attempt.fills,
+          original.intent,
+          attempt.result.reference,
+          scopeHash,
+          data.observation,
+          at,
+          attempt.claimedAt,
+        );
+      } else {
+        attempt.fills = applyAttemptFill(attempt.fills, original.intent, data.observationSequence);
+      }
       break;
     }
   }

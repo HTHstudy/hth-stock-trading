@@ -621,6 +621,9 @@ export const orderAttemptEvents = pgTable(
     uniqueIndex('order_attempt_single_claim').on(t.claimedIntent),
     uniqueIndex('order_attempt_single_result').on(t.resolvedAttempt),
     check('order_attempt_event_sequence', sql`${t.sequence} BETWEEN 1 AND 512`),
-    check('order_attempt_event_kind', sql`${t.kind} IN ('open','pause','heartbeat','intent','attempt','result')`),
+    check(
+      'order_attempt_event_kind',
+      sql`${t.kind} IN ('open','pause','heartbeat','intent','attempt','result','observe-fill','apply-fill')`,
+    ),
   ],
 );

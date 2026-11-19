@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { orderObservationSchema } from './order-observation.js';
 const uuid = z.uuid().transform((v) => v.toLowerCase());
 export const orderAttemptHashSchema = z.string().regex(/^[a-f0-9]{64}$/);
 const instant = z.iso.datetime({ offset: true });
@@ -110,6 +111,16 @@ export const orderAttemptEventDataSchema = z.discriminatedUnion('kind', [
     epoch: z.number().int().nonnegative(),
   }),
   z.strictObject({ kind: z.literal('result'), attemptId: uuid, result: durableOrderResultSchema }),
+  z.strictObject({
+    kind: z.literal('observe-fill'),
+    attemptId: uuid,
+    observation: orderObservationSchema,
+  }),
+  z.strictObject({
+    kind: z.literal('apply-fill'),
+    attemptId: uuid,
+    observationSequence: z.number().int().min(1).max(512),
+  }),
 ]);
 export const orderAttemptCommandSchema = z.strictObject({
   operationId: uuid,
