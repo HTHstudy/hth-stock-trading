@@ -4,6 +4,7 @@ import { orderAttemptContextSchema, orderAttemptCommandSchema, storedOrderAttemp
 import type { StoredOrderAttemptEvent } from '@hth/contracts';
 import { evolveOrderAttempt, initialOrderAttemptState } from '@hth/trading';
 import type { createDatabase } from './index.js';
+import { checkOrderAttemptProof } from './order-attempt-proof.js';
 import { contentHash } from './content-hash.js';
 import { dedicatedPaperDatabaseUrl } from './local-compose.js';
 import { orderAttemptAccounts as accounts, orderAttemptEvents as events } from './schema.js';
@@ -88,6 +89,7 @@ export function createOrderAttemptTestStore(database: ReturnType<typeof createDa
         'RESOURCE_RELEASE_BLOCKED',
         'RESOURCE_FINAL_INVALID',
         'RECOVERY_BLOCKED',
+        'RECOVERY_PROOF_INVALID',
       ].map((v) => `ORDER_ATTEMPT_${v}`);
       if (error instanceof Error && allowed.includes(error.message)) throw new Error(error.message);
       throw new Error('ORDER_ATTEMPT_DATABASE_FAILED');
@@ -135,6 +137,7 @@ export function createOrderAttemptTestStore(database: ReturnType<typeof createDa
       for (const k of Object.keys(expectedKeys) as (keyof typeof expectedKeys)[])
         if (row[k] !== expectedKeys[k]) fail();
       try {
+        checkOrderAttemptProof(ctx.data, journal, event.operationId, event.data);
         state = evolveOrderAttempt(
           state,
           event.data,
@@ -194,6 +197,7 @@ export function createOrderAttemptTestStore(database: ReturnType<typeof createDa
         if (!at || !z.iso.datetime().safeParse(at).success) fail();
         const last = before.journal.at(-1);
         if (last && Date.parse(at) < Date.parse(last.at)) throw new Error('ORDER_ATTEMPT_CLOCK_REGRESSION');
+        checkOrderAttemptProof(before.context, before.journal, command.operationId, command.data);
         evolveOrderAttempt(
           before.state,
           command.data,

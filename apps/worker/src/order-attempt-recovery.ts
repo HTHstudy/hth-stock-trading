@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { orderAttemptAcknowledgedReference } from '@hth/trading';
 import { BrokerError } from '@hth/broker';
 import type { createTossOrderMockSession } from '@hth/broker/testing';
 import type { createOrderAttemptTestStore } from '@hth/database/testing';
@@ -44,10 +45,9 @@ export async function collectMockOrderRecoveryDetail(store: Store, session: Mock
     throw new Error('ORDER_ATTEMPT_STALE');
 
   const attempt = before.state.attempts.find((item) => item.attemptId === attemptId);
-  if (!before.state.paused || attempt?.result?.outcome !== 'acknowledged')
-    throw new Error('ORDER_ATTEMPT_RECOVERY_BLOCKED');
+  const reference = orderAttemptAcknowledgedReference(attempt);
+  if (!before.state.paused || !reference) throw new Error('ORDER_ATTEMPT_RECOVERY_BLOCKED');
 
-  const reference = attempt.result.reference;
   let evidence: Detail['evidence'];
   try {
     const order = await session.readonly.getOrder({ reference: '42', type: 'BROKERAGE' }, reference);

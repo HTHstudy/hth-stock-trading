@@ -29,11 +29,17 @@ export interface OrderAttemptState {
     ownerId: string;
     epoch: number;
     result: DurableOrderResult | null;
+    recoveredAcknowledgement?: { reference: string; proofId: string };
     claimedAt: string;
     fills?: AttemptFillState;
     final?: { reason: 'canceled' | 'expired'; sequence: number; recordedAt: string };
   }[];
 }
+export function orderAttemptAcknowledgedReference(attempt: OrderAttemptState['attempts'][number] | undefined) {
+  if (attempt?.result?.outcome === 'acknowledged') return attempt.result.reference;
+  return attempt?.recoveredAcknowledgement?.reference;
+}
+
 export function initialOrderAttemptState(): OrderAttemptState {
   return { paused: true, epoch: 0, ownerId: null, leaseUntil: null, intents: [], attempts: [] };
 }
@@ -128,7 +134,8 @@ export function evolveOrderAttempt(
     case 'resource-final':
     case 'apply-fill': {
       const attempt = state.attempts.find((item) => item.attemptId === data.attemptId);
-      if (!attempt || attempt.result?.outcome !== 'acknowledged') refuse('FILL_UNBOUND');
+      const reference = orderAttemptAcknowledgedReference(attempt);
+      if (!attempt || !reference) refuse('FILL_UNBOUND');
       const original = state.intents.find(({ intent }) => intent.intentId === attempt.intentId)!;
       if (data.kind === 'observe-fill' || data.kind === 'resource-final') {
         if (attempt.final) refuse('RESOURCE_FINAL_INVALID');
@@ -155,7 +162,7 @@ export function evolveOrderAttempt(
         attempt.fills = observeAttemptFill(
           attempt.fills,
           original.intent,
-          attempt.result.reference,
+          reference,
           context?.scopeHash,
           data.observation,
           at,
@@ -226,13 +233,13 @@ export function evolveOrderAttempt(
       const attempt = state.attempts.find((item) => item.attemptId === data.attemptId);
       if (!context || !state.paused || !attempt || attempt.result?.outcome === 'not-sent')
         return refuse('RECOVERY_BLOCKED');
+      const reference = orderAttemptAcknowledgedReference(attempt);
       if (data.kind === 'recovery-review') {
-        const known = attempt.result?.outcome === 'acknowledged';
+        const known = reference !== undefined;
         if (known !== (data.reason === 'detail-inconclusive')) refuse('RECOVERY_BLOCKED');
         break;
       }
-      if (attempt.result?.outcome !== 'acknowledged' || attempt.result.reference !== data.reference)
-        return refuse('RECOVERY_BLOCKED');
+      if (reference !== data.reference) return refuse('RECOVERY_BLOCKED');
       if (data.evidence.outcome === 'observed') {
         const { observation } = data.evidence;
         if (
@@ -244,6 +251,31 @@ export function evolveOrderAttempt(
           refuse('RECOVERY_BLOCKED');
       }
       // Recovery evidence is in the journal. The financial projection is unchanged.
+      break;
+    }
+
+    case 'recovery-ack': {
+      const { receipt } = data;
+      const attempt = state.attempts.find((item) => item.attemptId === receipt.attemptId);
+      const original = state.intents.find(({ intent }) => intent.intentId === attempt?.intentId);
+      if (
+        context?.source !== 'mock-resource-v1' ||
+        !context.recoveryPublicKey ||
+        !state.paused ||
+        !attempt ||
+        attempt.result?.outcome !== 'unknown' ||
+        attempt.recoveredAcknowledgement ||
+        !original ||
+        attempt.intentHash !== receipt.intentHash ||
+        original.intent.request.clientOrderId !== receipt.clientOrderId ||
+        context.accountId !== receipt.accountId ||
+        context.scopeHash !== receipt.scopeHash ||
+        Date.parse(receipt.capturedAt) < Date.parse(attempt.claimedAt) ||
+        Date.parse(receipt.capturedAt) > now
+      )
+        return refuse('RECOVERY_BLOCKED');
+      // Authentication and journal linkage are checked by the test store before reduction.
+      attempt.recoveredAcknowledgement = { reference: receipt.reference, proofId: receipt.proofId };
       break;
     }
   }

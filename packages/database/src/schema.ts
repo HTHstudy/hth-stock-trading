@@ -623,7 +623,7 @@ export const orderAttemptEvents = pgTable(
     check('order_attempt_event_sequence', sql`${t.sequence} BETWEEN 1 AND 512`),
     check(
       'order_attempt_event_kind',
-      sql`${t.kind} IN ('open','pause','heartbeat','intent','attempt','result','observe-fill','apply-fill','resource-opening','resource-observe','resource-reserve','resource-final','resource-release','recovery-review','recovery-detail')`,
+      sql`${t.kind} IN ('open','pause','heartbeat','intent','attempt','result','observe-fill','apply-fill','resource-opening','resource-observe','resource-reserve','resource-final','resource-release','recovery-review','recovery-detail','recovery-ack')`,
     ),
   ],
 );

@@ -30,6 +30,10 @@ export const orderAttemptContextSchema = z.strictObject({
   accountId: uuid,
   brokerId: z.literal('toss'),
   scopeHash: orderAttemptHashSchema,
+  recoveryPublicKey: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .optional(),
 });
 export const durableOrderIntentSchema = z.strictObject({
   intentId: uuid,
@@ -115,6 +119,19 @@ const accountObservation = z.strictObject({
   cash: z.strictObject({ KRW: decimalCash.max(64), USD: decimalCash.max(64) }),
   holdings: z.array(holding.extend({ quantity: z.string().regex(/^(?:0|[1-9]\d{0,24})$/) })).max(64),
 });
+const recoveryReceipt = z.strictObject({
+  format: z.literal('mock-order-ack-v1'),
+  proofId: uuid,
+  accountId: uuid,
+  scopeHash: orderAttemptHashSchema,
+  attemptId: uuid,
+  intentHash: orderAttemptHashSchema,
+  claimEventHash: orderAttemptHashSchema,
+  unknownEventHash: orderAttemptHashSchema,
+  clientOrderId: uuid,
+  reference: orderReference,
+  capturedAt: instant,
+});
 export const orderAttemptEventDataSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('open'), ownerId: uuid }),
   z.strictObject({ kind: z.literal('pause') }),
@@ -166,6 +183,11 @@ export const orderAttemptEventDataSchema = z.discriminatedUnion('kind', [
       z.strictObject({ outcome: z.literal('observed'), observation: orderObservationSchema }),
       z.strictObject({ outcome: z.enum(['http-404', 'unavailable', 'invalid-response']) }),
     ]),
+  }),
+  z.strictObject({
+    kind: z.literal('recovery-ack'),
+    receipt: recoveryReceipt,
+    signature: z.string().regex(/^[a-f0-9]{128}$/),
   }),
 ]);
 export const orderAttemptCommandSchema = z.strictObject({

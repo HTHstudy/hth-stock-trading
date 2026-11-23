@@ -1,6 +1,6 @@
-import { randomUUID } from 'node:crypto';
+import { generateKeyPairSync, randomUUID, sign } from 'node:crypto';
 import { beforeAll, afterAll, expect, it, vi } from 'vitest';
-import { createDatabase, contentHash } from '@hth/database';
+import { canonicalJson, createDatabase, contentHash } from '@hth/database';
 import { createOrderAttemptTestStore, migrateTestDatabase, testDatabaseUrl } from '@hth/database/testing';
 import { createTossOrderMockSession } from '@hth/broker/testing';
 import { createTossOrderWriter } from '@hth/broker/toss';
@@ -29,7 +29,7 @@ const command = (snapshot: { version: number; stateHash: string }, data: OrderAt
 });
 const json = (value: unknown) =>
   new Response(JSON.stringify(value), { status: 200, headers: { 'Content-Type': 'application/json' } });
-async function fixture(withResources = false) {
+async function fixture(withResources = false, recoveryPublicKey?: string) {
   const accountId = randomUUID(),
     ownerId = randomUUID(),
     attemptId = randomUUID();
@@ -55,6 +55,7 @@ async function fixture(withResources = false) {
     brokerId: 'toss',
     accountId,
     scopeHash,
+    ...(recoveryPublicKey ? { recoveryPublicKey } : {}),
   });
   const cash = { KRW: '400000', USD: '0' };
   if (withResources) {
@@ -240,10 +241,14 @@ it.skipIf(!enabled)('시도 커밋 뒤 확인한 자원 불일치는 가짜 인�
   expect(snapshot.state.resources?.reservation?.cashRemaining).toBe('351000');
 });
 
-async function recoveryFixture(acknowledged = true) {
-  const f = await fixture(true);
-  if (acknowledged) await dispatchOrderAttemptMockOnce(f.options);
-  else await store.record(f.accountId, f.options.claim);
+async function recoveryFixture(
+  status: 'acknowledged' | 'missing' | 'unknown' = 'acknowledged',
+  recoveryPublicKey?: string,
+) {
+  const f = await fixture(true, recoveryPublicKey);
+  if (status === 'unknown') f.respond.mockRejectedValueOnce(new Error('FIXTURE_RESPONSE_LOST'));
+  if (status === 'missing') await store.record(f.accountId, f.options.claim);
+  else await dispatchOrderAttemptMockOnce(f.options);
   const paused = await store.record(f.accountId, command(await store.read(f.accountId), { kind: 'pause' }));
   const input = {
     accountId: f.accountId,
@@ -317,7 +322,7 @@ it.skipIf(!enabled)('저장된 접수 ID만 조회하고 증거를 재조회해�
   expect(booked.snapshot.state.resources?.balances.cash.KRW).toBe('259993');
 });
 it.skipIf(!enabled)('응답 유실 시 주문 ID를 추정 조회하지 않고 수동 사유만 보존한다', async () => {
-  const f = await recoveryFixture(false);
+  const f = await recoveryFixture('missing');
   await expect(collectMockOrderRecoveryDetail(store, f.session, f.input)).rejects.toThrow(
     'ORDER_ATTEMPT_RECOVERY_BLOCKED',
   );
@@ -362,4 +367,94 @@ it.skipIf(!enabled)('조회 도중 계좌 제어가 바뀌면 낡은 증거를 �
   });
   await expect(collectMockOrderRecoveryDetail(store, f.session, f.input)).rejects.toThrow('ORDER_ATTEMPT_STALE');
   expect((await other.read(f.accountId)).journal.some((event) => event.data.kind === 'recovery-detail')).toBe(false);
+});
+
+type RecoveryAck = Extract<OrderAttemptEventData, { kind: 'recovery-ack' }>;
+
+async function signedRecoveryFixture() {
+  const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+  const pin = publicKey.export({ type: 'spki', format: 'der' }).subarray(-32).toString('hex');
+  const f = await recoveryFixture('unknown', pin);
+  const claim = f.paused.journal.find((event) => event.data.kind === 'attempt')!;
+  const result = f.paused.journal.find((event) => event.data.kind === 'result')!;
+  const receipt: RecoveryAck['receipt'] = {
+    format: 'mock-order-ack-v1',
+    proofId: randomUUID(),
+    accountId: f.accountId,
+    scopeHash: f.paused.context.scopeHash,
+    attemptId: f.attemptId,
+    intentHash: contentHash(f.intent),
+    claimEventHash: claim.eventHash,
+    unknownEventHash: result.eventHash,
+    clientOrderId: f.intent.request.clientOrderId,
+    reference: f.detail.orderId,
+    capturedAt: result.at,
+  };
+  const signed = (value = receipt): RecoveryAck => ({
+    kind: 'recovery-ack',
+    receipt: value,
+    signature: sign(null, Buffer.from(canonicalJson(value)), privateKey).toString('hex'),
+  });
+  const recoveryCommand = (data = signed()) => ({ ...command(f.paused, data), operationId: data.receipt.proofId });
+  return { ...f, receipt, signed, recoveryCommand };
+}
+
+it.skipIf(!enabled)('서명 영수증 복구는 미확인 기록을 보존하고 확인된 ID의 가짜 상세 조회를 연다', async () => {
+  const f = await signedRecoveryFixture();
+  const record = f.recoveryCommand();
+  const results = await Promise.all([store.record(f.accountId, record), other.record(f.accountId, record)]);
+  expect(results.map((item) => item.replayed).sort()).toEqual([false, true]);
+  const recovered = await other.read(f.accountId);
+  expect(recovered.state.attempts[0]).toMatchObject({
+    result: { outcome: 'unknown' },
+    recoveredAcknowledgement: { reference: f.detail.orderId, proofId: f.receipt.proofId },
+  });
+  expect(recovered.state.resources).toEqual(f.paused.state.resources);
+  expect(recovered.state.paused).toBe(true);
+  expect(recovered).toMatchObject({
+    canApplyToLedger: false,
+    canResend: false,
+    canResume: false,
+    executionEnabled: false,
+  });
+  const detail = await collectMockOrderRecoveryDetail(other, f.session, {
+    ...f.input,
+    expectedVersion: recovered.version,
+    expectedStateHash: recovered.stateHash,
+  });
+  expect(detail.event.data).toMatchObject({
+    kind: 'recovery-detail',
+    reference: f.detail.orderId,
+    evidence: { outcome: 'observed' },
+  });
+  expect(detail.snapshot.state.attempts[0]!.fills).toBeUndefined();
+  const second = f.signed({ ...f.receipt, proofId: randomUUID() });
+  await expect(
+    store.record(f.accountId, { ...command(detail.snapshot, second), operationId: second.receipt.proofId }),
+  ).rejects.toThrow('ORDER_ATTEMPT_RECOVERY_BLOCKED');
+});
+
+it.skipIf(!enabled)('변조된 서명, 다른 키, 다른 시도의 이력 해시는 복구 근거가 될 수 없다', async () => {
+  const f = await signedRecoveryFixture();
+  const signed = f.signed();
+  const wrongKey = generateKeyPairSync('ed25519').privateKey;
+  const wrongSignature = sign(null, Buffer.from(canonicalJson(f.receipt)), wrongKey).toString('hex');
+  for (const data of [
+    { ...signed, receipt: { ...f.receipt, reference: 'tampered-reference' } },
+    { ...signed, signature: wrongSignature },
+    f.signed({ ...f.receipt, claimEventHash: f.receipt.unknownEventHash }),
+  ]) {
+    await expect(store.record(f.accountId, f.recoveryCommand(data))).rejects.toThrow(
+      'ORDER_ATTEMPT_RECOVERY_PROOF_INVALID',
+    );
+  }
+  const mismatched = f.signed({ ...f.receipt, accountId: randomUUID() });
+  await expect(store.record(f.accountId, f.recoveryCommand(mismatched))).rejects.toThrow(
+    'ORDER_ATTEMPT_RECOVERY_BLOCKED',
+  );
+  await expect(store.record(f.accountId, { ...f.recoveryCommand(), operationId: randomUUID() })).rejects.toThrow(
+    'ORDER_ATTEMPT_RECOVERY_PROOF_INVALID',
+  );
+  expect((await other.read(f.accountId)).stateHash).toBe(f.paused.stateHash);
+  expect(f.lookupFetch).not.toHaveBeenCalled();
 });
