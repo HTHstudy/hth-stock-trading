@@ -4,7 +4,7 @@ import { canonicalJson, createDatabase, contentHash } from '@hth/database';
 import { createOrderAttemptTestStore, migrateTestDatabase, testDatabaseUrl } from '@hth/database/testing';
 import { createTossOrderMockSession } from '@hth/broker/testing';
 import { createTossOrderWriter } from '@hth/broker/toss';
-import { collectMockOrderRecoveryDetail } from './order-attempt-recovery.js';
+import { collectMockOrderRecoveryDetail, readMockOrderRecoveryStatus } from './order-attempt-recovery.js';
 import { dispatchOrderAttemptMockOnce } from './order-attempt-mock.js';
 import type { OrderAttemptEventData, DurableOrderIntent } from '@hth/contracts';
 const enabled = Boolean(process.env.TEST_DATABASE_URL);
@@ -428,6 +428,13 @@ it.skipIf(!enabled)('서명 영수증 복구는 미확인 기록을 보존하고
     evidence: { outcome: 'observed' },
   });
   expect(detail.snapshot.state.attempts[0]!.fills).toBeUndefined();
+  expect(await readMockOrderRecoveryStatus(other, { accountId: f.accountId, attemptId: f.attemptId })).toMatchObject({
+    basis: 'signed-test-receipt',
+    nextStep: 'review-known-order',
+    latestDetail: 'observed',
+    reservationHeld: true,
+  });
+
   const second = f.signed({ ...f.receipt, proofId: randomUUID() });
   await expect(
     store.record(f.accountId, { ...command(detail.snapshot, second), operationId: second.receipt.proofId }),
@@ -456,5 +463,31 @@ it.skipIf(!enabled)('변조된 서명, 다른 키, 다른 시도의 이력 해�
     'ORDER_ATTEMPT_RECOVERY_PROOF_INVALID',
   );
   expect((await other.read(f.accountId)).stateHash).toBe(f.paused.stateHash);
+  expect(f.lookupFetch).not.toHaveBeenCalled();
+});
+
+it.skipIf(!enabled)('상태 조회는 회신 없는 주문을 수동 확인으로 분류하고 원장과 예약을 유지한다', async () => {
+  const f = await recoveryFixture('unknown');
+  const input = { accountId: f.accountId, attemptId: f.attemptId };
+  const review = await store.record(
+    f.accountId,
+    command(f.paused, {
+      kind: 'recovery-review',
+      attemptId: f.attemptId,
+      reason: 'no-correlated-evidence',
+    }),
+  );
+  expect(await readMockOrderRecoveryStatus(other, input)).toEqual({
+    basis: 'unknown',
+    paused: true,
+    reservationHeld: true,
+    latestDetail: null,
+    latestManualReason: 'no-correlated-evidence',
+    nextStep: 'provider-correlation-required',
+    executionEnabled: false,
+    canResend: false,
+    canResume: false,
+  });
+  expect((await store.read(f.accountId)).stateHash).toBe(review.snapshot.stateHash);
   expect(f.lookupFetch).not.toHaveBeenCalled();
 });

@@ -68,3 +68,42 @@ export async function collectMockOrderRecoveryDetail(store: Store, session: Mock
   }
   return store.record(accountId, { ...command, data: { kind: 'recovery-detail', attemptId, reference, evidence } });
 }
+
+const statusRequestSchema = requestSchema.pick({ accountId: true, attemptId: true });
+
+/** Inspect one persisted mock attempt without a broker session or journal mutation. */
+export async function readMockOrderRecoveryStatus(store: Store, input: unknown) {
+  const parsed = statusRequestSchema.safeParse(input);
+  if (!parsed.success) throw new Error('ORDER_ATTEMPT_RECOVERY_BLOCKED');
+
+  const { accountId, attemptId } = parsed.data;
+  const snapshot = await store.read(accountId);
+  const attempt = snapshot.state.attempts.find((item) => item.attemptId === attemptId);
+  if (!attempt) throw new Error('ORDER_ATTEMPT_RECOVERY_BLOCKED');
+
+  const basis = attempt.recoveredAcknowledgement ? 'signed-test-receipt' : (attempt.result?.outcome ?? 'no-result');
+  const detail = snapshot.journal.findLast(
+    ({ data }) => data.kind === 'recovery-detail' && data.attemptId === attemptId,
+  )?.data;
+  const review = snapshot.journal.findLast(
+    ({ data }) => data.kind === 'recovery-review' && data.attemptId === attemptId,
+  )?.data;
+
+  return {
+    basis,
+    paused: snapshot.state.paused,
+    reservationHeld: snapshot.state.resources?.reservation?.intentId === attempt.intentId,
+    latestDetail: detail?.kind === 'recovery-detail' ? detail.evidence.outcome : null,
+    latestManualReason: review?.kind === 'recovery-review' ? review.reason : null,
+    nextStep: !snapshot.state.paused
+      ? 'pause-first'
+      : orderAttemptAcknowledgedReference(attempt)
+        ? 'review-known-order'
+        : basis === 'not-sent'
+          ? 'review-not-sent'
+          : 'provider-correlation-required',
+    executionEnabled: false as const,
+    canResend: false as const,
+    canResume: false as const,
+  };
+}
